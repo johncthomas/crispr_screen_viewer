@@ -4,6 +4,18 @@ import numpy as np
 import os
 from pathlib import Path
 from scipy.stats import norm
+from typing import Iterable
+
+def load_mageck_tables(prefix:str, controls:Iterable[str]):
+    """Get a dict of DF of mageck results keyed to control groups.
+    Returned sample index only gives the treatment sample, not ctrl-treat,
+    except for the EXTRA group, which needs both"""
+    tables = {}
+    for ctrl_group in controls:
+        tab = tables[ctrl_group] = tabulate_mageck(prefix+ctrl_group+'.')
+        if ctrl_group != 'EXTRA':
+            tab.columns.set_levels([c.split('-')[1] for c in tab.columns.levels[0]], 0, inplace=True)
+    return tables
 
 def get_annotation_dicts(df, xkey, ykey, annote_kw=None):
     """A list of dict defining annotations from specified columns
@@ -90,6 +102,44 @@ def tabulate_mageck(prefix):
     for exp, tab in tables.items():
         table[exp] = tab
     return table
+
+def tabulate_jacks(prefix):
+    """Return 3 tables giving the:
+        1. jacks_score|fdr_pos|fdr_neg|std,
+        2. guide efficacy data,
+    and 3. fold changes for each gene.
+
+    Tables are multiindexed by sample name and then results columns for those
+    samples.
+
+    fdr in the
+
+    Prefix is the used to identify the results files. So prefix
+    should contain the path to the files if they aren't in os.getcwd()"""
+
+    kwtab = dict(sep='\t', index_col=0)
+
+    sig_df = tabulate_score(prefix)
+    samples = sig_df.columns.levels[0]
+    # get guide data, foldchange and efficacies
+    guide_cols = pd.MultiIndex.from_product((samples, ['foldchange', 'fold_std', 'eff', 'eff_std']),
+                                            names=['exp', 'stat'])
+    fchange_df = pd.DataFrame(columns=guide_cols)
+    foldchange = pd.read_csv(prefix + '_logfoldchange_means.txt', **kwtab)
+    foldstd = pd.read_csv(prefix + '_logfoldchange_std.txt', **kwtab)
+    eff_tab = pd.read_csv(prefix + '_grna_JACKS_results.txt', **kwtab)
+
+    for exp in samples:
+        fchange_df.loc[:, (exp, 'lfc')] = foldchange[exp]
+        fchange_df.loc[:, (exp, 'fold_std')] = foldstd[exp]
+    fchange_df.loc[:, 'gene'] = foldchange['gene']
+
+    efficacies = pd.DataFrame(columns=('eff', 'eff_std'))
+    efficacies.loc[:, 'eff'] = eff_tab['X1']
+    efficacies.loc[:, 'eff_std'] = (eff_tab['X2'] - eff_tab['X1'] ** 2) ** 0.5
+    efficacies.loc[:, 'gene'] = fchange_df['gene']
+
+    return sig_df, efficacies, fchange_df
 
 
 def tabulate_score(prefix, return_ps=False):

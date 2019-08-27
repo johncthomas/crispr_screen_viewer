@@ -11,6 +11,8 @@
 # to check for the existence of MAGecK derived p values we need to access
 # the origin of these, sample identity must include screen information
 
+# todo sample options don't seemt ot properly update when changing ctrl groups
+# todo?? make it possible to save the state of the whole thing
 
 from copy import copy
 from functools import partial
@@ -31,10 +33,8 @@ from scipy import stats
 #from . import util
 
 
-try: # fails when running as a script rather than imported module
-    from .util import tabulate_score, tabulate_mageck
-except ImportError:
-    from crispr_tools import tabulate_score, tabulate_mageck
+from crispr_screen_viewer.util import tabulate_score, tabulate_mageck, load_mageck_tables
+
 import pandas as pd
 from pandas import MultiIndex
 
@@ -108,16 +108,7 @@ def get_jacks_stats(df, sampx, sampy):
 
     return pd.DataFrame(DISTANCES)
 
-def load_mageck_tables(prefix:str, controls:Iterable[str]):
-    """Get a dict of DF of mageck results keyed to control groups.
-    Returned sample index only gives the treatment sample, not ctrl-treat,
-    except for the EXTRA group, which needs both"""
-    tables = {}
-    for ctrl_group in controls:
-        tab = tables[ctrl_group] = tabulate_mageck(prefix+ctrl_group+'.')
-        if ctrl_group != 'EXTRA':
-            tab.columns.set_levels([c.split('-')[1] for c in tab.columns.levels[0]], 0, inplace=True)
-    return tables
+
 
 
 def get_mageck_stats(df:pd.DataFrame, sampx:str, sampy:str, extra:pd.DataFrame) -> pd.DataFrame:
@@ -230,6 +221,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         STAT_KEYS = ['p-value', 'FDR', 'Difference']
         get_stats = get_jacks_stats
     elif analysis_type == 'mageck':
+        print(tables.keys())
         get_stats = partial(get_mageck_stats, extra=tables['EXTRA'])
         SCOREKEY = 'lfc'
     else:
@@ -583,7 +575,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         """Distance stat options are set here as with mageck not every stat is
         available for every sample pair."""
 
-        print('** select_samples callback')
+        #print('** select_samples callback')
 
         if not samp_y or not samp_x:
             raise PreventUpdate
@@ -595,7 +587,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         if analysis_type == 'mageck':
 
             keys = get_mageck_stats(tables[ctrl_samp], samp_x, samp_y, tables['EXTRA']).columns
-            print('**** ', samp_x, samp_y, keys)
+            #print('**** ', samp_x, samp_y, keys)
         else:
             keys = STAT_KEYS
         dist_opts = get_opt_dict(keys)
@@ -627,7 +619,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
                        dist_type_gradient, dist_type_labels, ctrl_samp
                        ):
 
-        print('** render_scatter callback')
+        #print('** render_scatter callback')
 
         if not all(selected_samples) or not selected_samples or not ctrl_samp:
             raise PreventUpdate
