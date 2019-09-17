@@ -208,8 +208,9 @@ def get_opt_dict(values):
 ## so... I basically wrote this as a single script, then wrapped it into a function
 ## to avoid issues with globals. Then I've moved some subfunction
 ## definitions out of this spawn function, but not others.
-##   Could probably do with further cleaning up
-def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, lax=True):
+##   Basically, it's a mess
+def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, lax=True,
+                  distance_filter=0):
     """"""
 
 
@@ -548,9 +549,9 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         try:
             fancy_opts = []
             for o in opts:
+                # todo deal with no labels (indexError here)
                 lab = expd['labels'][o]
                 fancy_opts.append(
-
                     {'label': "{} ({})".format(lab, o), 'value': o}
                 )
             return fancy_opts, fancy_opts
@@ -611,12 +612,18 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
         [State('dist-dropdown-gradient', 'value'),
          State('dist-dropdown-labels', 'value'),
-         State('ctrl-dropdown', 'value')]
+         State('ctrl-dropdown', 'value'),
+         State('selected-genes', 'children')]
     )
     def render_scatter(selected_samples, selectedData,
                        hi_gradient, low_gradient,
+                       # inputs
                        hi_lab_lim, low_lab_lim,
-                       dist_type_gradient, dist_type_labels, ctrl_samp
+                       # states
+                       dist_type_gradient,
+                       dist_type_labels,
+                       ctrl_samp,
+                       selected_genes
                        ):
 
         #print('** render_scatter callback')
@@ -632,6 +639,20 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
 
         distances = get_stats(df, samp_x, samp_y)
+
+        if distance_filter:
+
+            # get mask for filtering, based on distance from median, maintaining previously
+            # selected genes.
+            d = scores[0] - scores[1]
+            md = np.median(d)
+            dist_mask = (d > md + distance_filter) | (d < md - distance_filter) | d.index.isin(selected_genes)
+
+            # filter. This doesn't effect the table
+            scores = [s.loc[dist_mask] for s in scores]
+
+
+
 
 
         ctx = dash.callback_context

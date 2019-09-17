@@ -7,7 +7,7 @@ setup(
     author_email = 'jcthomas000@gmail.com',
     packages=find_packages(exclude=['contrib', 'docs', 'tests']),
     install_requires = [
-        'dash', 'statsmodels','numpy','scipy', 'pandas','pyyaml'
+        'dash', 'statsmodels','numpy','scipy', 'pandas','pyyaml', 'attrdict'
     ],
     python_requires = '>=3.6',
     #scripts=['crispr_tools/crispr_pipeline.py', 'crispr_tools/count_reads.py'],

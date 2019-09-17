@@ -1,4 +1,4 @@
-
+#!/usr/bin/env python
 from crispr_screen_viewer import volcano
 import pandas as pd
 np = pd.np
@@ -9,10 +9,17 @@ from crispr_screen_viewer.util import tabulate_mageck, tabulate_score
 import yaml
 import os, sys
 
+#todo allow specification of specific csv instead of results dir
+# to read multiindex: index_col=0, header=[0,1]
+
 tabz = {}
 
 expd_fn = sys.argv[1]
 port = int(sys.argv[2])
+if len(sys.argv) > 3:
+    fdrfilter = float(sys.argv[3])
+else:
+    fdrfilter = None
 
 expd = yaml.safe_load(open(expd_fn))
 
@@ -42,6 +49,6 @@ for group in ctrl_groups:
     jaktab.columns.set_levels(shared_cols, 1, inplace=True)
     tabz[group+' (JACKS)'] = jaktab
 
-app = volcano.spawn_volcanoes(tabz, shared_cols)
+app = volcano.spawn_volcanoes(tabz, shared_cols, filterYLessThan=fdrfilter)
 server = app.server
 app.run_server(host='0.0.0.0', port=port)

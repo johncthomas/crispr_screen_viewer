@@ -80,12 +80,17 @@ LOG = logging.getLogger('volcano')
 LOG.setLevel(logging.DEBUG)
 # no index_col, is converted using .to_dict('rows') which doesn't keep the index.
 
+
+
+
 #todo: what this actually needs is a pair of sample selectors, rather than a single list of all analyses.
 def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
-                    xy_keys=('lfc', 'fdr_log10')):
+                    xy_keys=('lfc', 'fdr_log10'), filterYLessThan:float=None):
     """A DataFrame containing all available data determined in the filtering step
     multiindexed by (exp, stat), or a dictionary of such DF.
     Keys of the dict will define the first level of sample selection
+
+    filterYLessThan: remove points below given -log10(fdr) to limit the number of points rendered.
     """
     WIDTH = "80%"
     XKEY, YKEY = xy_keys
@@ -95,11 +100,15 @@ def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
     if type(tables) is pd.DataFrame:
         tables = {'-':tables}
 
-    # give each subtable the gene columns
     for tab in tables.values():
+        # give each subtable the gene columns
         for samp in tab.columns.levels[0]:
             tab.loc[:, (samp, 'gene')] = tab.index
 
+    # filter by fdr
+    for k, tab in tables.items():
+        if filterYLessThan:
+            tables[k] = tab.loc[tab[xy_keys[1]] < filterYLessThan]
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 

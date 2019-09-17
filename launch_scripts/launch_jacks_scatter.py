@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from crispr_screen_viewer import scatter
 from crispr_screen_viewer.util import tabulate_score
 
@@ -19,11 +20,17 @@ expd_fn = sys.argv[1]
 # for running on ia1
 expd = yaml.safe_load(open(expd_fn))
 port = int(sys.argv[2])
+if len(sys.argv) > 3:
+    dist_lim = float(sys.argv[3])
+else:
+    dist_lim = None
+
+
 f = f"{expd['exp_name']}/{expd['analysis_name']}/jacks_median/files/{expd['file_prefix']}."
 _tables = {}
 for _ctrl_grp in expd['controls'].keys():
     _tables[_ctrl_grp] = tabulate_score(f + _ctrl_grp + '.')
 # tab = tabulate_score(f)
-app = scatter.spawn_scatter(_tables, 'jacks', expd)
+app = scatter.spawn_scatter(_tables, 'jacks', expd, distance_filter=dist_lim)
 server = app.server
 app.run_server(debug=True, host='0.0.0.0',  port=port)
