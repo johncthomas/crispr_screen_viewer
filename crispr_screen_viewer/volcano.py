@@ -90,7 +90,8 @@ def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
     multiindexed by (exp, stat), or a dictionary of such DF.
     Keys of the dict will define the first level of sample selection
 
-    filterYLessThan: remove points below given -log10(fdr) to limit the number of points rendered.
+    filterYLessThan: remove genes that never go above a  given -log10(fdr)
+        to limit the number of points rendered. MAGECK ONLY
     """
     WIDTH = "80%"
     XKEY, YKEY = xy_keys
@@ -105,10 +106,23 @@ def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
         for samp in tab.columns.levels[0]:
             tab.loc[:, (samp, 'gene')] = tab.index
 
-    # filter by fdr
-    for k, tab in tables.items():
-        if filterYLessThan:
-            tables[k] = tab.loc[tab[xy_keys[1]] < filterYLessThan]
+    # filter by fdr, will remove all items that never appear
+    if filterYLessThan:
+        # get the starting mask of Falses. iloc[:, 0] returns a series even with multindex apparently
+        yfilter = tab.iloc[:, 0].apply(lambda x: False)
+        # get the union of y > filter across all tables
+        for k, tab in tables.items():
+            if 'jacks' in k.lower():
+                continue
+            nextfilter = (tab.loc[:, (slice(None,None), xy_keys[1])] > filterYLessThan).any(1)
+            yfilter = yfilter | nextfilter
+            print(yfilter.sum(), tab.shape[0])
+            #tables[k] = tab.loc[tab[xy_keys[1]] < filterYLessThan]
+        for k, tab in tables.items():
+            tables[k] = tab.loc[yfilter]
+
+
+
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
