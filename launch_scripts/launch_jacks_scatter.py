@@ -7,10 +7,11 @@ import yaml
 import sys
 import os
 
-if len(sys.argv) < 3:
+if len(sys.argv) < 3 or sys.argv[1] in ('-h', '--help'):
     print('launch_jacks_scatter.py EXPD PORT\n'
           'Assumes the script is ran from the dir above the experiment dir.')
           #'RESULTS_ROOT is the dir above the one specified by expd["analysis_name"] and is the EXPD dir by default.')
+    exit(0)
 
 # if we assume the expd is in the screens dir then we just need the that
 expd_fn = sys.argv[1]
@@ -23,7 +24,7 @@ port = int(sys.argv[2])
 if len(sys.argv) > 3:
     dist_lim = float(sys.argv[3])
 else:
-    dist_lim = None
+    dist_lim = 0.3
 
 
 f = f"{expd['exp_name']}/{expd['analysis_name']}/jacks_median/files/{expd['file_prefix']}."

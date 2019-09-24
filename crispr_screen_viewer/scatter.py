@@ -210,7 +210,7 @@ def get_opt_dict(values):
 ## definitions out of this spawn function, but not others.
 ##   Basically, it's a mess
 def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, lax=True,
-                  distance_filter=0):
+                  distance_filter=0.3):
     """"""
 
 
@@ -384,6 +384,14 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         )
         return dropdown
 
+    min_dist_box = dcc.Input(
+        id = 'min-dist',
+        type='number',
+        size='5',
+        value=distance_filter,
+    )
+
+
     ##################
     ## ******
     ## LAYOUT
@@ -415,6 +423,8 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
             Div(ctrl_dropdown),
             Div(sample_dropdown('x'), style=samp_style),
             Div(sample_dropdown('y'), style=samp_style),
+            Div([min_dist_box, html.P(['Set minimum difference, |x-y|, to render points. '
+                                       'Previously selected points should persist, but '])]),
             main_chunk
         ]
     )
@@ -608,16 +618,17 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
          Output('table0', 'data'),],
 
         [Input('selected-samples', 'children'),
-         Input('scatter', 'selectedData')]+[Input(*t) for t in panel_tups],
+         Input('scatter', 'selectedData'),
+         Input('min-dist', 'value'),]+[Input(*t) for t in panel_tups],
 
         [State('dist-dropdown-gradient', 'value'),
          State('dist-dropdown-labels', 'value'),
          State('ctrl-dropdown', 'value'),
          State('selected-genes', 'children')]
     )
-    def render_scatter(selected_samples, selectedData,
+    def render_scatter(selected_samples, selectedData, min_dist,
+                       # panels
                        hi_gradient, low_gradient,
-                       # inputs
                        hi_lab_lim, low_lab_lim,
                        # states
                        dist_type_gradient,
@@ -640,17 +651,17 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
         distances = get_stats(df, samp_x, samp_y)
 
-        if distance_filter:
 
-            # get mask for filtering, based on distance from median, maintaining previously
-            # selected genes.
-            d = scores[0] - scores[1]
-            md = np.median(d)
-            dist_mask = (d > md + distance_filter) | (d < md - distance_filter) | d.index.isin(selected_genes)
+        # get mask for filtering, based on distance from median, maintaining previously
+        # selected genes. Applied at go.Scatter calls below.
+        d = scores[0] - scores[1]
+        # distance is measured from the median.
+        md = np.median(d)
+        dist_mask = (d > md + min_dist) | (d < md - min_dist) | d.index.isin(selected_genes)
 
-            # filter. This doesn't effect the table
-            scores = [s.loc[dist_mask] for s in scores]
-            distances = distances[dist_mask]
+        # # filter. This doesn't effect the table
+        scores = [s.loc[dist_mask] for s in scores]
+        distances = distances[dist_mask]
 
         ctx = dash.callback_context
         # print(ctx.triggered)
@@ -665,6 +676,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
                             #colorscale='Viridis',
                             showscale=True)
 
+        # todo: dull markers more hassle than worth, just set marker dict and have one call to go.Scatter
         if dist_type_gradient is not None \
                 and dist_type_gradient != 'Disabled' \
                 and dist_type_gradient in distances.columns:
@@ -687,8 +699,8 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
             # plot uncoloured and coloured
             g = [
-                go.Scatter(x=scores[0][~above_min],
-                           y=scores[1][~above_min],
+                go.Scatter(x=scores[0][~above_min ],
+                           y=scores[1][~above_min ],
                            mode='markers',
                            marker=dull_marker_dict,
                            text=scores[0].index),
@@ -783,7 +795,13 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
         new_selected_points = []
         for gn in dropdown_values:
-            dati = chart_data['data'][0]['text'].index(gn)
+            #todo you should be able to add genes by typing them in in the gene box
+            try:
+                dati = chart_data['data'][0]['text'].index(gn)
+            # currently just skip over unrendered genes
+            except ValueError:
+                continue
+
             xy = df.loc[gn, (selected_samples, SCOREKEY)]
             point = dict(
                 curveNumber=0,
