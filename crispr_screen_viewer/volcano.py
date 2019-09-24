@@ -81,17 +81,36 @@ LOG.setLevel(logging.DEBUG)
 # no index_col, is converted using .to_dict('rows') which doesn't keep the index.
 
 
+def union_gt_Y(tables:Dict[str,pd.DataFrame],
+               alpha:float,
+               ykey='fdr_log10'):
+    """Give dict of DF, get bool series, True where ykey exceeds alpha in at
+    least one of the DF."""
+    # get the starting mask of Falses. iloc[:, 0] returns a series even with multindex apparently
+    tab = list(tables.values())[0]
+    yfilter = tab.iloc[:, 0].apply(lambda x: False)
 
+    # get the union of y > filter across all tables
+    for k, tab in tables.items():
+        # if 'jacks' in k.lower():
+        #     continue
+        nextfilter = (tab.loc[:, (slice(None, None), ykey)] > alpha).any(1)
+        yfilter = yfilter | nextfilter
+        #print(yfilter.sum(), tab.shape[0])
+
+    return yfilter
 
 #todo: what this actually needs is a pair of sample selectors, rather than a single list of all analyses.
 def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
-                    xy_keys=('lfc', 'fdr_log10'), filterYLessThan:float=None):
+                    xy_keys=('lfc', 'fdr_log10'), filterYLessThan:float=None,
+                    groupings:pd.Series=None):
     """A DataFrame containing all available data determined in the filtering step
     multiindexed by (exp, stat), or a dictionary of such DF.
     Keys of the dict will define the first level of sample selection
 
     filterYLessThan: remove genes that never go above a  given -log10(fdr)
-        to limit the number of points rendered. MAGECK ONLY
+        to limit the number of points rendered. Ignores samples with 'jacks' in the
+        name.
     """
     WIDTH = "80%"
     XKEY, YKEY = xy_keys
@@ -108,16 +127,7 @@ def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
 
     # filter by fdr, will remove all items that never appear
     if filterYLessThan:
-        # get the starting mask of Falses. iloc[:, 0] returns a series even with multindex apparently
-        yfilter = tab.iloc[:, 0].apply(lambda x: False)
-        # get the union of y > filter across all tables
-        for k, tab in tables.items():
-            if 'jacks' in k.lower():
-                continue
-            nextfilter = (tab.loc[:, (slice(None,None), xy_keys[1])] > filterYLessThan).any(1)
-            yfilter = yfilter | nextfilter
-            print(yfilter.sum(), tab.shape[0])
-            #tables[k] = tab.loc[tab[xy_keys[1]] < filterYLessThan]
+        yfilter = union_gt_Y(tables, filterYLessThan, xy_keys[1])
         for k, tab in tables.items():
             tables[k] = tab.loc[yfilter]
 
@@ -270,7 +280,7 @@ def spawn_volcanoes(tables:Union[pd.DataFrame, Dict[str, pd.DataFrame]],
 
         # Annotations are part of the layout
         layout = go.Layout(annotations = get_annotation_dicts(sample_df.loc[genes], XKEY, YKEY))
-
+        print(sample_df.columns)
         _graph = go.Scatter(x=sample_df[XKEY], y=sample_df[YKEY],text=sample_df.index, mode='markers')
 
         new_genedropdown = get_gene_dropdown(genes)

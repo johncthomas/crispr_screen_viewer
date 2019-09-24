@@ -650,10 +650,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
 
             # filter. This doesn't effect the table
             scores = [s.loc[dist_mask] for s in scores]
-
-
-
-
+            distances = distances[dist_mask]
 
         ctx = dash.callback_context
         # print(ctx.triggered)
@@ -694,12 +691,12 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
                            y=scores[1][~above_min],
                            mode='markers',
                            marker=dull_marker_dict,
-                           text=df.index),
+                           text=scores[0].index),
                 go.Scatter(x=scores[0][above_min],
                            y=scores[1][above_min],
                            mode='markers',
                            marker=grad_marker_dict,
-                           text=df.index)
+                           text=scores[0].index)
             ]
         else:
             #gradient = np.array([])
@@ -708,7 +705,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
                 y=scores[1],
                 mode='markers',
                 marker=marker_dict,
-                text=df.index
+                text=scores[0].index
             )
             g = [g]
 
@@ -728,8 +725,8 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
             low_lab_lim, hi_lab_lim = float(low_lab_lim), float(hi_lab_lim)
             lab_dist = distances[dist_type_labels]
             # things below the -low limit, and above the hi limit should be labeled
-            low_labels = df.index[lab_dist < -low_lab_lim]
-            hi_labels  = df.index[lab_dist > hi_lab_lim]
+            low_labels = scores[0].index[lab_dist < -low_lab_lim]
+            hi_labels  = scores[0].index[lab_dist > hi_lab_lim]
             for labels in (low_labels, hi_labels):
                 genes_to_label.extend(labels)
 

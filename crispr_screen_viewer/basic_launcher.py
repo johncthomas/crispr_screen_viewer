@@ -1,3 +1,4 @@
+#!/usr/bin/env python
 from crispr_screen_viewer.util import *
 
 import dash_core_components as dcc
@@ -11,6 +12,14 @@ screens_dir = '/Users/johnc.thomas/Dropbox/crispr/screens_analysis/'
 
 analyses = ['david_756+ddrV2/dav_756-73/take2_libV2_1',
             'harv_dom_RPA_flowscreen/hardom_789-94/take1']
+
+
+"""
+Notes on tabs:
+    Hierarchy of children:
+        app.layout = Div->Tabs->Tab->html.Div([chart_objects])
+    
+    So """
 
 def launcher():
     """User specifies the data set and desired chart"""

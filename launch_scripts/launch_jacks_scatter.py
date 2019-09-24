@@ -7,7 +7,7 @@ import yaml
 import sys
 import os
 
-if len(sys.argv) < 2:
+if len(sys.argv) < 3:
     print('launch_jacks_scatter.py EXPD PORT\n'
           'Assumes the script is ran from the dir above the experiment dir.')
           #'RESULTS_ROOT is the dir above the one specified by expd["analysis_name"] and is the EXPD dir by default.')

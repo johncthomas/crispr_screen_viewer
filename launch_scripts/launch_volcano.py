@@ -5,50 +5,104 @@ np = pd.np
 import os
 from pathlib import Path
 from crispr_screen_viewer.util import tabulate_mageck, tabulate_score
-
+from argparse import ArgumentParser
 import yaml
 import os, sys
 
 #todo allow specification of specific csv instead of results dir
 # to read multiindex: index_col=0, header=[0,1]
 
-tabz = {}
 
-expd_fn = sys.argv[1]
-port = int(sys.argv[2])
-if len(sys.argv) > 3:
-    fdrfilter = float(sys.argv[3])
-else:
-    fdrfilter = None
+analyses = {
+    'jacks_median':{'tabulate':tabulate_score,
+             'label':'JACKS',
+             'columns':['jacks_score', 'fdr_log10']},
+    'mageck':{'tabulate':tabulate_mageck,
+              'label':'MAGeCK',
+              'columns':['lfc', 'fdr_log10']}
+}
 
-expd = yaml.safe_load(open(expd_fn))
+def launch(args):
+
+    expd_fn = args.expd_yaml
+    port = args.port
+    y_filter = args.y_filter
+
+    expd = yaml.safe_load(open(expd_fn))
+
+    if args.groupings:
+        groupings = pd.read_csv(args.groupings, index_col=0).iloc[:, 0]
+    else:
+        groupings = None
+
+    expname = expd['exp_name']
+    anlname = expd['analysis_name']
+    prefix  = expd['file_prefix']
+    ctrl_groups = expd['controls'].keys()
+    # all tables should have the same columns
+    shared_cols = ['LFC or score', 'fdr_log10']
+    tabz = {}
+    for group in ctrl_groups:
+        # load each results set and set the column names
+
+        for analysis in args.analyses.split(','):
+            analysis_dict = analyses[analysis]
+            tab = analysis_dict['tabulate'](f'{expname}/{anlname}/{analysis}/files/{prefix}.' + group + '.')
+            tab = tab.reindex(columns=['lfc', 'fdr_log10'], level=1)
+            tab.columns.set_levels(shared_cols, 1, inplace=True)
 
 
-expname = expd['exp_name']
-anlname = expd['analysis_name']
-prefix  = expd['file_prefix']
-ctrl_groups = expd['controls'].keys()
+            #
+            # # apply nice labels if they exist
+            # if expd['labels']:
+            #     labd = expd['labels']
+            #     new_labs = {}
+            #     for col in tab.columns.levels[0]:
+            #         if analysis == 'mageck':
+            #             lab = labd[col.split('-')[1]]
+            #         else:
+            #             lab = labd[col]
+            #
+            #         new_labs[col] = lab
+            #
+            #     tab = tab.rename(columns=new_labs, level=0)
+            #
+            tabz[f"{group} ({analysis_dict['label']})"] = tab.copy()
 
-# all tables should have the same columns
-shared_cols = ['LFC or score', 'fdr_log10']
 
-for group in ctrl_groups:
-    # load each results set and set the column names
-    magtab = tabulate_mageck(
-        f'{expname}/{anlname}/mageck/files/{prefix}.' + group + '.',
+    for k, tab in tabz.items():
+        print(k , tab.columns.levels[1])
+
+    app = volcano.spawn_volcanoes(tabz, shared_cols, filterYLessThan=y_filter,)
+    #groupings=groupings
+    app.run_server(host='0.0.0.0', port=port)
+
+if __name__ == '__main__':
+    # expd_fn, port,
+    # fdr filter, analysis types
+    parser = ArgumentParser(description='Start serving vocano plots for multiple analysis types.')
+    parser.add_argument(
+        'expd_yaml', metavar='EXPD_PATH',
+        help='Location of expd.yml containing sample replicate and control info.'
     )
-    magtab = magtab.reindex(columns=['lfc', 'fdr_log10'], level=1)
-    magtab.columns.set_levels(shared_cols, 1, inplace=True)
-    tabz[group+' (MAGeCK)'] = magtab
-
-    jaktab = tabulate_score(
-        f'{expname}/{anlname}/jacks_median/files/{prefix}.' + group + '.',
-        return_ps=True
+    parser.add_argument(
+        'port', metavar='PORT',
+        help='Port used to serve the charts'
     )
-    jaktab = jaktab.reindex(columns=['jacks_score', 'fdr_log10'], level=1)
-    jaktab.columns.set_levels(shared_cols, 1, inplace=True)
-    tabz[group+' (JACKS)'] = jaktab
+    parser.add_argument(
+        '--y_filter', metavar='MIN_Y', type=float, default=None,
+        help='To be included, a gene must have a Y value (probably -log10(fdr) ) in at least one comparison'
+        ' to be included in the chart. Defaults to no filter'
+    )
+    parser.add_argument(
+        '-a', '--analyses', metavar='LIST', default='jacks_median,mageck',
+        help='Comma sep string (no spaces) of analysis types to include, currently supported: '+', '.join(analyses.keys())
+    )
+    parser.add_argument(
+        '--groupings', metavar='PathToCSV', default=None,
+        help='An optional CSV that indicates groups that will be plotted as different colours on the chart. '
+        'Note that points ommited from the CSV, or with no specified group will not be plotted. '
+        '(Header is expected, but ignored).'
+    )
 
-app = volcano.spawn_volcanoes(tabz, shared_cols, filterYLessThan=fdrfilter)
-server = app.server
-app.run_server(host='0.0.0.0', port=port)
+    launch(parser.parse_args())
