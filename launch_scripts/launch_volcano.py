@@ -24,54 +24,60 @@ analyses = {
 
 def launch(args):
 
-    expd_fn = args.expd_yaml
     port = args.port
     y_filter = args.y_filter
-
-    expd = yaml.safe_load(open(expd_fn))
-
-    if args.groupings:
-        groupings = pd.read_csv(args.groupings, index_col=0).iloc[:, 0]
-    else:
-        groupings = None
-
-    expname = expd['exp_name']
-    anlname = expd['analysis_name']
-    prefix  = expd['file_prefix']
-    ctrl_groups = expd['controls'].keys()
-    # all tables should have the same columns
-    shared_cols = ['LFC or score', 'fdr_log10']
     tabz = {}
-    for group in ctrl_groups:
-        # load each results set and set the column names
+    shared_cols = ['LFC or score', 'fdr_log10']
 
-        for analysis in args.analyses.split(','):
-            analysis_dict = analyses[analysis]
-            tab = analysis_dict['tabulate'](f'{expname}/{anlname}/{analysis}/files/{prefix}.' + group + '.')
-            tab = tab.reindex(columns=['lfc', 'fdr_log10'], level=1)
-            tab.columns.set_levels(shared_cols, 1, inplace=True)
+    for expd_fn in args.expd_yaml:
+        #expd_fn = args.expd_yaml
 
+        expd = yaml.safe_load(open(expd_fn))
 
-            #
-            # # apply nice labels if they exist
-            # if expd['labels']:
-            #     labd = expd['labels']
-            #     new_labs = {}
-            #     for col in tab.columns.levels[0]:
-            #         if analysis == 'mageck':
-            #             lab = labd[col.split('-')[1]]
-            #         else:
-            #             lab = labd[col]
-            #
-            #         new_labs[col] = lab
-            #
-            #     tab = tab.rename(columns=new_labs, level=0)
-            #
-            tabz[f"{group} ({analysis_dict['label']})"] = tab.copy()
+        if args.groupings:
+            groupings = pd.read_csv(args.groupings, index_col=0).iloc[:, 0]
+        else:
+            groupings = None
+
+        expname = expd['exp_name']
+        anlname = expd['analysis_name']
+        prefix  = expd['file_prefix']
+        ctrl_groups = expd['controls'].keys()
+        # all tables should have the same columns
 
 
-    for k, tab in tabz.items():
-        print(k , tab.columns.levels[1])
+        for group in ctrl_groups:
+            # load each results set and set the column names
+
+            for analysis in args.analyses.split(','):
+
+                analysis_dict = analyses[analysis]
+                tab = analysis_dict['tabulate'](f'{expname}/{anlname}/{analysis}/files/{prefix}.' + group + '.')
+                tab = tab.reindex(columns=analyses[analysis]['columns'], level=1)
+                tab.columns.set_levels(shared_cols, 1, inplace=True)
+                #print(tab.columns)
+
+
+                #
+                # # apply nice labels if they exist
+                # if expd['labels']:
+                #     labd = expd['labels']
+                #     new_labs = {}
+                #     for col in tab.columns.levels[0]:
+                #         if analysis == 'mageck':
+                #             lab = labd[col.split('-')[1]]
+                #         else:
+                #             lab = labd[col]
+                #
+                #         new_labs[col] = lab
+                #
+                #     tab = tab.rename(columns=new_labs, level=0)
+                #
+                tabz[f"{anlname} - {group} ({analysis_dict['label']})"] = tab.copy()
+
+
+    # for k, tab in tabz.items():
+    #     print(k , tab.columns.levels[1])
 
     app = volcano.spawn_volcanoes(tabz, shared_cols, filterYLessThan=y_filter,)
     #groupings=groupings
@@ -82,11 +88,11 @@ if __name__ == '__main__':
     # fdr filter, analysis types
     parser = ArgumentParser(description='Start serving vocano plots for multiple analysis types.')
     parser.add_argument(
-        'expd_yaml', metavar='EXPD_PATH',
+        'expd_yaml', metavar='EXPD_PATH', nargs='+',
         help='Location of expd.yml containing sample replicate and control info.'
     )
     parser.add_argument(
-        'port', metavar='PORT',
+        '-p', '--port', metavar='PORT',
         help='Port used to serve the charts'
     )
     parser.add_argument(

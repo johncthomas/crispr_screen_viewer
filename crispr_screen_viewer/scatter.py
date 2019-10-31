@@ -90,7 +90,7 @@ def get_jacks_stats(df, sampx, sampy):
     Y = df[sampy]
     # We can assume the subcol names i guess
     diff = abs(X.jacks_score - Y.jacks_score)
-    sumstd = X.stdev + Y.stdev
+    sumstd = np.sqrt(X.stdev**2 + Y.stdev**2)
     # get bool array, index will be
     negative = (Y.jacks_score < X.jacks_score).values
     # cdf value at zero
@@ -210,7 +210,7 @@ def get_opt_dict(values):
 ## definitions out of this spawn function, but not others.
 ##   Basically, it's a mess
 def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, lax=True,
-                  distance_filter=0.3):
+                  distance_filter=0.3, valid_comps=None):
     """"""
 
 
@@ -236,8 +236,8 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
     # AVAILABLE_SAMPLES = DF.columns.levels[0]
     # print(AVAILABLE_SAMPLES)
     #selected_samples = ('nt22a', '10gy')
-
-    valid_comps = valid_comparisons(expd['controls'], lax)
+    if valid_comps is None:
+        valid_comps = valid_comparisons(expd['controls'], lax)
 
     class COMPONENTS():
         pass
@@ -568,7 +568,7 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         except KeyError:
             if expd['labels']:
                 print('probably a fucked up label,', o)
-            return [get_opt_dict(o) for o in opts], [get_opt_dict(o) for o in opts]
+            return get_opt_dict(opts), get_opt_dict(opts)
 
 
 
@@ -662,12 +662,6 @@ def spawn_scatter(tables:Dict[str, pd.DataFrame], analysis_type:str, expd:dict, 
         # # filter. This doesn't effect the table
         scores = [s.loc[dist_mask] for s in scores]
         distances = distances[dist_mask]
-
-        ctx = dash.callback_context
-        # print(ctx.triggered)
-
-        # ctx triggered events formated like
-        #[{'prop_id': 'dist-dropdown-gradient.value', 'value': 'Difference'}]
 
         # deal with colour gradient
         marker_dict = dict(size=9,
