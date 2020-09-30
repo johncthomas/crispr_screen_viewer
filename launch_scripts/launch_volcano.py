@@ -1,5 +1,8 @@
 #!/usr/bin/env python
+#todo by default load all available results.
+
 from crispr_screen_viewer import volcano
+import crispr_screen_viewer
 import pandas as pd
 np = pd.np
 import os
@@ -19,7 +22,11 @@ analyses = {
              'columns':['jacks_score', 'fdr_log10']},
     'mageck':{'tabulate':tabulate_mageck,
               'label':'MAGeCK',
-              'columns':['lfc', 'fdr_log10']}
+              'columns':['lfc', 'fdr_log10']},
+    'jacks':{'tabulate':tabulate_score,
+             'label':'JACKS',
+             'columns':['jacks_score', 'fdr_log10']},
+
 }
 
 def launch(args):
@@ -55,30 +62,10 @@ def launch(args):
                 tab = analysis_dict['tabulate'](f'{expname}/{anlname}/{analysis}/files/{prefix}.' + group + '.')
                 tab = tab.reindex(columns=analyses[analysis]['columns'], level=1)
                 tab.columns.set_levels(shared_cols, 1, inplace=True)
-                #print(tab.columns)
 
-
-                #
-                # # apply nice labels if they exist
-                # if expd['labels']:
-                #     labd = expd['labels']
-                #     new_labs = {}
-                #     for col in tab.columns.levels[0]:
-                #         if analysis == 'mageck':
-                #             lab = labd[col.split('-')[1]]
-                #         else:
-                #             lab = labd[col]
-                #
-                #         new_labs[col] = lab
-                #
-                #     tab = tab.rename(columns=new_labs, level=0)
                 #
                 tabz[f"{anlname} - {group} ({analysis_dict['label']})"] = tab.copy()
-
-
-    # for k, tab in tabz.items():
-    #     print(k , tab.columns.levels[1])
-
+    print(crispr_screen_viewer.__file__)
     app = volcano.spawn_volcanoes(tabz, shared_cols, filterYLessThan=y_filter,)
     #groupings=groupings
     app.run_server(host='0.0.0.0', port=port)
@@ -96,12 +83,12 @@ if __name__ == '__main__':
         help='Port used to serve the charts'
     )
     parser.add_argument(
-        '--y_filter', metavar='MIN_Y', type=float, default=None,
+        '--y_filter', metavar='MIN_Y', type=float, default=0,
         help='To be included, a gene must have a Y value (probably -log10(fdr) ) in at least one comparison'
         ' to be included in the chart. Defaults to no filter'
     )
     parser.add_argument(
-        '-a', '--analyses', metavar='LIST', default='jacks_median,mageck',
+        '-a', '--analyses', metavar='LIST', default='jacks,jacks_median,mageck',
         help='Comma sep string (no spaces) of analysis types to include, currently supported: '+', '.join(analyses.keys())
     )
     parser.add_argument(
