@@ -17,30 +17,35 @@ VERSION = '1.0.1'
 
 #todo filter by suppresor/enhancer
 #todo per gene volcano plot
+#todo y-axis title
+
+# this is outer scope so it doesn't need to be loaded every time
+data_date = '20210709'
+# `data_selector` will need updating if this changes
+data_tables = ['drz_fdr', 'drz_nmz', 'mag_fdr', 'mag_lfc']
+APPDATA = {restype:pd.read_csv(f'app_data/{restype}.{data_date}.csv', index_col=0) for restype in data_tables}
+GENES = APPDATA[data_tables[0]].index
+
+
+METADATA = pd.read_csv(f'app_data/metadata.{data_date}.csv', index_col=0)
+#METADATA.loc[:, 'KO'] = METADATA.KO.fillna('WT') # this is done earlier now
+# Treatment col read as strings, convert to tuples (For hashability), and create printable versions
+METADATA.loc[:, 'Treatment_tup'] = METADATA.Treatment.apply(lambda x: tuple(eval(x)))
+METADATA.loc[:, 'Treatment'] = METADATA.Treatment_tup.apply(lambda tup: ' & '.join(tup))
+
+#from https://sashamaps.net/docs/resources/20-colors/, 99%,
+#todo test all these colours
+colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
+           '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
+
 
 def launch(port, debug):
-    data_date = '20210709'
-    # `data_selector` will need updating if this changes
-    data_tables = ['drz_fdr', 'drz_nmz', 'mag_fdr', 'mag_lfc']
-    APPDATA = {restype:pd.read_csv(f'app_data/{restype}.{data_date}.csv', index_col=0) for restype in data_tables}
-    GENES = APPDATA[data_tables[0]].index
 
-
-    METADATA = pd.read_csv(f'app_data/metadata.{data_date}.csv', index_col=0)
-    #METADATA.loc[:, 'KO'] = METADATA.KO.fillna('WT') # this is done earlier now
-    # Treatment col read as strings, convert to tuples (For hashability), and create printable versions
-    METADATA.loc[:, 'Treatment_tup'] = METADATA.Treatment.apply(lambda x: tuple(eval(x)))
-    METADATA.loc[:, 'Treatment'] = METADATA.Treatment_tup.apply(lambda tup: ' & '.join(tup))
-
-    #from https://sashamaps.net/docs/resources/20-colors/, 99%,
-    #todo test all these colours
-    colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
-               '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
 
     def get_colour_map(list_of_things):
         return {thing:colours[i%len(colours)] for i, thing in enumerate(list_of_things)}
 
-    cols = []
+
 
     app = dash.Dash(__name__, external_stylesheets= ['https://codepen.io/chriddyp/pen/bWLwgP.css'])
 
