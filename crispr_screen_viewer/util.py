@@ -4,7 +4,115 @@ import numpy as np
 import os
 from pathlib import Path
 from scipy.stats import norm
-from typing import Iterable
+from typing import Union, List, Dict, Iterable, Collection
+
+def index_of_true(bool_mask):
+    return bool_mask[bool_mask].index
+
+class DataSet:
+    """Storage and retreval of amalgamated results tables. Experiment tables as
+    single analysis type/statistic with filename {ans_type}_{stat}.csv
+    Currently supports MAGeCK ('mag') and DrugZ ('drz').
+
+    Attributes:
+        exp_data: data tables keyed first by analysis type then 'score'|'fdr'
+        metadata: descriptions of exp_data samples. Indexed by comparison keys
+        score/analysis_labels: text labels for supported analysis types
+        genes: Index used in tables in exp_data
+
+    Methods:
+        get_results: get dict of score and fdr for specified analysis types and
+            datasets."""
+    def __init__(self, source_directory, print_validations=True):
+        source_directory = Path(source_directory)
+
+        # shorthand internal name: label name
+        self.analysis_labels = {'drz':'DrugZ', 'mag':'MAGeCK'}
+        self.available_analyses = list(self.analysis_labels.keys())
+        self.score_labels = {'mag':'Log2(FC)', 'drz':'NormZ'}
+
+        # put the data tables in {analysis_type:{score/fdr:pd.DataFrame}} format dictionary
+        exp_data = {ans:{stt:pd.read_csv(source_directory/f"{ans}_{stt}.csv", index_col=0)
+                         for stt in ('score', 'fdr')}
+                    for ans in self.available_analyses}
+
+        # unify the indexes
+        genes = pd.Index([])
+        # use an index from a table from each analysis
+        for analysis in self.available_analyses:
+            genes = genes.union(exp_data[analysis]['fdr'].index)
+        self.genes = genes
+
+        # reindex with the union of genes
+        self.exp_data = {ans:{stt:exp_data[ans][stt].reindex(genes)
+                            for stt in ('score', 'fdr')}
+                       for ans in self.available_analyses}
+
+        metadata = pd.read_csv(f'{source_directory}/metadata.csv', index_col=0)
+        metadata.loc[:, 'Available analyses'] = metadata['Available analyses'].str.split('|')
+        self.data_sources = metadata.Source.unique()
+        self.metadata = metadata
+
+        if print_validations:
+            # Print information that might be helpful in spotting data validity issues
+            # Check for comparisons present in the metadata/actual-data but missing
+            #   in the other
+            for ans in self.available_analyses:
+                score_comps = self.exp_data[ans]['score'].columns
+                meta_comps = self.metadata.index
+
+                meta_in_score = meta_comps.isin(score_comps)
+                missing_in_data = meta_comps[~meta_in_score]
+                # todo log.warning
+                if missing_in_data.shape[0] > 0:
+                    print(
+                        f"Comparisons in metadata but not in {ans}_score.csv:"
+                        f"\n    {', '.join(missing_in_data)}\n"
+                    )
+                score_in_meta = score_comps.isin(meta_comps)
+                missing_in_score = score_comps[~score_in_meta]
+                if missing_in_data.shape[0] > 0:
+                    print(
+                        f"Comparisons in {ans}_score.csv, but not in metadata:"
+                        f"\n    {', '.join(missing_in_score)}\n"
+                    )
+
+    def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
+                      data_sources:Collection= 'all') -> Dict[str, pd.DataFrame]:
+        """Get score and FDR tables for the analysis types & data sets.
+        Tables give the per gene values for included comparisons.
+
+        Arguments:
+            score_anls: The analysis type from which to get the score values
+                per gene
+            fdr_anls: Optional. As score_anslys
+            data_sources: Data sources (i.e. SPJ, or other peoples papers) to
+                include in the returned DFs. Any comparison that comes from a
+                dataset that does not have both fdr/score analysis types
+                available will not be present in the table.
+
+        Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
+
+        # if only one type supplied, copy it across
+        if fdr_anls is None:
+            fdr_anls = score_anls
+
+        score_fdr = {stt:self.exp_data[ans][stt] for ans, stt in ((score_anls, 'score'), (fdr_anls, 'fdr'))}
+
+        if data_sources == 'all':
+            return score_fdr
+
+        # Filter returned comparisons (columns) by inclusion in data sources and having
+        #   results for both analysis types
+        comps_mask = self.metadata.Source.isin(data_sources)
+        for analysis_type in (score_anls, fdr_anls):
+            m = self.metadata['Available analyses'].apply(lambda available: analysis_type in available)
+            comps_mask = comps_mask & m
+        comparisons = index_of_true(comps_mask)
+        score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
+
+        return score_fdr
+
 
 def load_mageck_tables(prefix:str, controls:Iterable[str]):
     """Get a dict of DF of mageck results keyed to control groups.
@@ -191,3 +299,51 @@ def tabulate_score(prefix, return_ps=False):
             sig_df = sig_df.reindex(['jacks_score', 'fdr_log10', 'stdev'], axis=1, level=1, )
 
     return sig_df
+
+def iter_files_by_prefix(prefix:Union[str, Path], req_suffix=None):
+    prefix = Path(prefix)
+    check_suffix = lambda s: s.endswith(req_suffix) if req_suffix is not None else True
+
+    for fn in os.listdir(prefix.parent):
+        # filter incorrect files, the '._' are mac files that are not ignored automatically on unix filesystem
+        if not check_suffix(fn) or \
+                prefix.parts[-1] not in fn or \
+                fn.startswith('._'):
+            continue
+        yield fn
+
+def tabulate_drugz_files(file_names, prefix, compjoiner='-'):
+    prefix=Path(prefix)
+    tables = {}
+    for fn in file_names:
+        fn_prefix = prefix.name
+        # remove fn parent (directories), remove file prefix, remove file suffix
+        #   what's left is the comp
+        comp = Path(fn).name.replace(fn_prefix, '')[:-4]
+        comp = comp.replace('-', compjoiner)
+
+        tab = pd.read_csv(fn, sep='\t', index_col=0)
+
+        # sort out the column names to be consistent with other results tables
+        tab.index.name = 'gene'
+        tab = tab.loc[:, ['normZ', 'pval_synth', 'fdr_synth', 'pval_supp', 'fdr_supp']]
+        stats_cols = 'normZ neg_p neg_fdr pos_p pos_fdr'.split()
+
+        tab.columns = stats_cols
+
+        # get the minimum value significance stats
+        for stat in 'p', 'fdr':
+            min_stat = tab.loc[:, [f'neg_{stat}', f'pos_{stat}']].min(1)
+            tab.loc[:, f'{stat}'] = min_stat
+            tab.loc[:, f'{stat}_log10'] = min_stat.apply(lambda p: -np.log10(p))
+        tables[comp] = tab
+
+    tbcolumns = pd.MultiIndex.from_product(
+        [sorted(tables.keys()), tab.columns],
+        1
+    )
+    table = pd.DataFrame(index=tab.index, columns=tbcolumns)
+    for exp, tab in tables.items():
+        table[exp] = tab
+    return table
+
