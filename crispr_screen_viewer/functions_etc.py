@@ -10,7 +10,9 @@ def index_of_true(bool_mask):
     return bool_mask[bool_mask].index
 
 class DataSet:
-    """Storage and retreval of amalgamated results tables. Experiment tables as
+    """Class for holding, retrieving screen data and metadata.
+
+    Storage and retreval of amalgamated results tables. Experiment tables as
     single analysis type/statistic with filename {ans_type}_{stat}.csv
     Currently supports MAGeCK ('mag') and DrugZ ('drz').
 
@@ -48,7 +50,8 @@ class DataSet:
                             for stt in ('score', 'fdr')}
                        for ans in self.available_analyses}
 
-        metadata = pd.read_csv(f'{source_directory}/metadata.csv', index_col=0)
+        metadata = pd.read_csv(f'{source_directory}/metadata.csv', )
+        metadata = metadata.set_index('Comparison ID', drop=False)
         metadata.loc[:, 'Available analyses'] = metadata['Available analyses'].str.split('|')
         self.data_sources = metadata.Source.unique()
         self.metadata = metadata
@@ -346,4 +349,23 @@ def tabulate_drugz_files(file_names, prefix, compjoiner='-'):
     for exp, tab in tables.items():
         table[exp] = tab
     return table
+
+from argparse import ArgumentParser
+launcher_parser = ArgumentParser(add_help=False)
+
+launcher_parser.add_argument(
+    '-p', '--port', metavar='PORT',
+    help='Port used to serve the charts',
+    required=True,
+)
+launcher_parser.add_argument(
+    '-d', '--data-version',
+    dest='data_version',
+    help="Name of the directory within app_data that contains the data from screens.",
+    required=True,
+)
+launcher_parser.add_argument(
+    '--debug', action='store_true',
+    help='Launch app in debug mode'
+)
 

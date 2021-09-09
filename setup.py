@@ -2,15 +2,14 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'crispr_screen_viewer',
-    version = '0.2.4b1',
+    version = '0.4', # bumped for big reorganisation dumping old volcano.py etc
     author = 'John C. Thomas',
     author_email = 'jcthomas000@gmail.com',
-    packages=find_packages(exclude=['contrib', 'docs', 'tests']),
+    packages=find_packages(exclude=['contrib', 'docs', 'tests', 'junk_probably']),
     install_requires = [
-        'dash', 'statsmodels','numpy','scipy', 'pandas','pyyaml', 'attrdict'
+        'dash==1.21', 'statsmodels','numpy','scipy', 'pandas','pyyaml', 'attrdict'
     ],
-    scripts = ['launch_scripts/launch_volcano.py', 'launch_scripts/launch_jacks_scatter.py'],
+    scripts = ['crispr_screen_viewer/launch_msgv.py', 'crispr_screen_viewer/launch_screen_explorer.py'],
     python_requires = '>=3.6',
-    #scripts=['crispr_tools/crispr_pipeline.py', 'crispr_tools/count_reads.py'],
     include_package_data=False,
 )

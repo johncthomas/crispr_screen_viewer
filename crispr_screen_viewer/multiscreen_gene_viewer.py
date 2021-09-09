@@ -1,42 +1,28 @@
-#!/usr/bin/env python
-import pathlib, os
+import pandas as pd
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
-from dash_html_components import Div
+Div = html.Div
+import plotly.graph_objs as go
+import pathlib, os
 from dash.dependencies import Input, Output, State
-import pandas as pd
-import plotly.graph_objects as go
-from dash_table import DataTable
-from dash_table.Format import Format, Scheme
-#import plotly.express as px
-from argparse import ArgumentParser
-import typing
 from typing import Collection, Union, Dict
-from crispr_screen_viewer.util import index_of_true, DataSet
-#from dashapp import app as application
+from crispr_screen_viewer.functions_etc import index_of_true, DataSet
+from crispr_screen_viewer.shared_components import (
+    create_datatable,
+    get_data_source_selector,
+    get_lab_val,
+    get_reg_stat_selectors,
+    colours,
+)
 
-
-VERSION = '1.1.0'
 
 # *updates
 # 1.0.3 data_version is an argument
 # 1.0.4 stat selector: mixed is now a separate selection
 # 1.1 data source selection
-
-#todo filter by suppresor/enhancer
-#todo per gene volcano plot
-#todo y-axis title
-#todo
-
-
-#from https://sashamaps.net/docs/resources/20-colors/, 99%,
-#todo test all these colours
-colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
-           '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
-
-
-def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
+msgv_version = '1.1.0'
+def launch(source_directory:Union[str, os.PathLike], port, debug):
     """A Dash app for showing results from screens for specific screens."""
     print(source_directory)
     data_set = DataSet(source_directory)
@@ -50,68 +36,6 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
     fig = go.Figure()
 
     # **CONTROLS**
-    get_lab_val = lambda arr: [{'label': v, 'value':v} for v in arr]
-
-    # Two scores:
-    #   effect size (LFC or NormZ) that is the Y-axis value on the graphs
-    #   FDR, that is used for filtering comparisons to be shown
-    # Scores can be selected from single analysis type, or mixed.
-    # initial radio buttons will list all single types (mageck & drugz at the mo) and mixed
-    # selecting mixed pops up new pair of radio buttons allowing selection of source for
-    # both effect size and significance values
-    selector_style = {'display': 'inline-block',   'border-collapse':'separate','border-spacing':'15px 50px'}
-    none_style = {'display':'none'}
-    primary_stat_selector = [
-        Div([
-            html.Label('Analysis type_____', htmlFor='analysis-selector'),
-            dcc.RadioItems(
-                id='analysis-selector',
-                options=[
-                    {'label':'DrugZ', 'value':'drugz'},
-                    {'label':'MAGeCK',  'value':'mageck'},
-                    {'label':'Mixed...', 'value':'mixed'}
-                ],
-                value='drugz',
-            )
-        ], style=selector_style),
-
-    ]
-
-    mixed_selectors =  [Div([
-        Div([
-            html.Label('Effect size_____', htmlFor='score-selector'),
-            dcc.RadioItems(
-                id='score-selector',
-                options=[{'label':'NormZ', 'value':'drz'},
-                         {'label':'LFC',  'value':'mag'}],
-                value='drz',
-            ),
-        ], style=selector_style),
-
-        Div([
-            html.Label('FDR source', htmlFor='fdr-selector', ),
-            dcc.RadioItems(
-                id='fdr-selector',
-                options=[
-                    {'label':'DrugZ', 'value':'drz'},
-                    {'label':'MAGeCK',  'value':'mag'}
-                ],
-                value='drz',
-            )
-        ], style=selector_style)
-    ],  id='mixed-div', style=none_style)]
-
-    data_source_selector = Div([
-        dcc.Checklist(
-            id='data-source-selector',
-            options=get_lab_val(data_set.data_sources),
-            value=data_set.data_sources, # set all selected by default
-            labelStyle={'display':'inline-block'}
-        ),
-
-        html.P([''], id='missing-datasets')
-    ])
-
     # the graph object and things above the graph object
     graph_and_data_selection_div = Div([
         html.H1("Multi-Gene Screen Viewer"),
@@ -119,9 +43,8 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
             dcc.Checklist('show-boxplots', options=[{'label':'Show boxplots', 'value':'show-boxplots'}], value=['show-boxplots']),
         ]),
 
-        Div(primary_stat_selector+mixed_selectors),
-
-        data_source_selector,
+        get_reg_stat_selectors(app),
+        get_data_source_selector(data_set.data_sources),
 
         Div([dcc.Graph(
             id='gene-violins',
@@ -177,46 +100,8 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
              get_filter_checklist(col)]
         )
 
-    # **DATATABLE**
-    def create_datatable(data_df=None):
-        #todo make numfmt work
-        #numfmt = Format(precision=3, scheme=Scheme.decimal_or_exponent)
-        #formatted = Format()
-        #numfmt = formatted.precision(3)
-
-        # conditional formatting for the FDR
-        thresholds = [0.6, 0.3, 0.1, -0.1]
-        fdr_colours = ['#ff0000', '#ff9933', '#ffff00', '#66ff33']
-        prev_fdr = 1
-        cond_fmts = []
-        for fdr, clr in zip(thresholds, fdr_colours):
-            fmt = {
-                'if':{
-                    'filter_query': f'{prev_fdr} <= {{FDR}} < {fdr}',
-                    'column_id':'FDR'
-                },
-                'backgroundColor':clr
-            }
-            cond_fmts.append(fmt)
-            prev_fdr = fdr
-
-        # just a place holder to start with
-        if data_df is None:
-            return DataTable(
-                id='table',
-                columns=[{'name':c, 'id':c, } for c in data_set.metadata.columns],
-            )
-
-        return DataTable(
-            id='table',
-            # 'format':get_fmt(c)
-            columns=[{'name':c, 'id':c, } for c in data_df.columns],
-            data=data_df.to_dict('records'),
-            export_format='csv',
-            style_data_conditional=cond_fmts,
-        )
-
-    table = Div([create_datatable()], id='table-div', className="u-full-width")
+    table = Div([create_datatable(columns_if_no_df=data_set.metadata.columns)],
+                id='table-div', className="u-full-width")
 
     # put it all together
     app.layout = Div([
@@ -230,24 +115,6 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
         table,
     ])
 
-    @app.callback(
-        [Output('score-selector', 'value'),
-         Output('fdr-selector', 'value'),
-         Output('mixed-div', 'style')],
-
-        [Input('analysis-selector', 'value')],
-
-        [State('score-selector', 'value'),
-         State('fdr-selector', 'value')]
-    )
-    def select_stats_primary(selection, curr_score, curr_fdr):
-        if selection == 'mixed':
-            return curr_score, curr_fdr, selector_style
-        else:
-            # this format is kind of vestigial, should use 3-letter abrevs directly
-            score, fdr = {'drugz': ('drz', 'drz'),
-                          'mageck':('mag', 'mag')}[selection]
-            return score, fdr, none_style
 
     # Define callback to update graph
     @app.callback(
@@ -270,12 +137,12 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
          Input('order-by', 'value'),
          Input('color-by', 'value')]
     )
-    def update_figure(score_source, fdr_source, selected_data_sources,
+    def update_figure(score_type, fdr_type, selected_data_sources,
                       selected_genes, show_boxplots, fdr_thresh,
                       filter_treat, filter_cell,
                       order_by, color_by):
 
-        data_tabs = data_set.get_score_fdr(score_source, fdr_source, selected_data_sources)
+        data_tabs = data_set.get_score_fdr(score_type, fdr_type, selected_data_sources)
 
         # Identify data sources that are unavailable for selected analyses
         available_sources = data_set.metadata.loc[data_tabs['fdr'].columns, 'Source'].unique()
@@ -349,23 +216,3 @@ def launch_msgv(source_directory:Union[str, os.PathLike], port, debug):
         return fig, dtable, sort_by_opts, [missing_data_sources]
 
     app.run_server(host='0.0.0.0', port=port, debug=debug)
-
-if __name__ == '__main__':
-    print('version:', VERSION)
-    parser = ArgumentParser(description='MultiGene Screen Viewer')
-    parser.add_argument(
-        '-p', '--port', metavar='PORT',
-        help='Port used to serve the charts'
-    )
-    parser.add_argument(
-        '-d', '--data-version',
-        dest='data_version',
-        help="Name of the directory within app_data that contains the data from screens."
-        # this could potentially take multiple values, with partial data in each...
-    )
-    parser.add_argument(
-        '--debug', action='store_true',
-        help='Launch app in debug mode'
-    )
-    args = parser.parse_args()
-    launch_msgv(os.path.join('app_data', args.data_version), args.port, args.debug)
