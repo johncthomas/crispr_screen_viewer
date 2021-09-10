@@ -181,7 +181,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
                 go.Scatter(
                     x=trace_order, y=filtered_scores.loc[gn, trace_order],
                     mode='markers', name=gn,
-                    marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}, 'symbol':'hexagram'})
+                    marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}, 'symbol':'hexagram'}),
+
             )
         # add the boxplot traces if required
         if show_boxplots:
@@ -195,6 +196,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
                     go.Box(x=xs, y=ys, name=color_group, boxpoints=False,
                            line=dict(color=colour_map[color_group]))
                 )
+        # labels
+        fig.update_yaxes(title_text=data_set.score_labels[score_type])
 
         # create the DataTable
         selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, trace_order]
