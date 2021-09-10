@@ -359,9 +359,9 @@ launcher_parser.add_argument(
     required=True,
 )
 launcher_parser.add_argument(
-    '-d', '--data-version',
-    dest='data_version',
-    help="Name of the directory within app_data that contains the data from screens.",
+    '-d', '--data-path', #todo full path to data
+    dest='data_path',
+    help="Name of the directory that contains the data from screens.",
     required=True,
 )
 launcher_parser.add_argument(
