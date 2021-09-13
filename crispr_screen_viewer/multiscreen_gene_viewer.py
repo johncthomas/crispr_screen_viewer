@@ -60,7 +60,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         Div([
             html.Label('Maximum FDR:', htmlFor='fdr-threshold'),
             dcc.Input('fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.2),
-        ], style={'width':'120px', 'display':'inline-block'}),
+        ], style={ 'display':'inline-block'}),
         Div([
             html.Label('Order by:', htmlFor='order-by'),
             dcc.Dropdown('order-by', value=order_by_categories[0],
@@ -72,7 +72,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
                 'color-by', value='Treatment',
                 options=get_lab_val(['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO'])
             ),
-        ]),
+        ], style={'width':'150px', 'display':'inline-block'}),
     ])
 
     # select genes by name, and comparisons FDR in selected samples
@@ -81,23 +81,38 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         dcc.Dropdown('gene-selector', value=[], options=get_lab_val(data_set.genes), multi=True),
     ])
 
-    # ability to filter comparisons based on their metadata
-    def get_filter_checklist(column):
-        uniques = sorted(data_set.metadata[column].unique())
-        get_opts = lambda k: [{'label':k+'  |  ', 'value':k} for k in uniques]
-        lab = f"filter-{column.lower().replace(' ', '-')}"
-        return dcc.Checklist(
-            id=lab,
-            options=get_opts(column),
-            value=uniques, # set all selected by default
-            labelStyle={'display':'inline-block'},
-        )
-    # Generate individual checklists for metadata columns
-    sample_filter = Div([], 'sample-filters')
-    for col in ('Treatment', 'Cell line', 'KO'):
-        sample_filter.children.extend(
-            [html.P(col+':'),
-             get_filter_checklist(col)]
+    # # ability to filter comparisons based on their metadata
+    # def get_filter_checklist(column):
+    #     uniques = sorted(data_set.metadata[column].unique())
+    #     get_opts = lambda k: [{'label':k+'  |  ', 'value':k} for k in uniques]
+    #     lab = f"filter-{column.lower().replace(' ', '-')}"
+    #     return dcc.Checklist(
+    #         id=lab,
+    #         options=get_opts(column),
+    #         value=uniques, # set all selected by default
+    #         labelStyle={'display':'inline-block'},
+    #     )
+    # # Generate individual checklists for metadata columns
+    # sample_filter = Div([], 'sample-filters')
+    # for col in ('Treatment', 'Cell line', 'KO'):
+    #     sample_filter.children.extend(
+    #         [html.P(col+':'),
+    #          get_filter_checklist(col)]
+    #     )
+
+    # make the dropdowns for filtering
+    filter_dropdowns = []
+    filter_cols = ['Treatment', 'Experiment ID', 'KO', 'Cell line', 'Library', 'Source']
+    for col in filter_cols:
+        filter_dropdowns.append(
+            html.Div([dcc.Dropdown(
+                id=col,
+                placeholder='Filter by '+col,
+                multi=True,
+                style={'height':'80px', 'width':'220px'},
+                value=[],
+                options=[{'label':v, 'value':v} for v in sorted(data_set.metadata[col].unique())]
+            )], style={'display':'inline-block'})
         )
 
     table = Div([create_datatable(columns_if_no_df=data_set.metadata.columns)],
@@ -106,11 +121,11 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
     # put it all together
     app.layout = Div([
         graph_and_data_selection_div,
-        control_bar,
-        html.Br(),
         gene_selector,
         html.Br(),
-        sample_filter,
+        control_bar,
+        html.Br(),
+        Div(filter_dropdowns),
         html.Br(),
         table,
     ])
@@ -131,16 +146,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
          Input('show-boxplots', 'value'),
          Input('fdr-threshold', 'value'),
 
-         Input('filter-treatment', 'value'),
-         Input('filter-cell-line', 'value'),
-
          Input('order-by', 'value'),
-         Input('color-by', 'value')]
+         Input('color-by', 'value'),
+         ] + [Input(cid, 'value') for cid in filter_cols]
     )
     def update_figure(score_type, fdr_type, selected_data_sources,
                       selected_genes, show_boxplots, fdr_thresh,
-                      filter_treat, filter_cell,
-                      order_by, color_by):
+                      order_by, color_by, *filters):
 
         data_tabs = data_set.get_score_fdr(score_type, fdr_type, selected_data_sources)
 
@@ -153,11 +165,12 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
             missing_data_sources = 'All data sources available'
 
         # get boolean masks for which comparisons to include in the charts
-        # first filter out deselected cell lines and treatments
-        comparison_mask = (
-                data_set.metadata['Treatment'].isin(filter_treat) &
-                data_set.metadata['Cell line'].isin(filter_cell)
-        )
+        # first get comparisons filtered by metadata filters
+        comparison_mask = pd.Series(True, index=data_set.metadata.index)
+        for filter_id, values in zip(filter_cols, filters):
+            if values:
+                comparison_mask = comparison_mask & data_set.metadata[filter_id].isin(values)
+
         # then by FDR threshold
         fdr_mask = (data_tabs['fdr'].loc[selected_genes] < fdr_thresh).any()
         filtered_scores = data_tabs['score'].loc[selected_genes, (fdr_mask & comparison_mask)]
