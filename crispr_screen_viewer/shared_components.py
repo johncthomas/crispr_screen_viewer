@@ -4,15 +4,26 @@ from dash.dependencies import Input, Output, State
 import dash_core_components as dcc
 import dash_html_components as html
 from dash_html_components import Div
+import logging
+
+logging.basicConfig()
+LOG = logging.getLogger('screen_viewers')
 
 #from https://sashamaps.net/docs/resources/20-colors/, 99%,
-#todo test all these colours
+from typing import List
+
 colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
            '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
 get_lab_val = lambda arr: [{'label': v, 'value':v} for v in arr]
-styles = {'selector':{'display': 'inline-block', 'border-collapse': 'separate', 'border-spacing': '15px 50px'},
+styles = {'selector':{'display': 'inline-block', 'border-collapse': 'separate',
+                      'border-spacing': '15px 50px', 'margin-bottom': '15px'},
           'hidden':{'display':'none'}}
-
+big_text_style = {
+    'font-family': 'Arial, Helvetica, sans-serif',
+    'font-size': '25px',
+    'letter-spacing': '-0.4px',
+    'word-spacing': '-0.4px',
+    'font-weight': '700'}
 
 def get_annotation_dicts(xs,ys,txts, annote_kw=None):
     """dicts defining annotations with x/y/text values as given.
@@ -40,7 +51,7 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None):
     return annotations
 
 
-def get_reg_stat_selectors(app=None):
+def get_reg_stat_selectors(app=None) -> List[Div]:
     """Return radio selectors, for selecting stats to be used in plotting.
 
     Registers a function that handles the score selection. Needs to have
@@ -66,21 +77,23 @@ def get_reg_stat_selectors(app=None):
             else:
                 return selection, selection, styles['hidden']
 
-    return Div([
+    return [
         Div([
-            html.Label('Analysis type_____', htmlFor='analysis-selector'),
+            html.Label('Analysis type:  ', htmlFor='analysis-selector'),
             dcc.RadioItems(
                 id='analysis-selector',
                 options=[
                     {'label':'DrugZ', 'value':'drz'},
                     {'label':'MAGeCK',  'value':'mag'},
-                    {'label':'Mixed...', 'value':'mixed'}
+                    #{'label':'Mixed...', 'value':'mixed'}
                 ],
                 value='drz',
+                labelStyle={'display': 'inline-block'},
             )
-        ], style=styles['selector']),
+        ], style={**styles['selector'], **{'width':170}}),
 
         # This Div is hidden unless "Mixed" is chosen from Div above.
+        #   Currently inaccessible
         Div([
             Div([
                 html.Label('Effect size_____', htmlFor='score-selector'),
@@ -103,23 +116,26 @@ def get_reg_stat_selectors(app=None):
                     value='drz',
                 )], style=styles['selector'])
         ],  id='mixed-div', style=styles['hidden'])
-    ])
+    ]
 
-def get_data_source_selector(data_sources) -> Div:
+def get_data_source_selector(data_sources) -> List[dcc.Checklist]:
     """A Div with a checklist that will be populated data_sources and a
     paragraph for reporting missing datasets
 
     IDs: data-source-selector, missing-datasets"""
-    return Div([
+    return [
+
+        html.Label('Select data sources:', htmlFor='data-source-selector'),
         dcc.Checklist(
             id='data-source-selector',
             options=get_lab_val(data_sources),
             value=data_sources, # set all selected by default
             labelStyle={'display':'inline-block'}
         ),
+        html.P([''], id='missing-datasets'),
 
-        html.P([''], id='missing-datasets')
-    ])
+
+    ]
 
 
 

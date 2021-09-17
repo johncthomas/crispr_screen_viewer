@@ -1,3 +1,5 @@
+import logging
+
 import pandas as pd
 import numpy as np
 
@@ -13,16 +15,24 @@ import pathlib, os
 from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict
 from crispr_screen_viewer.functions_etc import DataSet
-from crispr_screen_viewer.shared_components import (external_stylesheets,
-                               get_lab_val,
-                               get_reg_stat_selectors,
-                               get_annotation_dicts)
+from crispr_screen_viewer.shared_components import (
+    external_stylesheets,
+    get_lab_val,
+    get_reg_stat_selectors,
+    get_annotation_dicts,
+    big_text_style,
+    LOG
+)
 
-#todo deal with missing analysis type for selected comparison
+Div = html.Div
 
 def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
+
+    if debug:
+        LOG.setLevel(logging.DEBUG)
+
     source_directory = pathlib.Path(source_directory)
 
     data_set = DataSet(source_directory)
@@ -45,19 +55,22 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
     # make the dropdowns for filtering
     filter_dropdowns = []
-    filter_cols = ['Treatment', 'Experiment ID', 'Cell line', 'Library', 'Source'] # list of ids (lowercase, underscored), for populate table callback
+    filter_cols = ['Treatment', 'Experiment ID', 'Cell line', 'Library', 'Source']
     for col in filter_cols:
         filter_dropdowns.append(
-            html.Div([dcc.Dropdown(
-                id=col,
-                placeholder='Filter by '+col,
-                multi=True,
-                style={'height':'80px', 'width':'250px'},
-                value=[],
-                options=[{'label':v, 'value':v} for v in sorted(metadata[col].unique())]
-            )], style={'display':'inline-block'})
+            html.Div(
+                children=[dcc.Dropdown(
+                    id=col,
+                    placeholder='Filter by '+col,
+                    multi=True,
+                    style={'height':'80px', 'width':'250px'},
+                    value=[],
+                    options=[{'label':v, 'value':v} for v in sorted(metadata[col].unique())]
+                )],
+                style={'display':'inline-block'})
         )
 
+    # construct data table with selected columns from the metadata
     metadata_columns = ['Comparison ID', 'Experiment ID', 'Treatment', 'Dose', 'Growth inhibition %',
                        'Days grown', 'Cell line', 'KO',  'Library', 'Source',
                        'Available analyses']
@@ -71,25 +84,47 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         row_selectable='single',
     )
 
-    gene_selector = dcc.Dropdown(
-        id='gene-dropdown',
-        placeholder='Select genes by name',
-        multi=True,
-        #style={'height':'100px', },
-        value=[],
-        options=[]
-    )
+    gene_selector = [
+        html.Label('Select genes:',
+                   htmlFor='gene-dropdown',
+                   style=big_text_style),
+        dcc.Dropdown(
+            id='gene-dropdown',
+            placeholder='Select genes by name',
+            multi=True,
+            #style={'height':'100px', },
+            value=[],
+            options=[]),
+    ]
+
+    # Tabs, one for selecting a comparison, one for viewing the graph
+    #   maybe another for a datatable of the selected comps
+    tabs = dcc.Tabs([
+        # comparison selector
+        dcc.Tab([
+            # broke up to stop pycharm treating it like SQL...
+            html.P([(
+                'Sele'+'ct an experiment from the table below. '
+                'Use dropdowns to filter rows to find comparisons '
+                'with specific treatments, etc.'
+            )], style={'margin-top': '15px'}),
+            Div(filter_dropdowns, style={'margin-bottom': '15px', }),
+            Div([table_of_comparisons])
+        ], label='Select experiment/comparison', value='comparison-selector'),
+        # graph
+        dcc.Tab([
+            Div([graph]),
+            Div(get_reg_stat_selectors(app)),
+            Div(html.P('', id='missing-analyses', style={"background-color":"#e60000", 'color':'white'}) ),
+            Div(gene_selector)
+        ], label='Graph', value='graph'),
+    ], value='comparison-selector')
 
     # ****LAYOUT****
-    Div = html.Div
+
     app.layout = Div([
-        get_reg_stat_selectors(app),
-        Div(html.P('', id='missing-analyses', style={"background-color":"#e60000", 'color':'white'}) ),
-        #get_data_source_selector(data_set.data_sources),
-        Div(graph),
-        Div(gene_selector),
-        Div(filter_dropdowns),
-        Div([table_of_comparisons]),
+        html.H1("Screens explorer"),
+        tabs,
         Div([html.P(id='debug')], ),
         dcc.Store('xy-genes', 'session',
                   data={'x':[], 'y':[], 'genes':[]})
@@ -125,14 +160,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
         # If the selected row still exists in the table, maintain that selection
         #   otherwise deselect the row so we don't show some random graph
-        #   (ideally, we'd always maintain selection, but that requires some
-        #   rejiggering)
-        # get the pre-filtered compID
+        #   (happily, deselecting prevents update so we keep the same graph).
+        # Get the pre-filtered compID
         if selected_row:
             correct_compid = table_data[selected_row[0]]['Comparison ID']
             # new, if it's still in the table
             if correct_compid in filtered_table.index:
-                # it's a list, cus data table could multiple
+                # it's a list, cus selected_rows in datatable could be multiple
                 new_selected_row = [filtered_table.index.get_loc(correct_compid)]
             else:
                 new_selected_row = []
@@ -157,7 +191,11 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         State('comparisons-table', 'data'),
     )
     def select_experiment_stats(selected_row, score_type, fdr_type,  table_data):
-
+        args_for_printing = {k:v for k, v in zip(
+            'selected_row, score_type, fdr_type,  table_data'.split(', '),
+            [selected_row, score_type, fdr_type,  type(table_data)]
+        )}
+        LOG.debug(f'select_experiment_stats with {args_for_printing}')
         if not selected_row:
             raise PreventUpdate
 
@@ -192,6 +230,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
             data = {'x': x, 'y': y, 'genes': x.index}
             gene_options = get_lab_val(x.index)
 
+        LOG.debug(f'End of select_experiment_stats with:')
+        LOG.debug('     datatable:  '+'\n'.join([f"{k}={data[k].head()}" for k in ('x', 'y')]))
+
         return (
             data,
             gene_options,
@@ -211,7 +252,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     )
     def render_volcano(selected_genes, xy_genes,
                        table_data, selected_row, score_type):
-
+        def count_upper():
+            n = 0
+            while True:
+                n+=1
+                yield n
+        counter = count_upper()
+        LOG.debug(next(counter))
         if not selected_row:
             raise PreventUpdate
 
@@ -233,7 +280,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
                                 "FDR: %{customdata:.2e}")
             ),
         )
-
+        LOG.debug(f"{(len(x), len(y))}")
+        LOG.debug(next(counter))
         # add some titles
         row = table_data[selected_row[0]]
         if '-KO' not in row['Treatment']:
@@ -251,14 +299,15 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
             xaxis_title=data_set.score_labels[score_type],
             yaxis_title='-Log10(FDR)',
         )
-
+        LOG.debug(next(counter))
         # Add annotations for the selected genes
         new_annotations = get_annotation_dicts(x[selected_genes], y[selected_genes], selected_genes)
         for anot in new_annotations:
             fig.add_annotation(
                 **anot
             )
-
+        LOG.debug(next(counter))
+        LOG.debug(str(fig))
         return fig
 
     app.run_server(debug=debug, host='0.0.0.0', port=port)

@@ -14,7 +14,17 @@ from crispr_screen_viewer.shared_components import (
     get_lab_val,
     get_reg_stat_selectors,
     colours,
+    big_text_style,
 )
+
+border_style = {'border': '4px solid #3DD178',
+                'border-radius': '14px'}
+
+#css
+"""#funBorder {
+border: 4px solid #3DD178;
+border-radius: 14px;
+}"""
 
 
 # *updates
@@ -32,25 +42,48 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
 
     app = dash.Dash(__name__, external_stylesheets= ['https://codepen.io/chriddyp/pen/bWLwgP.css'])
 
-    # **FIGURE**
-    fig = go.Figure()
+    # Graph and table
+    graph = dcc.Graph(
+        id='gene-violins',
+        figure=go.Figure(),
+        style={'height':'800px'}
+    )
 
-    # **CONTROLS**
-    # the graph object and things above the graph object
+    table = Div([create_datatable(columns_if_no_df=data_set.metadata.columns)],
+                id='table-div', className="u-full-width", style={'margin-bottom':'30px'})
+
+    # select genes by name, and comparisons FDR in selected samples
+    gene_selector = Div([
+        html.P('Select genes:', style=big_text_style),
+        dcc.Dropdown('gene-selector', placeholder='Select genes', value=[],
+                     options=get_lab_val(data_set.genes), multi=True),
+
+    ], style={'margin-bottom': '15px'})
+
+    # the graph/table object and the data prefilters
     graph_and_data_selection_div = Div([
-        html.H1("Multi-Gene Screen Viewer"),
+        html.H1("Multi-Screen Gene Viewer"),
         Div([
-            dcc.Checklist('show-boxplots', options=[{'label':'Show boxplots', 'value':'show-boxplots'}], value=['show-boxplots']),
-        ]),
+            dcc.Checklist(
+                'show-boxplots',
+                options=[{'label':'Show boxplots', 'value':'show-boxplots'}],
+                value=['show-boxplots']
+            ),
+        ], style={'display':'none'}),
 
-        get_reg_stat_selectors(app),
-        get_data_source_selector(data_set.data_sources),
-
-        Div([dcc.Graph(
-            id='gene-violins',
-            figure=fig,
-            style={'height':'800px'}
-        )], ),
+        gene_selector,
+        # This Tabs will show either graph or datatable
+        Div([dcc.Tabs(id='output-tabs', value='graph',
+                  children=[
+                      dcc.Tab([graph], label='Graph', value='graph'),
+                      dcc.Tab([table], label='Table', value='table')
+                  ])
+             ]),
+        Div([
+            Div(get_reg_stat_selectors(app),
+                style={'display':'inline-block', 'width':'170px','vertical-align':'top'}),
+            Div(get_data_source_selector(data_set.data_sources), style={'display':'inline-block'})
+        ])
     ])
 
     # this is also used for output of one function, so is defined once here
@@ -60,45 +93,22 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         Div([
             html.Label('Maximum FDR:', htmlFor='fdr-threshold'),
             dcc.Input('fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.2),
-        ], style={ 'display':'inline-block'}),
+        ], style={ 'display':'inline-block', 'width':'135px'}),
         Div([
             html.Label('Order by:', htmlFor='order-by'),
             dcc.Dropdown('order-by', value=order_by_categories[0],
                          options=get_lab_val(order_by_categories)),
-        ], style={'width':'150px', 'display':'inline-block'}),
+        ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
         Div([
             html.Label('Colour by:', htmlFor='color-by'),
             dcc.Dropdown(
                 'color-by', value='Treatment',
                 options=get_lab_val(['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO'])
             ),
-        ], style={'width':'150px', 'display':'inline-block'}),
+        ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
     ])
 
-    # select genes by name, and comparisons FDR in selected samples
-    gene_selector = Div([
-        html.P('Select genes:'),
-        dcc.Dropdown('gene-selector', value=[], options=get_lab_val(data_set.genes), multi=True),
-    ])
 
-    # # ability to filter comparisons based on their metadata
-    # def get_filter_checklist(column):
-    #     uniques = sorted(data_set.metadata[column].unique())
-    #     get_opts = lambda k: [{'label':k+'  |  ', 'value':k} for k in uniques]
-    #     lab = f"filter-{column.lower().replace(' ', '-')}"
-    #     return dcc.Checklist(
-    #         id=lab,
-    #         options=get_opts(column),
-    #         value=uniques, # set all selected by default
-    #         labelStyle={'display':'inline-block'},
-    #     )
-    # # Generate individual checklists for metadata columns
-    # sample_filter = Div([], 'sample-filters')
-    # for col in ('Treatment', 'Cell line', 'KO'):
-    #     sample_filter.children.extend(
-    #         [html.P(col+':'),
-    #          get_filter_checklist(col)]
-    #     )
 
     # make the dropdowns for filtering
     filter_dropdowns = []
@@ -115,19 +125,15 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
             )], style={'display':'inline-block'})
         )
 
-    table = Div([create_datatable(columns_if_no_df=data_set.metadata.columns)],
-                id='table-div', className="u-full-width")
-
     # put it all together
     app.layout = Div([
         graph_and_data_selection_div,
-        gene_selector,
         html.Br(),
         control_bar,
         html.Br(),
-        Div(filter_dropdowns),
-        html.Br(),
-        table,
+        Div(filter_dropdowns, ),
+        #html.Br(),
+        #table,
     ])
 
 
@@ -160,9 +166,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         available_sources = data_set.metadata.loc[data_tabs['fdr'].columns, 'Source'].unique()
         missing_data_sources = [d for d in selected_data_sources if d not in available_sources]
         if missing_data_sources:
-            missing_data_sources = "Data sources unavailable for selected analyses: "+', '.join(missing_data_sources)
+            missing_data_sources = "(unavailable with current analysis type: "+', '.join(missing_data_sources)+')'
         else:
-            missing_data_sources = 'All data sources available'
+            missing_data_sources = '(All selections available for analysis type)'
 
         # get boolean masks for which comparisons to include in the charts
         # first get comparisons filtered by metadata filters
