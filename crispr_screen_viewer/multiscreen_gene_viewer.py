@@ -63,6 +63,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
     # the graph/table object and the data prefilters
     graph_and_data_selection_div = Div([
         html.H1("Multi-Screen Gene Viewer"),
+        html.P("Select your gene(s) of interest. Comparisons that show significant results "
+                "(below adjustable FDR) for at least one selected gene are shown below. "
+                "Box plots give the overall distribution of scores, and stars show specific genes."),
         Div([
             dcc.Checklist(
                 'show-boxplots',
@@ -90,6 +93,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
     order_by_categories = ['Mean score', 'Treatment', 'Experiment ID']
 
     control_bar = Div([
+        # Div([
+        #     html.P('Use controls below to filter which comparisons are shown. ')
+        # ]),
         Div([
             html.Label('Maximum FDR:', htmlFor='fdr-threshold'),
             dcc.Input('fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.2),
