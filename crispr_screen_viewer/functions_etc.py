@@ -4,7 +4,29 @@ import numpy as np
 import os
 from pathlib import Path
 from scipy.stats import norm
+from scipy import odr
+from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection
+
+#this should all be part of crispr tools and I should make people install both
+# much of this is too useful to be sequetered away here (and I don't want to install
+# dash everywhere)
+
+def orthoregress(x, y):
+    """Orthogonal Distance Regression.
+
+    Returns: [slope, offset]"""
+
+    def f(p, x):
+        return (p[0] * x) + p[1]
+
+    model = odr.Model(f)
+    data = odr.Data(x, y)
+    od = odr.ODR(data, model, beta0=linregress(x, y)[0:2])
+    res = od.run()
+
+    return list(res.beta)
+
 
 def index_of_true(bool_mask):
     return bool_mask[bool_mask].index
@@ -18,7 +40,7 @@ class DataSet:
 
     Attributes:
         exp_data: data tables keyed first by analysis type then 'score'|'fdr'
-        metadata: descriptions of exp_data samples. Indexed by comparison keys
+        comparisons: descriptions of exp_data samples. Indexed by comparison keys
         score/analysis_labels: text labels for supported analysis types
         genes: Index used in tables in exp_data
 
@@ -50,11 +72,14 @@ class DataSet:
                             for stt in ('score', 'fdr')}
                        for ans in self.available_analyses}
 
-        metadata = pd.read_csv(f'{source_directory}/metadata.csv', )
-        metadata = metadata.set_index('Comparison ID', drop=False)
-        metadata.loc[:, 'Available analyses'] = metadata['Available analyses'].str.split('|')
-        self.data_sources = metadata.Source.unique()
-        self.metadata = metadata
+        comparisons = pd.read_csv(f'{source_directory}/comparisons_metadata.csv', )
+        comparisons = comparisons.set_index('Comparison ID', drop=False)
+        comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
+        comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'None'
+        self.data_sources = comparisons.Source.unique()
+        self.comparisons = comparisons
+
+        self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', index_col=0)
 
         if print_validations:
             # Print information that might be helpful in spotting data validity issues
@@ -62,21 +87,21 @@ class DataSet:
             #   in the other
             for ans in self.available_analyses:
                 score_comps = self.exp_data[ans]['score'].columns
-                meta_comps = self.metadata.index
+                meta_comps = self.comparisons.index
 
                 meta_in_score = meta_comps.isin(score_comps)
                 missing_in_data = meta_comps[~meta_in_score]
                 # todo log.warning
                 if missing_in_data.shape[0] > 0:
                     print(
-                        f"Comparisons in metadata but not in {ans}_score.csv:"
+                        f"Comparisons in comparisons metadata but not in {ans}_score.csv:"
                         f"\n    {', '.join(missing_in_data)}\n"
                     )
                 score_in_meta = score_comps.isin(meta_comps)
                 missing_in_score = score_comps[~score_in_meta]
                 if missing_in_data.shape[0] > 0:
                     print(
-                        f"Comparisons in {ans}_score.csv, but not in metadata:"
+                        f"Comparisons in {ans}_score.csv, but not in comparisons metadata:"
                         f"\n    {', '.join(missing_in_score)}\n"
                     )
 
@@ -107,9 +132,9 @@ class DataSet:
 
         # Filter returned comparisons (columns) by inclusion in data sources and having
         #   results for both analysis types
-        comps_mask = self.metadata.Source.isin(data_sources)
+        comps_mask = self.comparisons.Source.isin(data_sources)
         for analysis_type in (score_anls, fdr_anls):
-            m = self.metadata['Available analyses'].apply(lambda available: analysis_type in available)
+            m = self.comparisons['Available analyses'].apply(lambda available: analysis_type in available)
             comps_mask = comps_mask & m
         comparisons = index_of_true(comps_mask)
         score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
