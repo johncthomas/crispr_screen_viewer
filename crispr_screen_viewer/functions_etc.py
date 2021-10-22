@@ -375,22 +375,5 @@ def tabulate_drugz_files(file_names, prefix, compjoiner='-'):
         table[exp] = tab
     return table
 
-from argparse import ArgumentParser
-launcher_parser = ArgumentParser(add_help=False)
 
-launcher_parser.add_argument(
-    '-p', '--port', metavar='PORT',
-    help='Port used to serve the charts',
-    required=True,
-)
-launcher_parser.add_argument(
-    '-d', '--data-path', #todo full path to data
-    dest='data_path',
-    help="Name of the directory that contains the data from screens.",
-    required=True,
-)
-launcher_parser.add_argument(
-    '--debug', action='store_true',
-    help='Launch app in debug mode'
-)
 
