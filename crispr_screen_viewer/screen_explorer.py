@@ -1,3 +1,4 @@
+#!
 import logging
 
 import pandas as pd
@@ -36,13 +37,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     source_directory = pathlib.Path(source_directory)
 
     data_set = DataSet(source_directory)
-    metadata = data_set.metadata
+    metadata = data_set.comparisons
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
 
     # ****Componenets****
-    graph = dcc.Graph(
+    volcano = dcc.Graph(
         id='volcano0',
         config={
             'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d',
@@ -102,9 +103,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     tabs = dcc.Tabs([
         # comparison selector
         dcc.Tab([
-            # broke up to stop pycharm treating it like SQL...
             html.P([(
-                'Sele'+'ct an experiment from the table below. '
+                'Sele'+'ct an experiment from the table below. ' # broke up to stop pycharm treating it like SQL...
                 'Use dropdowns to filter rows to find comparisons '
                 'with specific treatments, etc.'
             )], style={'margin-top': '15px'}),
@@ -113,7 +113,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         ], label='Select experiment/comparison', value='comparison-selector'),
         # graph
         dcc.Tab([
-            Div([graph]),
+            Div([volcano]),
             Div(get_reg_stat_selectors(app)),
             Div(html.P('', id='missing-analyses', style={"background-color":"#e60000", 'color':'white'}) ),
             Div(gene_selector)
@@ -126,7 +126,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         html.H1("Screens explorer"),
         tabs,
         Div([html.P(id='debug')], ),
-        dcc.Store('xy-genes', 'session',
+        dcc.Store('volcano-data', 'session',
                   data={'x':[], 'y':[], 'genes':[]})
     ])
 
@@ -143,6 +143,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         # additional states will require change to zip line.
     )
     def filter_datatable(*filters):
+        LOG.debug(f'CALLBACK: filter_datable()')
         selected_row = filters[-2]
         table_data   = filters[-1]
 
@@ -178,8 +179,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
                 new_selected_row)
 
 
+    # render volcano for the selected comparison.
     @app.callback(
-        Output('xy-genes', 'data'),
+        Output('volcano-data', 'data'),
         Output('gene-dropdown', 'options'),
         # used for printing error message when missing score/fdr types chosen
         Output('missing-analyses', 'children'),
@@ -191,18 +193,19 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         State('comparisons-table', 'data'),
     )
     def select_experiment_stats(selected_row, score_type, fdr_type,  table_data):
+
         args_for_printing = {k:v for k, v in zip(
             'selected_row, score_type, fdr_type,  table_data'.split(', '),
             [selected_row, score_type, fdr_type,  type(table_data)]
         )}
-        LOG.debug(f'select_experiment_stats with {args_for_printing}')
+        LOG.debug(f'CALLBACK: select_experiment_stats with {args_for_printing}')
         if not selected_row:
             raise PreventUpdate
 
         # get the comparison ID, select the relevant data from dataset
         compid = table_data[selected_row[0]]['Comparison ID']
 
-        available_analyses = data_set.metadata.loc[compid, 'Available analyses']
+        available_analyses = data_set.comparisons.loc[compid, 'Available analyses']
         analyses_are_available = all(
             [ ans_type in available_analyses
              for ans_type in (score_type, fdr_type) ]
@@ -210,9 +213,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         # if an analysis is missing, prevent the other things from trying to update
         if not analyses_are_available:
             availablility_text = ('  Analyses type not available for this experiment.\n'
-                                  f"Available type(s): {set([data_set.analysis_labels[k] for k in available_analyses])}\n"
+                                  f"Available type(s): {[data_set.analysis_labels[k] for k in available_analyses]}\n"
                                   "Graph has not updated.")
-            data = dash.no_update
+            volcano_data = dash.no_update
             gene_options = dash.no_update
 
         else:
@@ -220,21 +223,23 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
             # get x, y and genes values
             score_fdr = data_set.get_score_fdr(score_type, fdr_type)
-            x, y = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
+            score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
 
-            # combining analyses may result in different gene lists, so use interection
-            if score_type != fdr_type:
-                unified_index = x.index.intersection(y.index)
-                x,y = [xy.reindex(unified_index) for xy in (x,y)]
+            # # not supporting mixing score types
+            # # combining analyses may result in different gene lists, so use interection
+            # if score_type != fdr_type:
+            #     unified_index = score.index.intersection(fdr.index)
+            #     score,fdr = [xy.reindex(unified_index) for xy in (score,fdr)]
 
-            data = {'x': x, 'y': y, 'genes': x.index}
-            gene_options = get_lab_val(x.index)
+
+            volcano_data = {'x': score, 'y': fdr, 'genes': score.index}
+            gene_options = get_lab_val(score.index)
 
         LOG.debug(f'End of select_experiment_stats with:')
-        LOG.debug('     datatable:  '+'\n'.join([f"{k}={data[k].head()}" for k in ('x', 'y')]))
+        LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('x', 'y')]))
 
         return (
-            data,
+            volcano_data,
             gene_options,
             availablility_text,
         )
@@ -244,7 +249,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         Output('volcano0', 'figure'),
 
         Input('gene-dropdown', 'value'),
-        Input('xy-genes', 'data'),
+        Input('volcano-data', 'data'),
 
         State('comparisons-table', 'data'),
         State('comparisons-table', 'selected_rows'),
@@ -252,6 +257,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     )
     def render_volcano(selected_genes, xy_genes,
                        table_data, selected_row, score_type):
+        LOG.debug("CALLBACK: render_volcano")
+
+        # debug device
         def count_upper():
             n = 0
             while True:
@@ -259,6 +267,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
                 yield n
         counter = count_upper()
         LOG.debug(next(counter))
+
+
         if not selected_row:
             raise PreventUpdate
 
