@@ -468,6 +468,3 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
 
     app.run_server(debug=debug, host='0.0.0.0', port=port)
-
-
-launch('/Users/johnc.thomas/Dropbox/JT_yaml_share/app_data/2021-10-19', debug=True, port=8338)
