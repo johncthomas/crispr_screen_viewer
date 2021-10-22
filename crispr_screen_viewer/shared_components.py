@@ -5,6 +5,7 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash_html_components import Div
 import logging
+from functions_etc import DataSet
 
 logging.basicConfig()
 LOG = logging.getLogger('screen_viewers')
@@ -118,7 +119,7 @@ def get_reg_stat_selectors(app=None) -> List[Div]:
         ],  id='mixed-div', style=styles['hidden'])
     ]
 
-def get_data_source_selector(data_sources) -> List[dcc.Checklist]:
+def get_data_source_selector(data_set) -> List[dcc.Checklist]:
     """A Div with a checklist that will be populated data_sources and a
     paragraph for reporting missing datasets
 
@@ -128,8 +129,8 @@ def get_data_source_selector(data_sources) -> List[dcc.Checklist]:
         html.Label('Select data sources:', htmlFor='data-source-selector'),
         dcc.Checklist(
             id='data-source-selector',
-            options=get_lab_val(data_sources),
-            value=data_sources, # set all selected by default
+            options=get_lab_val(data_set.data_sources),
+            value=data_set.data_sources, # set all selected by default
             labelStyle={'display':'inline-block'}
         ),
         html.P([''], id='missing-datasets'),
@@ -142,6 +143,7 @@ def get_data_source_selector(data_sources) -> List[dcc.Checklist]:
 # **DATATABLE**
 def create_datatable(data_df=None, columns_if_no_df=None):
     #todo make numfmt work
+    # to do that, it should be set per column
     #numfmt = Format(precision=3, scheme=Scheme.decimal_or_exponent)
     #formatted = Format()
     #numfmt = formatted.precision(3)
