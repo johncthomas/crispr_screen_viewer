@@ -1,11 +1,10 @@
-from dash_table import DataTable
-from dash_table.Format import Format, Scheme
 from dash.dependencies import Input, Output, State
-import dash_core_components as dcc
-import dash_html_components as html
-from dash_html_components import Div
 import logging
-from functions_etc import DataSet
+from dash.dash_table import DataTable
+from dash.dash_table.Format import Format, Scheme
+from dash import dcc, html
+Div = html.Div
+from .functions_etc import DataSet
 
 logging.basicConfig()
 LOG = logging.getLogger('screen_viewers')
@@ -52,25 +51,28 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None):
     return annotations
 
 
-def get_reg_stat_selectors(app=None) -> List[Div]:
+def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
     """Return radio selectors, for selecting stats to be used in plotting.
 
     Registers a function that handles the score selection. Needs to have
-    output values "score-selector" & "fdr-selector" captured by the fig
+    output values prefix+"-score-selector" & prefix+"-fdr-selector" captured by the fig
     update callback.
 
     If app is None, you'll need to reimpliment all that."""
 
+    if id_prefix:
+        id_prefix = id_prefix+'-'
+
     if app is not None:
         @app.callback(
-            [Output('score-selector', 'value'),
-             Output('fdr-selector', 'value'),
-             Output('mixed-div', 'style')],
+            [Output(id_prefix + 'score-selector', 'value'),
+             Output(id_prefix + 'fdr-selector', 'value'),
+             Output(id_prefix + 'mixed-div', 'style')],
 
-            [Input('analysis-selector', 'value')],
+            [Input(id_prefix + 'analysis-selector', 'value')],
 
-            [State('score-selector', 'value'),
-             State('fdr-selector', 'value')]
+            [State(id_prefix + 'score-selector', 'value'),
+             State(id_prefix + 'fdr-selector', 'value')]
         )
         def select_stats_primary(selection, curr_score, curr_fdr):
             if selection == 'mixed':
@@ -82,7 +84,7 @@ def get_reg_stat_selectors(app=None) -> List[Div]:
         Div([
             html.Label('Analysis type:  ', htmlFor='analysis-selector'),
             dcc.RadioItems(
-                id='analysis-selector',
+                id=id_prefix + 'analysis-selector',
                 options=[
                     {'label':'DrugZ', 'value':'drz'},
                     {'label':'MAGeCK',  'value':'mag'},
@@ -97,9 +99,9 @@ def get_reg_stat_selectors(app=None) -> List[Div]:
         #   Currently inaccessible
         Div([
             Div([
-                html.Label('Effect size_____', htmlFor='score-selector'),
+                html.Label('Effect size_____', htmlFor=id_prefix+'score-selector'),
                 dcc.RadioItems(
-                    id='score-selector',
+                    id=id_prefix + 'score-selector',
                     options=[{'label':'NormZ', 'value':'drz'},
                              {'label':'LFC',  'value':'mag'}],
                     value='drz',
@@ -107,35 +109,36 @@ def get_reg_stat_selectors(app=None) -> List[Div]:
             ], style=styles['selector']),
 
             Div([
-                html.Label('FDR source', htmlFor='fdr-selector', ),
+                html.Label('FDR source', htmlFor=id_prefix+'fdr-selector', ),
                 dcc.RadioItems(
-                    id='fdr-selector',
+                    id=id_prefix + 'fdr-selector',
                     options=[
                         {'label':'DrugZ', 'value':'drz'},
                         {'label':'MAGeCK',  'value':'mag'}
                     ],
                     value='drz',
                 )], style=styles['selector'])
-        ],  id='mixed-div', style=styles['hidden'])
+        ],  id=id_prefix + 'mixed-div', style=styles['hidden'])
     ]
 
-def get_data_source_selector(data_set) -> List[dcc.Checklist]:
+def get_data_source_selector(data_set, id_prefix='') -> List[dcc.Checklist]:
     """A Div with a checklist that will be populated data_sources and a
     paragraph for reporting missing datasets
 
     IDs: data-source-selector, missing-datasets"""
-    return [
 
-        html.Label('Select data sources:', htmlFor='data-source-selector'),
+    if id_prefix:
+        id_prefix = id_prefix+'-'
+
+    return [
+        html.Label('Select data sources:', htmlFor=id_prefix+'data-source-selector'),
         dcc.Checklist(
-            id='data-source-selector',
+            id=id_prefix+'data-source-selector',
             options=get_lab_val(data_set.data_sources),
             value=data_set.data_sources, # set all selected by default
             labelStyle={'display':'inline-block'}
         ),
-        html.P([''], id='missing-datasets'),
-
-
+        html.P([''], id=id_prefix+'missing-datasets'),
     ]
 
 

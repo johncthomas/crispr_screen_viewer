@@ -2,14 +2,15 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'crispr_screen_viewer',
-    version = '0.4.2',
+    version = '0.5.0',
     author = 'John C. Thomas',
     author_email = 'jcthomas000@gmail.com',
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'junk_probably']),
+    #todo review requires, do we need attrdict/scipy
     install_requires = [
-        'dash==1.21', 'statsmodels','numpy','scipy', 'pandas','pyyaml', 'attrdict'
+        'dash>2', 'statsmodels','numpy','scipy', 'pandas', 'flask', 'plotly'
     ],
-    scripts = ['crispr_screen_viewer/launch_msgv.py', 'crispr_screen_viewer/launch_screen_explorer.py'],
+    scripts = ['crispr_screen_viewer/launch_viewers.py'],
     python_requires = '>=3.6',
     include_package_data=False,
 )

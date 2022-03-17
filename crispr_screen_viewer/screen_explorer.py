@@ -4,12 +4,10 @@ import logging
 import pandas as pd
 import numpy as np
 
-import dash
-import dash_table
+from dash import dash, dcc, html, Input, Output, State, dash_table
+
 from dash.exceptions import PreventUpdate
 
-import dash_core_components as dcc
-import dash_html_components as html
 import plotly.graph_objs as go
 
 import pathlib, os
@@ -17,7 +15,6 @@ from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
-    external_stylesheets,
     get_lab_val,
     get_reg_stat_selectors,
     get_annotation_dicts,
@@ -27,20 +24,16 @@ from crispr_screen_viewer.shared_components import (
 
 Div = html.Div
 
-def launch(source_directory:Union[str, os.PathLike], port, debug=False):
+def init_msgv(app, data_set, hide_data_selectors=False) -> Div:
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
 
-    if debug:
-        LOG.setLevel(logging.DEBUG)
-
-    source_directory = pathlib.Path(source_directory)
-
-    data_set = DataSet(source_directory)
     metadata = data_set.comparisons
 
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
-
+    if hide_data_selectors:
+        source_display = 'none'
+    else:
+        source_display = 'block'
 
     # ****Componenets****
     volcano = dcc.Graph(
@@ -61,7 +54,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         filter_dropdowns.append(
             html.Div(
                 children=[dcc.Dropdown(
-                    id=col,
+                    id='se-'+col,
                     placeholder='Filter by '+col,
                     multi=True,
                     style={'height':'80px', 'width':'250px'},
@@ -87,10 +80,10 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
     gene_selector = [
         html.Label('Select genes:',
-                   htmlFor='gene-dropdown',
+                   htmlFor='se-gene-dropdown',
                    style=big_text_style),
         dcc.Dropdown(
-            id='gene-dropdown',
+            id='se-gene-dropdown',
             placeholder='Select genes by name',
             multi=True,
             #style={'height':'100px', },
@@ -114,15 +107,14 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         # graph
         dcc.Tab([
             Div([volcano]),
-            Div(get_reg_stat_selectors(app)),
-            Div(html.P('', id='missing-analyses', style={"background-color":"#e60000", 'color':'white'}) ),
+            Div(get_reg_stat_selectors(app, id_prefix='se'), style={'display':source_display}),
+            Div(html.P('', id='se-missing-analyses', style={"background-color":"#e60000", 'color':'white'}) ),
             Div(gene_selector)
         ], label='Graph', value='graph'),
     ], value='comparison-selector')
 
-    # ****LAYOUT****
-
-    app.layout = Div([
+    # ****LAYOUT**** to be returned
+    se_layout = Div([
         html.H1("Screens explorer"),
         tabs,
         Div([html.P(id='debug')], ),
@@ -137,7 +129,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         Output('comparisons-table', 'data'),
         Output('comparisons-table', 'selected_rows'),
         # Filters from metadata columns, additional filtrs go after
-        [Input(cid, 'value') for cid in filter_cols],
+        [Input('se-'+cid, 'value') for cid in filter_cols],
         State('comparisons-table', 'selected_rows'),
         State('comparisons-table', 'data'),
         # additional states will require change to zip line.
@@ -182,13 +174,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     # render volcano for the selected comparison.
     @app.callback(
         Output('volcano-data', 'data'),
-        Output('gene-dropdown', 'options'),
+        Output('se-gene-dropdown', 'options'),
         # used for printing error message when missing score/fdr types chosen
-        Output('missing-analyses', 'children'),
+        Output('se-missing-analyses', 'children'),
 
         Input('comparisons-table', 'selected_rows'),
-        Input('score-selector', 'value'),
-        Input('fdr-selector', 'value'),
+        Input('se-score-selector', 'value'),
+        Input('se-fdr-selector', 'value'),
 
         State('comparisons-table', 'data'),
     )
@@ -248,12 +240,12 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     @app.callback(
         Output('volcano0', 'figure'),
 
-        Input('gene-dropdown', 'value'),
+        Input('se-gene-dropdown', 'value'),
         Input('volcano-data', 'data'),
 
         State('comparisons-table', 'data'),
         State('comparisons-table', 'selected_rows'),
-        State('score-selector', 'value'),
+        State('se-score-selector', 'value'),
     )
     def render_volcano(selected_genes, xy_genes,
                        table_data, selected_row, score_type):
@@ -320,7 +312,8 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         LOG.debug(str(fig))
         return fig
 
-    app.run_server(debug=debug, host='0.0.0.0', port=port)
+    return se_layout
+
 
 
 # if __name__ == '__main__':

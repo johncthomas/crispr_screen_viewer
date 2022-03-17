@@ -8,9 +8,10 @@ from scipy import odr
 from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection
 
-#this should all be part of crispr tools and I should make people install both
-# much of this is too useful to be sequetered away here (and I don't want to install
-# dash everywhere)
+# this should all be part of crispr tools and I should make people install both
+#   much of this is too useful to be sequetered away here (and I don't want to install
+#   dash everywhere)
+# ...So DataSet doesn't really need to be anywhere else, but probably
 
 def orthoregress(x, y):
     """Orthogonal Distance Regression.
@@ -76,7 +77,11 @@ class DataSet:
         comparisons = comparisons.set_index('Comparison ID', drop=False)
         comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
         comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'None'
-        self.data_sources = comparisons.Source.unique()
+        # Source isn't really essential to have
+        try:
+            self.data_sources = comparisons.Source.fillna('Unspecified').unique()
+        except AttributeError:
+            comparisons.loc[:, 'Source'] = 'Unspecified'
         self.comparisons = comparisons
 
         self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', index_col=0)

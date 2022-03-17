@@ -1,13 +1,10 @@
 import pandas as pd
-import dash
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dash, dcc, html, Input, Output, State
 Div = html.Div
 import plotly.graph_objs as go
 import pathlib, os
-from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict
-from crispr_screen_viewer.functions_etc import index_of_true, DataSet
+#from crispr_screen_viewer.functions_etc import index_of_true, DataSet
 from crispr_screen_viewer.shared_components import (
     create_datatable,
     get_data_source_selector,
@@ -20,45 +17,44 @@ from crispr_screen_viewer.shared_components import (
 border_style = {'border': '4px solid #3DD178',
                 'border-radius': '14px'}
 
-#css
-"""#funBorder {
-border: 4px solid #3DD178;
-border-radius: 14px;
-}"""
-
 
 # *updates
 # 1.0.3 data_version is an argument
 # 1.0.4 stat selector: mixed is now a separate selection
 # 1.1 data source selection
-msgv_version = '1.1.0'
-def launch(source_directory:Union[str, os.PathLike], port, debug):
-    """A Dash app for showing results from screens for specific screens."""
-    print(source_directory)
-    data_set = DataSet(source_directory)
+# 1.2 Updating for Dash v2 and multipage app
+msgv_version = '1.2.0'
+def init_msgv(app, data_set, hide_data_selectors=False):
+    """Register callbacks to app, generate"""
+
+    if hide_data_selectors:
+        source_display = 'none'
+    else:
+        source_display = 'inline-block'
+
+    graphid = 'msgv'
 
     def get_colour_map(list_of_things):
         return {thing:colours[i%len(colours)] for i, thing in enumerate(list_of_things)}
 
-    app = dash.Dash(__name__, external_stylesheets= ['https://codepen.io/chriddyp/pen/bWLwgP.css'])
-
     # Graph and table
     graph = dcc.Graph(
-        id='gene-violins',
+        id='msgv-gene-violins',
         figure=go.Figure(),
         style={'height':'800px'}
     )
 
     table = Div([create_datatable(columns_if_no_df=data_set.comparisons.columns)],
-                id='table-div', className="u-full-width", style={'margin-bottom':'30px'})
+                id='msgv-table-div', className="u-full-width", style={'margin-bottom':'30px'})
 
     # select genes by name, and comparisons FDR in selected samples
-    gene_selector = Div([
-        html.P('Select genes:', style=big_text_style),
-        dcc.Dropdown('gene-selector', placeholder='Select genes', value=[],
-                     options=get_lab_val(data_set.genes), multi=True),
-
-    ], style={'margin-bottom': '15px'})
+    gene_selector = Div(
+        children=[
+            html.P('Select genes:', style=big_text_style),
+            dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes', value=[],
+                         options=get_lab_val(data_set.genes), multi=True),
+        ],
+        style={'margin-bottom': '15px'})
 
     # the graph/table object and the data prefilters
     graph_and_data_selection_div = Div([
@@ -68,9 +64,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
                 "Box plots give the overall distribution of scores, and stars show specific genes."),
         Div([
             dcc.Checklist(
-                'show-boxplots',
-                options=[{'label':'Show boxplots', 'value':'show-boxplots'}],
-                value=['show-boxplots']
+                id='msgv-show-boxplots',
+                options=[{'label':'Show boxplots', 'value':'msgv-show-boxplots'}],
+                value=['msgv-show-boxplots']
             ),
         ], style={'display':'none'}),
 
@@ -83,9 +79,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
                   ])
              ]),
         Div([
-            Div(get_reg_stat_selectors(app),
-                style={'display':'inline-block', 'width':'170px','vertical-align':'top'}),
-            Div(get_data_source_selector(data_set), style={'display':'inline-block'})
+            Div(get_reg_stat_selectors(app, id_prefix='msgv'),
+                style={'display':source_display, 'width':'170px','vertical-align':'top'}),
+            Div(get_data_source_selector(data_set, id_prefix=graphid), style={'display':source_display})
         ])
     ])
 
@@ -97,24 +93,22 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         #     html.P('Use controls below to filter which comparisons are shown. ')
         # ]),
         Div([
-            html.Label('Maximum FDR:', htmlFor='fdr-threshold'),
-            dcc.Input('fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.2),
+            html.Label('Maximum FDR:', htmlFor='msgv-fdr-threshold'),
+            dcc.Input(id='msgv-fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.1),
         ], style={ 'display':'inline-block', 'width':'135px'}),
         Div([
-            html.Label('Order by:', htmlFor='order-by'),
-            dcc.Dropdown('order-by', value=order_by_categories[0],
+            html.Label('Order by:', htmlFor='msgv-order-by'),
+            dcc.Dropdown(id='msgv-order-by', value=order_by_categories[0],
                          options=get_lab_val(order_by_categories)),
         ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
         Div([
-            html.Label('Colour by:', htmlFor='color-by'),
+            html.Label('Colour by:', htmlFor='msgv-color-by'),
             dcc.Dropdown(
-                'color-by', value='Treatment',
+                id='msgv-color-by', value='Treatment',
                 options=get_lab_val(['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO'])
             ),
         ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
     ])
-
-
 
     # make the dropdowns for filtering
     filter_dropdowns = []
@@ -123,7 +117,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
     for col in filter_cols:
         filter_dropdowns.append(
             html.Div([dcc.Dropdown(
-                id=col,
+                id='msgv-'+col,
                 placeholder='Filter by '+col,
                 multi=True,
                 style={'height':'80px', 'width':'220px'},
@@ -133,7 +127,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
         )
 
     # put it all together
-    app.layout = Div([
+    msgv_layout = Div([
         graph_and_data_selection_div,
         html.Br(),
         control_bar,
@@ -146,22 +140,22 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
 
     # Define callback to update graph
     @app.callback(
-        [Output('gene-violins', 'figure'),
-         Output('table-div', 'children'),
-         Output('order-by', 'options'),
-         Output('missing-datasets', 'children')],
+        [Output('msgv-gene-violins', 'figure'),
+         Output('msgv-table-div', 'children'),
+         Output('msgv-order-by', 'options'),
+         Output('msgv-missing-datasets', 'children')],
 
-        [Input('score-selector', 'value'),
-         Input('fdr-selector', 'value'),
-         Input('data-source-selector', 'value'),
+        [Input('msgv-score-selector', 'value'),
+         Input('msgv-fdr-selector', 'value'),
+         Input('msgv-data-source-selector', 'value'),
 
-         Input('gene-selector', 'value'),
-         Input('show-boxplots', 'value'),
-         Input('fdr-threshold', 'value'),
+         Input('msgv-gene-selector', 'value'),
+         Input('msgv-show-boxplots', 'value'),
+         Input('msgv-fdr-threshold', 'value'),
 
-         Input('order-by', 'value'),
-         Input('color-by', 'value'),
-         ] + [Input(cid, 'value') for cid in filter_cols]
+         Input('msgv-order-by', 'value'),
+         Input('msgv-color-by', 'value'),
+         ] + [Input('msgv-'+cid, 'value') for cid in filter_cols]
     )
     def update_figure(score_type, fdr_type, selected_data_sources,
                       selected_genes, show_boxplots, fdr_thresh,
@@ -212,6 +206,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
             )
         # add the boxplot traces if required
         if show_boxplots:
+            #todo sort by common, so common have different colours
             colour_map = get_colour_map(data_set.comparisons.loc[:, color_by].unique())
             for col in trace_order:
                 ys = data_tabs['score'][col]
@@ -244,4 +239,4 @@ def launch(source_directory:Union[str, os.PathLike], port, debug):
 
         return fig, dtable, sort_by_opts, [missing_data_sources]
 
-    app.run_server(host='0.0.0.0', port=port, debug=debug)
+    return msgv_layout

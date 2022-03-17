@@ -1,0 +1,33 @@
+.sidenav {
+    width: 150px;
+    position: fixed;
+    z-index: 1;
+    top: 20px;
+    left: 10px;
+    background: #eee;
+    overflow-x: hidden;
+    padding: 4px 0;
+}
+
+.sidenav a {
+    padding: 6px 8px 6px 6px;
+    text-decoration: none;
+    font-size: 18px;
+    color: #2196F3;
+    display: block;
+}
+
+.sidenav a:hover {
+    color: #064579;
+}
+
+/* first line is a set of conditions, and statements after override
+other setting when conditions are true.*/
+@media screen and (max-height: 450px) {
+    .sidenav {padding-top: 15px;}
+    .sidenav a {font-size: 18px;}
+}
+
+.graphbox {
+    margin-left: 160px;
+}

@@ -464,7 +464,4 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         return fig, table_output
 
     ## gene selection
-
-
-
     app.run_server(debug=debug, host='0.0.0.0', port=port)
