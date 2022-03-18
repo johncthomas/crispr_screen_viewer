@@ -6,12 +6,11 @@ setup(
     author = 'John C. Thomas',
     author_email = 'jcthomas000@gmail.com',
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'junk_probably']),
-    #todo review requires, do we need attrdict/scipy
     install_requires = [
         'dash>2', 'statsmodels','numpy','scipy', 'pandas', 'flask', 'plotly',
         'dash-html-components', 'dash-core-components'
     ],
-    scripts = ['crispr_screen_viewer/main_page.py'],
+    scripts = ['crispr_screen_viewer/launch.py'],
     python_requires = '>=3.6',
     include_package_data=False,
 )
