@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = 'crispr_screen_viewer',
-    version = '0.6.0',
+    version = '0.6.1',
     author = 'John C. Thomas',
     author_email = 'jcthomas000@gmail.com',
     packages=find_packages(exclude=['contrib', 'docs', 'tests', 'junk_probably']),
