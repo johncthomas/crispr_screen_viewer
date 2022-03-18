@@ -2,7 +2,7 @@
 
 from argparse import ArgumentParser
 from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer#, comparison_maker
-from functions_etc import DataSet
+from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
     external_stylesheets,
     # get_lab_val,
