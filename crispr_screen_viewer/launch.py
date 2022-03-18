@@ -18,8 +18,20 @@ import flask
 import pathlib, pickle, os
 
 
-if __name__ == '__main__':
+def load_dataset(paff):
+    """If paff is a dir, the dataset is constructed from the files
+    within, otherwise it is assumed to be a pickle."""
+    if os.path.isfile(paff):
+        LOG.info('args.data_path is a file, assuming pickle and loading.')
+        with open(paff, 'rb') as f:
+            data_set = pickle.load(f)
+    else:
+        data_set = DataSet(pathlib.Path(paff))
+    return data_set
 
+
+def parse_clargs():
+    """Load dataset from command line options, return (dataset, port, debug)"""
     launcher_parser = ArgumentParser(add_help=False)
 
     launcher_parser.add_argument(
@@ -45,32 +57,26 @@ if __name__ == '__main__':
              " In the future analysis-type might have its own option."
     )
 
-    server = flask.Flask(__name__)
-
-    #data_set = DataSet(source_directory)
 
     parser = ArgumentParser(parents=[launcher_parser],
                             description="Dash app for exploring screen data.",
                             add_help=True,)
 
-
     args = parser.parse_args()
 
-    if os.path.isfile(args.data_path):
-        LOG.info('args.data_path is a file, assuming pickle and loading.')
-        with open(args.data_path, 'rb') as f:
-            data_set = pickle.load(f)
-    else:
-        data_set = DataSet(pathlib.Path(args.data_path))
+    data_set = load_dataset(args.data_path)
 
-    metadata = data_set.comparisons
+    return data_set, args.port, args.debug, args.hide_source_selector
+
+def intiate_app(data_set, hide_source_selector=False):
+    server = flask.Flask(__name__)
+
 
     app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=server)
-    server = app.server
 
     # register the callbacks
-    msgv_layout = multiscreen_gene_viewer.init_msgv(app, data_set, hide_data_selectors=args.hide_source_selector)
-    se_layout = screen_explorer.init_msgv(app, data_set, hide_data_selectors=args.hide_source_selector)
+    msgv_layout = multiscreen_gene_viewer.init_msgv(app, data_set, hide_data_selectors=hide_source_selector)
+    se_layout = screen_explorer.init_msgv(app, data_set, hide_data_selectors=hide_source_selector)
 
     landing_page = Div([
         html.H1('DDR CRISPR screens data explorer'), html.Br(),
@@ -107,9 +113,50 @@ if __name__ == '__main__':
         elif pathname == '/screen-explorer':
             return se_layout
         elif not pathname or pathname == '/':
-            return html.P('Landing page')
+            return landing_page
         else:
             return html.P('404')
 
-    app.run_server(debug=args.debug, host='0.0.0.0', port=args.port)
+    return app
+
+
+if __name__ == '__main__':
+
+    def make_falsy_false(var):
+        """Return False if var is a string saying "no" or "false", ignoring
+        capitals. Otherwise returns var.
+        """
+        if type(var) is str:
+            if var.lower() in ('no', 'false'):
+                return False
+        return var
+
+
+    # if this has been set we get options from the environment
+    # otherwise from the command line
+    using_env_args = os.getenv('DDRCS', False)
+    using_env_args = make_falsy_false(using_env_args)
+    if using_env_args:
+        data_set = load_dataset(os.getenv('DDRCS_DATA', None))
+        debug = os.getenv('DDRCS_DEBUG', False)
+        if debug:
+            debug = True
+        port = os.getenv('DDRCS_PORT', 80)
+        # not sure if it needs to be int, but this functions as validation
+        port = int(port)
+
+        # Hide the data selection boxes if it's public
+        private = make_falsy_false(os.getenv('DDRCS_PRIVATE', False))
+        if private:
+            hide_source_selector = False
+        else:
+            hide_source_selector = True
+    else:
+        data_set, port, debug, hide_source_selector = parse_clargs()
+    app = intiate_app(data_set, hide_source_selector)
+    server = app.server
+    app.run_server(debug=debug, host='0.0.0.0', port=port)
+
+
+
 
