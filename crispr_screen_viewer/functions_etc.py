@@ -52,8 +52,13 @@ class DataSet:
         source_directory = Path(source_directory)
 
         # shorthand internal name: label name
+        avail_analyses = []
+        for ans in ('drz', 'mag'):
+             if os.path.isfile(source_directory/f"{ans}_fdr.csv"):
+                 avail_analyses.append(ans)
+
+        self.available_analyses = avail_analyses
         self.analysis_labels = {'drz':'DrugZ', 'mag':'MAGeCK'}
-        self.available_analyses = list(self.analysis_labels.keys())
         self.score_labels = {'mag':'Log2(FC)', 'drz':'NormZ'}
 
         # put the data tables in {analysis_type:{score/fdr:pd.DataFrame}} format dictionary
