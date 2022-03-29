@@ -1,14 +1,13 @@
+#!/usr/bin/env python
 import logging
+import sys
 
 import pandas as pd
 import numpy as np
 
-import dash
-import dash_table
 from dash.exceptions import PreventUpdate
-
-import dash_core_components as dcc
-import dash_html_components as html
+from dash import dash, dcc, html, dash_table, callback_context
+Div = html.Div
 import plotly.graph_objs as go
 
 import pathlib, os
@@ -17,7 +16,6 @@ from typing import Collection, Union, Dict
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
     external_stylesheets,
-
     get_lab_val,
     get_reg_stat_selectors,
     get_annotation_dicts,
@@ -25,7 +23,6 @@ from crispr_screen_viewer.shared_components import (
     LOG
 )
 
-Div = html.Div
 
 def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     """Source directory should contain the relevant info: metadata.csv,
@@ -41,16 +38,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     data_set = DataSet(source_directory)
     comparisons = data_set.comparisons
     experiments_metadata = data_set.experiments_metadata
-
-    # comparisons = pd.read_csv(
-    #     '/Users/johnc.thomas/Dropbox/JT_yaml_share/app_data/2021-10-08/comparisons_metadata.csv',
-    #     index_col=0
-    # )
-    # comparisons.Treatment = comparisons.Treatment.fillna('')
-    # experiments_metadata = pd.read_csv(
-    #     '/Users/johnc.thomas/Dropbox/JT_yaml_share/app_data/2021-10-08/experiments_metadata.csv',
-    #     index_col=0
-    # )
+    print(experiments_metadata)
 
     ###############
     # COMPONENTS
@@ -221,13 +209,6 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         ]
     )
 
-    # app.layout = Div([
-    #     data_store,
-    #     Div([Div(selectors), style={'display':'inline-block'}),
-    #         Div([+gene_dropdown, style={'display':'inline-block'}),]),
-    #     Div([tabs], style={'display':'inline-block'}),
-    # ])
-
     layout = Div([
         selected_store,
         previous_rows,
@@ -367,7 +348,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
         LOG.debug(f'update_chart_table(selected_comps={selected_comps},\n'
                   f'                   selected_genes={selected_genes})')
-        LOG.debug(str(dash.callback_context.triggered))
+        LOG.debug(str(callback_context.triggered))
         if (not xk) or (not yk):
             LOG.debug('not updating')
             raise PreventUpdate
@@ -431,7 +412,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         # **TABLE**
         # update the table if the comps have changeded
         if any([trig['prop_id'] == 'selected-comps.data'
-                for trig in dash.callback_context.triggered]):
+                for trig in callback_context.triggered]):
 
             table_cols = ['Gene', xy_labs[0], xy_labs[1], "∆NormZ (Y-X)"]
 
@@ -465,3 +446,13 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
     ## gene selection
     app.run_server(debug=debug, host='0.0.0.0', port=port)
+
+if __name__ == '__main__':
+    source = sys.argv[1]
+    port = sys.argv[2]
+    if len(sys.argv) > 3:
+        debug = True
+    else:
+        debug = False
+
+    launch(source, port, debug)
