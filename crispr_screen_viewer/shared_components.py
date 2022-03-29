@@ -4,7 +4,7 @@ from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
 from dash import dcc, html
 Div = html.Div
-from .functions_etc import DataSet
+#from crispr_screen_viewer.functions_etc import DataSet
 
 logging.basicConfig()
 LOG = logging.getLogger('screen_viewers')
