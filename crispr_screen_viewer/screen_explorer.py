@@ -87,10 +87,11 @@ def init_msgv(app, data_set:DataSet, public_version=False) -> Div:
             table_data.loc[:, k] = table_data['Experiment ID'].apply(
                 lambda exp: data_set.experiments_metadata.loc[exp, k]
             )
+
+        # had weird issue of new columns not getting updated data without doing
+        # this here.
         table_data = table_data.to_dict('records')
 
-
-    print(table_data[:2])
     table_of_comparisons = dash_table.DataTable(
         id='comparisons-table',
         columns=[{'name':c, 'id':c} for c in metadata_columns],
