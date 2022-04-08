@@ -13,6 +13,8 @@ from typing import Union, List, Dict, Iterable, Collection
 #   dash everywhere)
 # ...So DataSet doesn't really need to be anywhere else, but probably
 
+parse_expid = lambda comp: comp.split('.')[0]
+
 def orthoregress(x, y):
     """Orthogonal Distance Regression.
 
@@ -82,19 +84,23 @@ class DataSet:
         comparisons = comparisons.set_index('Comparison ID', drop=False)
         comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
         comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'None'
-        # Source isn't really essential to have
-        try:
-            self.data_sources = comparisons.Source.fillna('Unspecified').unique()
-        except AttributeError:
-            comparisons.loc[:, 'Source'] = 'Unspecified'
-        self.comparisons = comparisons
+        # these cols could be blank and aren't essential to have values
+        for col in  ['Cell line', 'Library', 'Source']:
+            if col not in comparisons.columns:
+                comparisons.loc[:, col] = 'Unspecified'
+            comparisons.loc[comparisons[col].isna(), col] = 'Unspecified'
 
+        # list of all datasources for filtering
+        self.data_sources = comparisons.Source.fillna('Unspecified').unique()
+        # main metadata tables
+        self.comparisons = comparisons
         self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', index_col=0)
 
         if print_validations:
             # Print information that might be helpful in spotting data validity issues
             # Check for comparisons present in the metadata/actual-data but missing
             #   in the other
+            all_good = True
             for ans in self.available_analyses:
                 score_comps = self.exp_data[ans]['score'].columns
                 meta_comps = self.comparisons.index
@@ -102,7 +108,9 @@ class DataSet:
                 meta_in_score = meta_comps.isin(score_comps)
                 missing_in_data = meta_comps[~meta_in_score]
                 # todo log.warning
+                # todo check experiments metadata
                 if missing_in_data.shape[0] > 0:
+                    all_good = False
                     print(
                         f"Comparisons in comparisons metadata but not in {ans}_score.csv:"
                         f"\n    {', '.join(missing_in_data)}\n"
@@ -110,10 +118,19 @@ class DataSet:
                 score_in_meta = score_comps.isin(meta_comps)
                 missing_in_score = score_comps[~score_in_meta]
                 if missing_in_data.shape[0] > 0:
+                    all_good = False
                     print(
                         f"Comparisons in {ans}_score.csv, but not in comparisons metadata:"
                         f"\n    {', '.join(missing_in_score)}\n"
                     )
+            comps = self.comparisons.index
+            if comps.duplicated().any():
+                all_good = False
+                print('Duplicate comparisons found - this will probably stop the server from working:')
+                print('   ' , ', '.join(sorted(comps.index[comps.index.duplicated(keep=False)])))
+
+            if all_good:
+                print(f'All comparisons data in {source_directory} are consistent')
 
     def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
                       data_sources:Collection= 'all') -> Dict[str, pd.DataFrame]:
