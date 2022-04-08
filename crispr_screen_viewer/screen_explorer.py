@@ -22,15 +22,23 @@ from crispr_screen_viewer.shared_components import (
     LOG
 )
 
+from crispr_screen_viewer.functions_etc import (
+    DataSet,
+    parse_expid
+)
+
+import copy
+
 Div = html.Div
 
-def init_msgv(app, data_set, hide_data_selectors=False) -> Div:
+def init_msgv(app, data_set:DataSet, public_version=False) -> Div:
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
 
-    metadata = data_set.comparisons
+    comparisons = data_set.comparisons
 
-    if hide_data_selectors:
+
+    if public_version:
         source_display = 'none'
     else:
         source_display = 'block'
@@ -59,19 +67,34 @@ def init_msgv(app, data_set, hide_data_selectors=False) -> Div:
                     multi=True,
                     style={'height':'80px', 'width':'250px'},
                     value=[],
-                    options=[{'label':v, 'value':v} for v in sorted(metadata[col].unique())]
+                    options=[{'label':v, 'value':v} for v in sorted(comparisons[col].unique())]
                 )],
                 style={'display':'inline-block'})
         )
 
     # construct data table with selected columns from the metadata
-    metadata_columns = ['Comparison ID', 'Experiment ID', 'Treatment', 'Dose', 'Growth inhibition %',
-                       'Days grown', 'Cell line', 'KO',  'Library', 'Source',
-                       'Available analyses']
+    if not public_version:
+        metadata_columns = ['Comparison ID', 'Experiment ID', 'Treatment', 'Dose', 'Growth inhibition %',
+                           'Days grown', 'Cell line', 'KO',  'Library', 'Source',
+                           'Available analyses']
+        table_data = comparisons.to_dict('records')
+    else:
+        metadata_columns = [ 'Treatment', 'KO', 'Cell line', 'Library', 'Dose', 'DOI', 'Citation']
+        table_data = comparisons
+
+        # get the experiment data for these comparisons
+        for k in ('DOI', 'Citation'):
+            table_data.loc[:, k] = table_data['Experiment ID'].apply(
+                lambda exp: data_set.experiments_metadata.loc[exp, k]
+            )
+        table_data = table_data.to_dict('records')
+
+
+    print(table_data[:2])
     table_of_comparisons = dash_table.DataTable(
         id='comparisons-table',
         columns=[{'name':c, 'id':c} for c in metadata_columns],
-        data=metadata.to_dict('records'),
+        data=table_data,
         sort_action='native',
         sort_mode="multi",
         selected_rows=[],
@@ -141,7 +164,7 @@ def init_msgv(app, data_set, hide_data_selectors=False) -> Div:
 
         # filter the table
         filters = filters[:-2]
-        filtered_table = metadata.copy()
+        filtered_table = comparisons.copy()
         # go through each of the filters, apply them to the table_of_comparisons
         for col, filtr in zip(filter_cols, filters):
             if not filtr:
