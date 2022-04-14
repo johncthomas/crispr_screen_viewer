@@ -415,6 +415,12 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
             )
         )
 
+        expander=1.1
+        xymax = max(x.max(), y.max())*expander
+        xymin = min(x.min(), y.min())/expander
+        fig.update_xaxes(range=[xymin, xymax])
+        fig.update_yaxes(range=[xymin, xymax])
+
         fig.update_layout(
             title=title,
             xaxis_title=xy_labs[0],
