@@ -15,7 +15,6 @@ from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
-    external_stylesheets,
     get_lab_val,
     get_reg_stat_selectors,
     get_annotation_dicts,
@@ -24,18 +23,11 @@ from crispr_screen_viewer.shared_components import (
 )
 
 
-def launch(source_directory:Union[str, os.PathLike], port, debug=False):
+def initiate(app, data_set):
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
 
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-    if debug:
-        LOG.setLevel(logging.DEBUG)
-
-    source_directory = pathlib.Path(source_directory)
-
-    data_set = DataSet(source_directory)
     comparisons = data_set.comparisons
     experiments_metadata = data_set.experiments_metadata
     print(experiments_metadata)
@@ -210,6 +202,11 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     )
 
     layout = Div([
+        html.H1('Compare results'),
+        html.P('Choose two sets of results and plot the gene NormZ scores against each other. '
+               'The two results must be from the same experiment and time point group so that the '
+               'comparison is likely to be meaningful. This can be used to, for example, observe '
+               'synthetic effects between two treatments.'),
         selected_store,
         previous_rows,
         Div(
@@ -220,7 +217,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         ]),
         Div([tabs]),
     ])
-    app.layout = layout
+
 
     ################
     # CALLBACKS
@@ -289,6 +286,7 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
         shared_genes = x.index.intersection(y.index)
         x, y = [xy[shared_genes] for xy in (x,y)]
         return x, y
+
 
     # update the keys stored in the data store, and gene selection options
     @app.callback(
@@ -454,18 +452,31 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
 
         return fig, table_output
 
-    ## gene selection
-    app.run_server(debug=debug, host='0.0.0.0', port=port)
+    return layout
+
 
 if __name__ == '__main__':
-    args = sys.argv
-    if (len(args) == 1) or (args[1] in ('-h', '--help')):
-        print('usage: comparison_maker.py source_dir port [debug]\n    Any value in the debug position means True.')
-    source = sys.argv[1]
-    port = sys.argv[2]
-    if len(sys.argv) > 3:
-        debug = True
-    else:
-        debug = False
+    def main():
+        args = sys.argv
+        if (len(args) == 1) or (args[1] in ('-h', '--help')):
+            print('usage: comparison_maker.py source_dir port [debug]\n    Any value in the debug position means True.')
+        source = sys.argv[1]
+        port = sys.argv[2]
+        if len(sys.argv) > 3:
+            debug = True
+        else:
+            debug = False
 
-    launch(source, port, debug)
+        app = dash.Dash(__name__)
+
+        if debug:
+            LOG.setLevel(logging.DEBUG)
+
+        source_directory = pathlib.Path(source)
+
+        data_set = DataSet(source_directory)
+
+        initiate(app, data_set)
+        app.run_server(debug=debug, host='0.0.0.0', port=int(port))
+
+    main()

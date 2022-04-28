@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import sys
 from argparse import ArgumentParser
-from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer#, comparison_maker
+from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer, comparison_maker
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
     #external_stylesheets,
@@ -75,9 +75,11 @@ def intiate_app(data_set, hide_source_selector=False, ):
     app = dash.Dash(__name__,  server=server,
                     url_base_pathname='/')
 
-    # register the callbacks
+    # register the callbacks and get the page layouts
     msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, hide_data_selectors=hide_source_selector)
     se_layout = screen_explorer.initiate(app, data_set, public_version=hide_source_selector)
+    cm_layout = comparison_maker.initiate(app, data_set)
+
 
     landing_page = Div([
         html.H1('DDR CRISPR screens data explorer'), html.Br(),
@@ -92,6 +94,8 @@ def intiate_app(data_set, hide_source_selector=False, ):
     # links change the url, a callback detects changes to this
     sidebar = Div(
         [
+            dcc.Link('Home', href='/'),
+            html.Br(),
             dcc.Link('Search genes', href='/gene-explorer'),
             html.Br(),
             dcc.Link('Explore screens', href='/screen-explorer'),
@@ -115,14 +119,17 @@ def intiate_app(data_set, hide_source_selector=False, ):
         [Input('url', 'pathname')],
     )
     def change_div(pathname):
+
         if pathname == '/gene-explorer':
             return msgv_layout
         elif pathname == '/screen-explorer':
             return se_layout
+        elif pathname == '/comparison-explorer':
+            return cm_layout
         elif not pathname or pathname == '/':
             return landing_page
         else:
-            return html.P('404')
+            return html.P('404, page not found')
 
     return app
 
