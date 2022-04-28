@@ -112,10 +112,8 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     volcano = dcc.Graph(
         id='volcano0',
         config={
-
             'editable':True,
             'edits':{'annotationPosition':False},
-
         },
         style={'height': '800px',
                'padding':'0px'},
@@ -124,7 +122,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         # figure={'layout':{'clickmode':'event+select',
         #                   'dragmode':'select'}, }
     )
-
 
     volcano_layout = [
         Div(get_stat_source_selector('volc', 'Analysis:')),
@@ -158,8 +155,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     # add authors to comparisons, will be used in filtering call back
     #todo use this or remove it
     comparisons.loc[:, 'Author'] = comptab_data.Citation.apply(lambda x: x.split(', ')[0])
-
-
 
     # ** table_of_experiments **
     # get the grouped 'Treatment', 'Cell line', 'KO', 'Library' for experiments
@@ -341,7 +336,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         ),
     ])
 
-
     se_layout = Div([
         html.H1("Screens explorer"),
         tabs,
@@ -464,7 +458,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
     # Output data for the volcano chart. X is LFC from mageck
     #  Y is changable source of significance
-    #  I don't think there's any need to have this separate from
+    #  Not sure this needs to be split from render_volcano
     @app.callback(
         Output('volcano-data', 'data'),
         Output('volc-gene-dropdown', 'options'),
@@ -515,10 +509,9 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
         State('comp-table', 'data'),
         State('comp-table', 'selected_rows'),
-        State('volc-stat-source-selector', 'value'),
     )
     def render_volcano(selected_genes, xy_genes,
-                       table_data, selected_row, score_type):
+                       table_data, selected_row):
 
         # debug device
         def count_upper():
@@ -537,8 +530,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         # dcc.Store converts this to a list...
         x, fdr = [pd.Series(xy, index=genes) for xy in (x,fdr)]
         y = fdr.apply(lambda _x: -np.log10(_x))
-
-        print(x.apply(type).value_counts())
 
         fig = go.Figure(
             data=go.Scattergl(
@@ -578,8 +569,32 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         LOG.debug(str(fig))
         return fig
 
+    # update selected genes by points that are selected on the graph
+    # this should only ever add points.
+    @app.callback(
+        Output('volc-gene-dropdown', 'value'),
+        Input('volcano0', 'selectedData'),
+        State('volc-gene-dropdown', 'value')
+    )
+    def add_volcano_selection(selected_data, dropdown_genes):
+        LOG.debug(f'add_volcano_selection, {selected_data}')
+
+        if not selected_data:
+            raise PreventUpdate
+
+        selected_genes = set()
+        for p in selected_data['points']:
+            selected_genes.add(p['text'])
+
+        if selected_genes.issubset(dropdown_genes):
+            raise PreventUpdate
+
+        return dropdown_genes+list(selected_genes.difference(dropdown_genes))
+
 
     return se_layout
+
+
 
 
 # if __name__ == '__main__':
