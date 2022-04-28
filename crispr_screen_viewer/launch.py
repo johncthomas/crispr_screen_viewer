@@ -145,39 +145,3 @@ if __name__ == '__main__':
     app = intiate_app(data_set, hide_source_selector)
     app.run_server(debug=debug, host='0.0.0.0', port=port)
 
-
-
-
-# This method ended up being weirdly inconsistent, to launch with Gunicorn or
-#   whatever, just have a server specific .py that imports initiate_app
-#   and creates the server
-
-# def make_falsy_false(var):
-#     """Return False if var is a string saying "no" or "false", ignoring
-#     capitals. Otherwise returns var.
-#     """
-#     if type(var) is str:
-#         if var.lower() in ('no', 'false'):
-#             return False
-#     return var
-# # if this has been set we get options from the environment
-# # otherwise from the command line
-# using_env_args = os.getenv('DDRCS', False)
-# using_env_args = make_falsy_false(using_env_args)
-# if using_env_args:
-#     data_set = load_dataset(os.getenv('DDRCS_DATA', None))
-#     debug = os.getenv('DDRCS_DEBUG', False)
-#     if debug:
-#         debug = True
-#     port = os.getenv('DDRCS_PORT', 80)
-#     # not sure if it needs to be int, but this functions as validation
-#     port = int(port)
-#
-#     # Hide the data selection boxes if it's public
-#     private = make_falsy_false(os.getenv('DDRCS_PRIVATE', False))
-#     if private:
-#         hide_source_selector = False
-#     else:
-#         hide_source_selector = True
-#     print(f"using env args, port = {port}")
-# else:
