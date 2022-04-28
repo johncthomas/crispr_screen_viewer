@@ -396,6 +396,16 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
             )
         )
 
+        expander = 0.1
+
+        xymax = max(x.max(), y.max())
+        xymin = min(x.min(), y.min())
+        pad = abs(xymax-xymin)*expander
+        xymax += pad
+        xymin -= pad
+        fig.update_xaxes(range=[xymin, xymax])
+        fig.update_yaxes(range=[xymin, xymax])
+
         fig.update_layout(
             title=title,
             xaxis_title=xy_labs[0],
@@ -448,6 +458,9 @@ def launch(source_directory:Union[str, os.PathLike], port, debug=False):
     app.run_server(debug=debug, host='0.0.0.0', port=port)
 
 if __name__ == '__main__':
+    args = sys.argv
+    if (len(args) == 1) or (args[1] in ('-h', '--help')):
+        print('usage: comparison_maker.py source_dir port [debug]\n    Any value in the debug position means True.')
     source = sys.argv[1]
     port = sys.argv[2]
     if len(sys.argv) > 3:

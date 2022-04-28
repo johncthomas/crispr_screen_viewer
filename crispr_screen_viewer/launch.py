@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer#, comparison_maker
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
-    external_stylesheets,
+    #external_stylesheets,
     # get_lab_val,
     # get_reg_stat_selectors,
     # get_annotation_dicts,
@@ -72,12 +72,12 @@ def intiate_app(data_set, hide_source_selector=False, ):
     server = flask.Flask(__name__)
 
 
-    app = dash.Dash(__name__, external_stylesheets=external_stylesheets, server=server,
+    app = dash.Dash(__name__,  server=server,
                     url_base_pathname='/')
 
     # register the callbacks
-    msgv_layout = multiscreen_gene_viewer.init_msgv(app, data_set, hide_data_selectors=hide_source_selector)
-    se_layout = screen_explorer.init_msgv(app, data_set, public_version=hide_source_selector)
+    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, hide_data_selectors=hide_source_selector)
+    se_layout = screen_explorer.initiate(app, data_set, public_version=hide_source_selector)
 
     landing_page = Div([
         html.H1('DDR CRISPR screens data explorer'), html.Br(),
@@ -85,13 +85,19 @@ def intiate_app(data_set, hide_source_selector=False, ):
         html.P("Search gene names to find if they have been significantly enriched/depleted in experiments."),  html.Br(),
         html.H3('Explore screens:'), html.Br(),
         html.P('Find experiments, filtering by things such as treatment used, and view the results of that experiment.'), html.Br(),
+        html.H3('Compare results:'), html.Br(),
+        html.P('Compare the results of two treatments against each other.'), html.Br(),
     ])
 
     # links change the url, a callback detects changes to this
     sidebar = Div(
-        [dcc.Link('Search genes', href='/gene-explorer'),
-         html.Br(),
-         dcc.Link('Explore screens', href='/screen-explorer')],
+        [
+            dcc.Link('Search genes', href='/gene-explorer'),
+            html.Br(),
+            dcc.Link('Explore screens', href='/screen-explorer'),
+            html.Br(),
+            dcc.Link('Compare results', href='/comparison-explorer')
+        ],
         className='sidenav',
         id='sidebar'
     )
@@ -124,6 +130,11 @@ def intiate_app(data_set, hide_source_selector=False, ):
 
 if __name__ == '__main__':
     data_set, port, debug, hide_source_selector = parse_clargs()
+    LOG.setLevel('DEBUG'); print('LOG level DEBUG')
+    import logging
+    log = logging.getLogger('werkzeug')
+    log.setLevel(logging.ERROR)
+
     app = intiate_app(data_set, hide_source_selector)
     app.run_server(debug=debug, host='0.0.0.0', port=port)
 

@@ -128,9 +128,19 @@ class DataSet:
                 all_good = False
                 print('Duplicate comparisons found - this will probably stop the server from working:')
                 print('   ' , ', '.join(sorted(comps.index[comps.index.duplicated(keep=False)])))
-
             if all_good:
                 print(f'All comparisons data in {source_directory} are consistent')
+
+            # check all comparison ExpID appear in experiments metadata
+            # the reverse isn't fatal
+            expids = self.comparisons['Experiment ID'].unique()
+            found = [xi in self.experiments_metadata.index for xi in expids]
+            if not all(found):
+                not_found = [x for (x, b) in zip(expids, found) if not b]
+                print('Experiment IDs used in comparisons_metadata not found in experiments_metadata:\n'
+                      f'   {", ".join(not_found)}')
+
+
 
     def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
                       data_sources:Collection= 'all') -> Dict[str, pd.DataFrame]:

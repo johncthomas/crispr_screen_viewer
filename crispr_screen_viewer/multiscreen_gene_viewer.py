@@ -24,8 +24,8 @@ border_style = {'border': '4px solid #3DD178',
 # 1.1 data source selection
 # 1.2 Updating for Dash v2 and multipage app
 msgv_version = '1.2.0'
-def init_msgv(app, data_set, hide_data_selectors=False):
-    """Register callbacks to app, generate"""
+def initiate(app, data_set, hide_data_selectors=False) -> Div:
+    """Register callbacks to app, generate layout"""
 
     if hide_data_selectors:
         source_display = 'none'

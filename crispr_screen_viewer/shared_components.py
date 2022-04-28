@@ -6,17 +6,19 @@ from dash import dcc, html
 Div = html.Div
 #from crispr_screen_viewer.functions_etc import DataSet
 
+from typing import Tuple, List, Dict
+
 logging.basicConfig()
 LOG = logging.getLogger('screen_viewers')
 
 #from https://sashamaps.net/docs/resources/20-colors/, 99%,
-from typing import List
+
 
 colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
            '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
 get_lab_val = lambda arr: [{'label': v, 'value':v} for v in arr]
 styles = {'selector':{'display': 'inline-block', 'border-collapse': 'separate',
-                      'border-spacing': '15px 50px', 'margin-bottom': '15px'},
+                      'border-spacing': '15px 50px', 'margin-bottom': '15px', 'width':'150px'},
           'hidden':{'display':'none'}}
 big_text_style = {
     'font-family': 'Arial, Helvetica, sans-serif',
@@ -25,7 +27,29 @@ big_text_style = {
     'word-spacing': '-0.4px',
     'font-weight': '700'}
 
-def get_annotation_dicts(xs,ys,txts, annote_kw=None):
+def get_treatment_label(row, analysis_label='') -> Tuple[str, str]:
+    """Pass comparison row (either from data_set.comparisons.loc[compid] or
+    from dashtable data), return a pair of strings.
+
+    First string comparison specific, second line library, experiment ID."""
+    if '-KO' not in row['Treatment']:
+        if row['KO'] == 'WT':
+            ko = ''
+        else:
+            ko = f" {row['KO']}-KO"
+    else:
+        ko = ''
+
+    if analysis_label:
+        analysis_label = f"{analysis_label}, "
+
+
+    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Time point group']})",
+             f"{row['Library']} library, experiment ID {row['Experiment ID']}")
+
+    return title
+
+def get_annotation_dicts(xs,ys,txts, annote_kw=None) -> List[dict]:
     """dicts defining annotations with x/y/text values as given.
 
     annote_kw used to update/override formatting values of annotations.
@@ -49,6 +73,8 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None):
         d.update(annote_kw)
         annotations.append(d)
     return annotations
+
+
 
 
 def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
@@ -185,4 +211,4 @@ def create_datatable(data_df=None, columns_if_no_df=None):
 
 
 
-external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+#external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
