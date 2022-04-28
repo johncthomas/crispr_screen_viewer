@@ -31,3 +31,27 @@ other setting when conditions are true.*/
 .graphbox {
     margin-left: 160px;
 }
+
+.selector-tab {
+    background-color: #ccddff !important;
+    width: 300px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+
+}
+.selector-tab--selected {
+    background-color: #b3ccff !important;
+}
+
+.data-tab {
+    background-color: #ccff99 !important;
+    width: 300px !important;
+    display: flex !important;
+    align-items: center;
+    justify-content: center;
+
+}
+.data-tab--selected {
+    background-color: #b3ff66 !important;
+}
