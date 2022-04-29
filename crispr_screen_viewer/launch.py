@@ -47,10 +47,14 @@ def parse_clargs():
         required=True,
     )
     launcher_parser.add_argument(
-        '--debug', action='store_true',
-        help='Launch app in debug mode'
+        '--app-debug', action='store_true',
+        help='Launch Dash app in debug mode, tends to cause issues but might be useful.'
     )
-
+    launcher_parser.add_argument(
+        '--debug-messages', action='store_true',
+        help='Set log level to debug, print messages describing the internal state of the app. '
+             'Also hide Werkzeug messages'
+    )
     launcher_parser.add_argument(
         '--hide-source-selector', action='store_true',
         help="Don't hide the data-source and analysis-type selectors."
@@ -66,7 +70,7 @@ def parse_clargs():
 
     data_set = load_dataset(args.data_path)
 
-    return data_set, args.port, args.debug, args.hide_source_selector
+    return data_set, args.port, args.app_debug, args.debug_messages, args.hide_source_selector
 
 def intiate_app(data_set, hide_source_selector=False, ):
     server = flask.Flask(__name__)
@@ -136,12 +140,14 @@ def intiate_app(data_set, hide_source_selector=False, ):
 
 
 if __name__ == '__main__':
-    data_set, port, debug, hide_source_selector = parse_clargs()
-    LOG.setLevel('DEBUG'); print('LOG level DEBUG')
+    data_set, port, dash_debug, debug_messages, hide_source_selector = parse_clargs()
+
     import logging
-    log = logging.getLogger('werkzeug')
-    log.setLevel(logging.ERROR)
+    if debug_messages:
+        werklog = logging.getLogger('werkzeug')
+        werklog.setLevel(logging.ERROR)
+        LOG.setLevel('DEBUG')
 
     app = intiate_app(data_set, hide_source_selector)
-    app.run_server(debug=debug, host='0.0.0.0', port=port)
+    app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
 
