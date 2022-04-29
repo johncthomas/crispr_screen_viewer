@@ -7,9 +7,9 @@ from typing import Collection, Union, Dict
 #from crispr_screen_viewer.functions_etc import index_of_true, DataSet
 from crispr_screen_viewer.shared_components import (
     create_datatable,
-    get_data_source_selector,
     get_lab_val,
     get_reg_stat_selectors,
+    get_stat_source_selector,
     colours,
     big_text_style,
 )
@@ -24,13 +24,13 @@ border_style = {'border': '4px solid #3DD178',
 # 1.1 data source selection
 # 1.2 Updating for Dash v2 and multipage app
 msgv_version = '1.2.0'
-def initiate(app, data_set, hide_data_selectors=False) -> Div:
+def initiate(app, data_set, public_version=True) -> Div:
     """Register callbacks to app, generate layout"""
 
-    if hide_data_selectors:
-        source_display = 'none'
-    else:
-        source_display = 'inline-block'
+    # if public:
+    #     source_display = 'none'
+    # else:
+    #     source_display = 'inline-block'
 
     graphid = 'msgv'
 
@@ -53,8 +53,11 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
             html.P('Select genes:', style=big_text_style),
             dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes', value=[],
                          options=get_lab_val(data_set.genes), multi=True),
+            get_stat_source_selector('msgv', 'Analysis:')
         ],
+
         style={'margin-bottom': '15px'})
+
 
     # the graph/table object and the data prefilters
     graph_and_data_selection_div = Div([
@@ -78,11 +81,10 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
                       dcc.Tab([table], label='Table', value='table')
                   ])
              ]),
-        Div([
-            Div(get_reg_stat_selectors(app, id_prefix='msgv'),
-                style={'display':source_display, 'width':'170px','vertical-align':'top'}),
-            Div(get_data_source_selector(data_set, id_prefix=graphid), style={'display':source_display})
-        ])
+        # Div([
+        #     Div(get_reg_stat_selectors(app, id_prefix='msgv'),
+        #         style={'display':source_display, 'width':'170px','vertical-align':'top'}),
+        # ])
     ])
 
     # this is also used for output of one function, so is defined once here
@@ -113,7 +115,11 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
     # make the dropdowns for filtering
     filter_dropdowns = []
     filter_cols = ['Treatment', 'Experiment ID', 'KO', 'Cell line',
-                   'Library', 'Source', 'Timepoint']
+                   'Library', 'Timepoint']
+
+    if not public_version:
+        filter_cols += ['Source']
+
     for col in filter_cols:
         filter_dropdowns.append(
             html.Div([dcc.Dropdown(
@@ -142,12 +148,9 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
     @app.callback(
         [Output('msgv-gene-violins', 'figure'),
          Output('msgv-table-div', 'children'),
-         Output('msgv-order-by', 'options'),
-         Output('msgv-missing-datasets', 'children')],
+         Output('msgv-order-by', 'options'),],
 
-        [Input('msgv-score-selector', 'value'),
-         Input('msgv-fdr-selector', 'value'),
-         Input('msgv-data-source-selector', 'value'),
+        [Input('msgv-stat-source-selector', 'value'),
 
          Input('msgv-gene-selector', 'value'),
          Input('msgv-show-boxplots', 'value'),
@@ -157,19 +160,21 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
          Input('msgv-color-by', 'value'),
          ] + [Input('msgv-'+cid, 'value') for cid in filter_cols]
     )
-    def update_figure(score_type, fdr_type, selected_data_sources,
+    def update_figure(score_type,
                       selected_genes, show_boxplots, fdr_thresh,
                       order_by, color_by, *filters):
 
-        data_tabs = data_set.get_score_fdr(score_type, fdr_type, selected_data_sources)
+        data_tabs = data_set.get_score_fdr(score_type, score_type, )
 
-        # Identify data sources that are unavailable for selected analyses
-        available_sources = data_set.comparisons.loc[data_tabs['fdr'].columns, 'Source'].unique()
-        missing_data_sources = [d for d in selected_data_sources if d not in available_sources]
-        if missing_data_sources:
-            missing_data_sources = "(unavailable with current analysis type: "+', '.join(missing_data_sources)+')'
-        else:
-            missing_data_sources = '(All selections available for analysis type)'
+        # # Identify data sources that are unavailable for selected analyses
+        # # hopefully depreciated - will probably take a different tack if it ends up not everything
+        # #  can be analysed by everything
+        # available_sources = data_set.comparisons.loc[data_tabs['fdr'].columns, 'Source'].unique()
+        # missing_data_sources = [d for d in selected_data_sources if d not in available_sources]
+        # if missing_data_sources:
+        #     missing_data_sources = "(unavailable with current analysis type: "+', '.join(missing_data_sources)+')'
+        # else:
+        #     missing_data_sources = '(All selections available for analysis type)'
 
         # get boolean masks for which comparisons to include in the charts
         # first get comparisons filtered by metadata filters
@@ -237,6 +242,6 @@ def initiate(app, data_set, hide_data_selectors=False) -> Div:
 
         sort_by_opts = get_lab_val(order_by_categories+ selected_genes)
 
-        return fig, dtable, sort_by_opts, [missing_data_sources]
+        return fig, dtable, sort_by_opts
 
     return msgv_layout
