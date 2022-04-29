@@ -76,7 +76,7 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None) -> List[dict]:
 
 
 
-
+# DEPRECIATED
 def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
     """Return radio selectors, for selecting stats to be used in plotting.
 
@@ -147,27 +147,46 @@ def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
         ],  id=id_prefix + 'mixed-div', style=styles['hidden'])
     ]
 
-def get_data_source_selector(data_set, id_prefix='') -> List[dcc.Checklist]:
-    """A Div with a checklist that will be populated data_sources and a
-    paragraph for reporting missing datasets
+# def get_data_source_selector(data_set, id_prefix='') -> List[dcc.Checklist]:
+#     """A Div with a checklist that will be populated data_sources and a
+#     paragraph for reporting missing datasets
+#
+#     IDs: data-source-selector, missing-datasets"""
+#
+#     if id_prefix:
+#         id_prefix = id_prefix+'-'
+#
+#     return [
+#         html.Label('Select data sources:', htmlFor=id_prefix+'data-source-selector'),
+#         dcc.Checklist(
+#             id=id_prefix+'data-source-selector',
+#             options=get_lab_val(data_set.data_sources),
+#             value=data_set.data_sources, # set all selected by default
+#             labelStyle={'display':'inline-block'}
+#         ),
+#         html.P([''], id=id_prefix+'missing-datasets'),
+#     ]
 
-    IDs: data-source-selector, missing-datasets"""
+options_analyses = [
+    {'label':'DrugZ', 'value':'drz'},
+    {'label':'MAGeCK',  'value':'mag'}
+]
 
-    if id_prefix:
-        id_prefix = id_prefix+'-'
+def get_stat_source_selector(idprefix, label) -> Div:
+    """List of single Div with dcc.RadioItems with id
+    idprefix+'-stat-source-selector'. Options from `options_analyses`"""
 
-    return [
-        html.Label('Select data sources:', htmlFor=id_prefix+'data-source-selector'),
-        dcc.Checklist(
-            id=id_prefix+'data-source-selector',
-            options=get_lab_val(data_set.data_sources),
-            value=data_set.data_sources, # set all selected by default
-            labelStyle={'display':'inline-block'}
-        ),
-        html.P([''], id=id_prefix+'missing-datasets'),
-    ]
+    sigsourceid = f'{idprefix}-stat-source-selector'
+    #sigtypeid   = f'{idprefix}-stat-type-selector'
 
-
+    return Div(style=styles['selector'], children=[
+        html.Label(label, htmlFor=sigsourceid),
+        dcc.RadioItems(
+            id=sigsourceid,
+            options=options_analyses,
+            value='drz',
+        )
+    ])
 
 # **DATATABLE**
 def create_datatable(data_df=None, columns_if_no_df=None):
