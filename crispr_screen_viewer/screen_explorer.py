@@ -19,7 +19,8 @@ from crispr_screen_viewer.shared_components import (
     get_annotation_dicts,
     big_text_style,
     styles,
-    LOG
+    LOG,
+    get_stat_source_selector
 )
 
 from crispr_screen_viewer.functions_etc import (
@@ -49,7 +50,10 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     screen_analyses and expyaml directories."""
 
     comparisons = data_set.comparisons
-
+    try:
+        comparisons = comparisons.drop('Available analyses', 1)
+    except:
+        pass
 
     if public_version:
         source_display = 'none'
@@ -69,21 +73,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     def doi_to_link(doi):
         return f"[{doi}](https://doi.org/{doi})"
 
-    def get_stat_source_selector(idprefix, label) -> Div:
-        """List of single Div with dcc.RadioItems with id
-        idprefix+'-stat-source-selector'. Options from `options_analyses`"""
-
-        sigsourceid = f'{idprefix}-stat-source-selector'
-        sigtypeid   = f'{idprefix}-stat-type-selector'
-
-        return Div(style=styles['selector'], children=[
-            html.Label(label, htmlFor=sigsourceid),
-            dcc.RadioItems(
-                id=sigsourceid,
-                options=options_analyses,
-                value='drz',
-            )
-        ])
 
     def get_gene_selector(idprefix) -> list:
         return [
@@ -103,11 +92,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     # ****COMPONENTS**** #
     # ################## #
 
-    options_analyses = [
-        {'label':'DrugZ', 'value':'drz'},
-        {'label':'MAGeCK',  'value':'mag'}
-    ]
-
     # **GRAPHS****
     volcano = dcc.Graph(
         id='volcano0',
@@ -124,7 +108,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     )
 
     volcano_layout = [
-        Div(get_stat_source_selector('volc', 'Analysis:')),
+        Div(get_stat_source_selector('volcano', 'Analysis:')),
         Div([volcano]),
         Div(get_gene_selector('volc'))
     ]
@@ -142,7 +126,10 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         m = comparisons.Timepoint.str.startswith(val)
         comparisons.loc[m, 'Time point group'] = lab
 
+
+
     comptab_data = comparisons.copy()
+    LOG.debug('Comparison tab columns'+str(comptab_data.columns))
 
     # get the experiment data for these comparisons
     for k in ('DOI', 'Citation'):
@@ -203,7 +190,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         ) for tabk in ('exp', 'comp')
     }
 
-    # # ** Data Table **
+    # # ** DATA TABLE **
     # # Filled with data when a comparison is selected
     idprfx_res_table = 'gene-results'
     datatable = dash_table.DataTable(
@@ -228,14 +215,18 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         Output(idprfx_res_table+'-table', 'columns'),
         Output(idprfx_res_table+'-table', 'data'),
         Output(idprfx_res_table+'-title', 'children'),
+        Output('volcano-stat-source-selector', 'value'),
+
         Input('selected-comp', 'data'),
+        Input('volc-gene-dropdown', 'value'),
         Input(idprfx_res_table+'-stat-source-selector', 'value'),
-        Input('volc-gene-dropdown', 'value')
+        State('volcano-stat-source-selector', 'value'),
     )
-    def update_results_table_data(selected_comp, stat_source, selected_genes):
+    def update_results_table_data(selected_comp, selected_genes, stat_source,
+                                  volcano_stat_source, ):
+        LOG.debug(f'CALLBACK: update_results_table_data({selected_comp}, {stat_source})')
         if not selected_comp:
             raise PreventUpdate
-        LOG.debug(f'CALLBACK: update_results_table_data({selected_comp}, {stat_source})')
 
         # labels for the analysis type
         ans_lab = data_set.analysis_labels[stat_source]
@@ -249,7 +240,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
         # index is genes
         index = lfc.index.union(score.index).union(fdr.index)
-        is_selected = index.map(lambda g: ['❌','✔️'][g in selected_genes])
+        is_selected = index.map(lambda g: ['❌','Selected'][g in selected_genes])
 
         # Build the table
         results_tab = pd.DataFrame(
@@ -261,18 +252,24 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
             },
             index=index
         )
+        no_stats = results_tab[[score_lab, 'FDR']].isna().any(1)
+        results_tab = results_tab.loc[~no_stats]
         results_tab.index.name = 'Gene'
 
         # Create the Output objects
         results_data = results_tab.reset_index().to_dict('records')
 
         columns = [column_dict(x) for x in results_data[0].keys()]
-        treatment_label = get_treatment_label(data_set.comparisons.loc[selected_comp], ans_lab)
+        treatment_label = get_treatment_label(comparisons.loc[selected_comp], ans_lab)
 
         treatment_para = [html.H3(f"{treatment_label[0]}"),
                           html.H4(f"{treatment_label[1]}")]
 
-        return columns, results_data, treatment_para
+        # don't output stat_source to next selector if they all match
+        if stat_source == volcano_stat_source:
+            stat_source = dash.no_update
+
+        return columns, results_data, treatment_para, stat_source
 
 
     # ** filter_dropdowns **
@@ -309,7 +306,9 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         # experiment selector
         dcc.Tab(value='exp-tab', label='Select Experiment',
                 className='selector-tab', selected_className='selector-tab--selected', children=[
-            html.P(['Select an experiment using the table below. Dropdowns filter rows to find experiments using specific treatments, etc.'], style={'margin-top': '15px'}),
+            html.P(['Choose an experiment below to filter the options in "Select Comparison" table. '
+                    'Go straight to Select Comparison to see all options.'],
+                   style={'margin-top': '15px'}),
             Div(filter_dropdowns['exp'], style={'margin-bottom': '15px', }),
             Div([selctr_tables['exp']])
         ]),
@@ -318,7 +317,8 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
             value='comp-tab', label='Select Comparison',
             className='selector-tab', selected_className='selector-tab--selected', children=[
                 html.P(style={'margin-top': '15px'}, children=[
-                    'Select a comparison using the table below. Dropdowns filter rows to find experiments using specific treatments, etc.'
+                    'Select a specific comparison using the table below. Click on tabs to '
+                    'the right to see results for a selected comparison'
                 ]),
             Div(filter_dropdowns['comp'], style={'margin-bottom': '15px', }),
             Div([selctr_tables['comp']])
@@ -338,6 +338,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
     se_layout = Div([
         html.H1("Screens explorer"),
+        html.P("Select data using the blue tabs, and view results in the green tabs."),
         tabs,
         Div([html.P(id='debug')], ),
 
@@ -358,7 +359,9 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
             State(table_id, 'selected_rows'),
             State(table_id, 'data'),
         )
-        def filter_datatable(*filters_etc):
+        def filter_selector_table(*filters_etc):
+            """Filter rows in the exp or comp tables based on value values in the
+            filter boxes."""
             LOG.debug(f'CALLBACK: filter_datable()')
             selected_row = filters_etc[-2]
             table_data   = filters_etc[-1]
@@ -462,15 +465,16 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     @app.callback(
         Output('volcano-data', 'data'),
         Output('volc-gene-dropdown', 'options'),
+        Output(idprfx_res_table+'-stat-source-selector', 'value'),
 
         Input('selected-comp', 'data' ),
-        Input('volc-stat-source-selector', 'value'),
-
+        Input('volcano-stat-source-selector', 'value'),
+        State(idprfx_res_table+'-stat-source-selector', 'value')
     )
-    def update_volcano_data(compid, sig_source):
+    def update_volcano_data(compid, sig_source, table_stat_source):
 
         args_for_printing = {k:v for k, v in zip(
-            'selected_row, sig_source,  table_data'.split(', '),
+            'selected_row, sig_source'.split(', '),
             [compid, sig_source]
         )}
         LOG.debug(f'CALLBACK: update_volcano_data with {args_for_printing}')
@@ -492,9 +496,14 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         LOG.debug(f'End of update_volcano_data with:')
         LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('x', 'y')]))
 
+        # don't output stat_source to next selector if they all match
+        if sig_source  == table_stat_source:
+            sig_source = dash.no_update
+
         return (
             volcano_data,
             gene_options,
+            sig_source,
         )
 
     ####
@@ -590,7 +599,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
             raise PreventUpdate
 
         return dropdown_genes+list(selected_genes.difference(dropdown_genes))
-
 
     return se_layout
 
