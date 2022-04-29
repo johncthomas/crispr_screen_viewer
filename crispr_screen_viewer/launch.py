@@ -72,7 +72,7 @@ def parse_clargs():
 
     return data_set, args.port, args.app_debug, args.debug_messages, args.hide_source_selector
 
-def intiate_app(data_set, hide_source_selector=False, ):
+def initiate_app(data_set, hide_source_selector=False, ):
     server = flask.Flask(__name__)
 
 
