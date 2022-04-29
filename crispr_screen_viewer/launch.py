@@ -48,7 +48,7 @@ def parse_clargs():
     )
     launcher_parser.add_argument(
         '--app-debug', action='store_true',
-        help='Launch Dash app in debug mode, tends to cause issues but might be useful.'
+        help='Launch Dash app in debug mode, may be less functional but messages might be useful.'
     )
     launcher_parser.add_argument(
         '--debug-messages', action='store_true',
@@ -56,7 +56,7 @@ def parse_clargs():
              'Also hide Werkzeug messages'
     )
     launcher_parser.add_argument(
-        '--hide-source-selector', action='store_true',
+        '--public-version', action='store_true',
         help="Don't hide the data-source and analysis-type selectors."
              " In the future analysis-type might have its own option."
     )
@@ -70,9 +70,9 @@ def parse_clargs():
 
     data_set = load_dataset(args.data_path)
 
-    return data_set, args.port, args.app_debug, args.debug_messages, args.hide_source_selector
+    return data_set, args.port, args.app_debug, args.debug_messages, args.public_version
 
-def initiate_app(data_set, hide_source_selector=False, ):
+def initiate_app(data_set, public_version=False, ):
     server = flask.Flask(__name__)
 
 
@@ -80,8 +80,8 @@ def initiate_app(data_set, hide_source_selector=False, ):
                     url_base_pathname='/')
 
     # register the callbacks and get the page layouts
-    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, hide_data_selectors=hide_source_selector)
-    se_layout = screen_explorer.initiate(app, data_set, public_version=hide_source_selector)
+    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public_version=public_version)
+    se_layout = screen_explorer.initiate(app, data_set, public_version=public_version)
     cm_layout = comparison_maker.initiate(app, data_set)
 
 
@@ -140,14 +140,15 @@ def initiate_app(data_set, hide_source_selector=False, ):
 
 
 if __name__ == '__main__':
-    data_set, port, dash_debug, debug_messages, hide_source_selector = parse_clargs()
+    data_set, port, dash_debug, debug_messages, public = parse_clargs()
 
     import logging
     if debug_messages:
+        print('Debug messages on')
         werklog = logging.getLogger('werkzeug')
         werklog.setLevel(logging.ERROR)
         LOG.setLevel('DEBUG')
 
-    app = intiate_app(data_set, hide_source_selector)
+    app = initiate_app(data_set, public)
     app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
 
