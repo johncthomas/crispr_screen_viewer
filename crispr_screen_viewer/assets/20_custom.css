@@ -29,13 +29,13 @@ other setting when conditions are true.*/
 }
 
 .graphbox {
-    margin-left: 160px;
+    padding-bottom: 80px;
 }
 
 .selector-tab {
     background-color: #ccddff !important;
     width: 300px !important;
-    display: flex !important;
+    display: block; !important;
     align-items: center;
     justify-content: center;
 
@@ -54,4 +54,47 @@ other setting when conditions are true.*/
 }
 .data-tab--selected {
     background-color: #b3ff66 !important;
+}
+
+.myheader {
+	background-color: #37A6AE;
+    height: 95px !important;
+    z-index: 1;
+    display: flex; !important;
+    padding-bottom: 15px;
+
+}
+
+.navbar {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-evenly !important;
+    width: 640;
+
+}
+
+.navbar a {
+    font-size: 18px;
+    padding: 27px 15px 10px 15px;
+    color: #fefefe;
+    text-decoration: none;
+
+}
+
+.navbar a:hover {
+    font-weight: bolder;
+}
+
+.myfooter {
+    border-color: darkgray;
+    border-width: 3px;
+    height: 150px;
+    display: flex;
+    justify-content: center;
+
+}
+
+.myfooter img {
+    max-height: 65px;
+    padding: 5px 15px 5px 15px;
 }

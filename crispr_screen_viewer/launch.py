@@ -12,11 +12,14 @@ from crispr_screen_viewer.shared_components import (
     LOG
 )
 from dash import dash, html, dcc, Input, Output, State
+from dash.exceptions import PreventUpdate
 Div = html.Div
 import flask
-
+from pathlib import Path
 import pathlib, pickle, os
+import dash_bootstrap_components as dbc
 
+our_colour = '#3db9c2'
 
 def load_dataset(paff):
     """If paff is a dir, the dataset is constructed from the files
@@ -72,12 +75,12 @@ def parse_clargs():
 
     return data_set, args.port, args.app_debug, args.debug_messages, args.public_version
 
-def initiate_app(data_set, public_version=False, ):
+def initiate_app(data_set, public_version=False,):
     server = flask.Flask(__name__)
 
-
     app = dash.Dash(__name__,  server=server,
-                    url_base_pathname='/')
+                    url_base_pathname='/',
+                    external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     # register the callbacks and get the page layouts
     msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public_version=public_version)
@@ -85,37 +88,60 @@ def initiate_app(data_set, public_version=False, ):
     cm_layout = comparison_maker.initiate(app, data_set)
 
 
-    landing_page = Div([
-        html.H1('DDR CRISPR screens data explorer'), html.Br(),
-        html.H3('Search Genes:'), html.Br(),
-        html.P("Search gene names to find if they have been significantly enriched/depleted in experiments."),  html.Br(),
-        html.H3('Explore screens:'), html.Br(),
-        html.P('Find experiments, filtering by things such as treatment used, and view the results of that experiment.'), html.Br(),
-        html.H3('Compare results:'), html.Br(),
-        html.P('Compare the results of two treatments against each other.'), html.Br(),
+    landing_page = Div(style={"background-color":our_colour}, children=[
+        Div(style={'margin':'auto', 'width':'780px', 'height':'450px'}, children=[
+            html.H1(
+                'DDRcs – DDR CRISPR screen data explorer',
+                style={'color':'white',
+                       'text-align': 'center',
+                       'padding-top':'80px'},
+                ),
+            html.Br(),
+            html.P(
+                "A web portal for the exploration of DNA damage reponse (DDR) related CRISPR screens. "
+                "DDRcs allows researchers to see results for a few selected genes across all the screens "
+                "in the database, explore all the results of a specific screen, and directly compare treatments "
+                "to find differential effects.",
+                style={'color':'white',
+                       'text-align': 'center'},
+            )
+        ])
     ])
 
-    # links change the url, a callback detects changes to this
-    sidebar = Div(
-        [
-            dcc.Link('Home', href='/'),
-            html.Br(),
-            dcc.Link('Search genes', href='/gene-explorer'),
-            html.Br(),
-            dcc.Link('Explore screens', href='/screen-explorer'),
-            html.Br(),
-            dcc.Link('Compare results', href='/comparison-explorer')
-        ],
-        className='sidenav',
-        id='sidebar'
-    )
+    # header with links
+    header = html.Header(className='myheader', children=[
+        html.A(href="/",
+            children=html.Img(src="assets/images/DDRCS_LOGO_No_Background.png", alt="SPJ Logo",
+                 width='190px')
+        ),
+        html.Nav(className='navbar', children=[
+            html.A(href='/screen-explorer', children="Explore Screens"),
+            html.A(href='/gene-explorer', children="Explore Screens"),
+            html.A(href='/comparison-explorer', children="Explore Screens"),
+        ])
+    ])
 
-    graphs_div = Div([], id='graph-div', className='graphbox')
+    # main div that gets updated with content
+    contents = Div([], id='graph-div', className='graphbox')
+
+    # logos and external links
+    footer = Div(className='myfooter', children=[
+        html.A( rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
+               children=[html.Img(src="assets/images/univ_cam_logo.jpg",)]
+        ),
+        html.A(rel='noopener nofollow', target='_blank', href='https://www.gurdon.cam.ac.uk/', children=[
+            html.Img(src="assets/images/gurdon_logo.jpg", )
+        ]),
+        html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
+            html.Img(src="assets/images/new_lab_logo.png", )
+        ])
+    ])
 
     app.layout = Div([
         dcc.Location(id='url', refresh=False),
-        sidebar,
-        graphs_div,
+        header,
+        contents,
+        footer,
     ])
 
     @app.callback(
@@ -151,4 +177,7 @@ if __name__ == '__main__':
 
     app = initiate_app(data_set, public)
     app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
+
+
+
 
