@@ -306,19 +306,19 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         # experiment selector
         dcc.Tab(value='exp-tab', label='Select Experiment',
                 className='selector-tab', selected_className='selector-tab--selected', children=[
-            html.P(['Choose an experiment below to filter the options in "Select Comparison" table. '
-                    'Go straight to Select Comparison to see all options.'],
+            html.P(['Choose an experiment below to filter the options in "Select Treatment" table. '
+                    'Go straight to Select Treatment to see all options.'],
                    style={'margin-top': '15px'}),
             Div(filter_dropdowns['exp'], style={'margin-bottom': '15px', }),
             Div([selctr_tables['exp']])
         ]),
         # comparison selector
         dcc.Tab(
-            value='comp-tab', label='Select Comparison',
+            value='comp-tab', label='Select Treatment',
             className='selector-tab', selected_className='selector-tab--selected', children=[
                 html.P(style={'margin-top': '15px'}, children=[
-                    'Select a specific comparison using the table below. Click on tabs to '
-                    'the right to see results for a selected comparison'
+                    'Select a specific treatment using the table below. Click on tabs to '
+                    'the right to see results for a selected treatment'
                 ]),
             Div(filter_dropdowns['comp'], style={'margin-bottom': '15px', }),
             Div([selctr_tables['comp']])
@@ -577,6 +577,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         LOG.debug(next(counter))
         LOG.debug(str(fig))
         return fig
+
 
     # update selected genes by points that are selected on the graph
     # this should only ever add points.
