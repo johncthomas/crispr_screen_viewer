@@ -115,9 +115,9 @@ def initiate_app(data_set, public_version=False,):
                  width='190px')
         ),
         html.Nav(className='navbar', children=[
+            html.A(href='/gene-explorer', children="Query Genes"),
             html.A(href='/screen-explorer', children="Explore Screens"),
-            html.A(href='/gene-explorer', children="Explore Screens"),
-            html.A(href='/comparison-explorer', children="Explore Screens"),
+            html.A(href='/comparison-explorer', children="Compare treatments"),
         ])
     ])
 
