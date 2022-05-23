@@ -86,7 +86,7 @@ def initiate(app, data_set):
 
         x_selector = dcc.Dropdown(
             id='x-selector',
-            placeholder="Select X sample",
+            placeholder="Select X treatment",
             disabled=disabled,
             style=comp_selector_style,
             value=[],
@@ -94,7 +94,7 @@ def initiate(app, data_set):
         )
         y_selector = dcc.Dropdown(
             id='y-selector',
-            placeholder="Select Y sample",
+            placeholder="Select Y treatment",
             disabled=disabled,
             style=comp_selector_style,
             value=[],
@@ -122,16 +122,18 @@ def initiate(app, data_set):
     ]
 
     gene_dropdown = [
-        html.Label('5 (optional). Highlight genes :',htmlFor='gene-selector'),
-        dcc.Dropdown(
-            id='gene-selector',
-            placeholder='Label genes',
-            style={'width':'800px', 'height':'100px', },
-            value=[],
-            options=[],
-            clearable=True,
-            multi=True,
-        )
+        Div([
+            html.Label('5 (optional). Highlight genes :',htmlFor='gene-selector'),
+            dcc.Dropdown(
+                id='gene-selector',
+                placeholder='Label genes',
+                style={'width':'1000px', 'height':'100px', },
+                value=[],
+                options=[],
+                clearable=True,
+                multi=True,
+            )
+        ])
     ]
 
     ## IF we add another analysis method that's appropriate for this
@@ -202,7 +204,7 @@ def initiate(app, data_set):
     )
 
     layout = Div([
-        html.H1('Compare results'),
+        html.H1('Compare treatments'),
         html.P('Choose two sets of results and plot the gene NormZ scores against each other. '
                'The two results must be from the same experiment and time point group so that the '
                'comparison is likely to be meaningful. This can be used to, for example, observe '
@@ -213,9 +215,9 @@ def initiate(app, data_set):
             style={'display':'inline-block'},
             children=[
                 Div(selectors, style={'display':'inline-block'}),
-                Div(gene_dropdown, style={'display':'inline-block'})
         ]),
         Div([tabs]),
+        Div(gene_dropdown)
     ])
 
 

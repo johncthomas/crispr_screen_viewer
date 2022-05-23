@@ -104,8 +104,13 @@ def initiate_app(data_set, public_version=False,):
                 "to find differential effects.",
                 style={'color':'white',
                        'text-align': 'center'},
-            )
-        ])
+            ),
+            html.Br(),
+            # documentation link
+            Div(className='centre',
+                children=[dbc.Button("View documentation", href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
+                       color="light", className="lg-1", size='lg',  )]),
+        ]),
     ])
 
     # header with links

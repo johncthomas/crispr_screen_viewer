@@ -325,15 +325,16 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         ]),
         # volcano
         dcc.Tab(
-            label='Results Table', value=idprfx_res_table+'-tab',
-            className='data-tab', selected_className='data-tab--selected',
-            children=gene_results_layout
-        ),
-        dcc.Tab(
             label='Volcano plot', value='volcano-tab',
             className='data-tab', selected_className='data-tab--selected',
             children=volcano_layout
         ),
+        dcc.Tab(
+            label='Results Table', value=idprfx_res_table+'-tab',
+            className='data-tab', selected_className='data-tab--selected',
+            children=gene_results_layout
+        ),
+
     ])
 
     se_layout = Div([
