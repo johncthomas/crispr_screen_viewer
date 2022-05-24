@@ -139,9 +139,8 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     comptab_data['DOI'] = comptab_data['DOI'].apply(doi_to_link)
     comptab_data.loc[:, 'Comparison ID'] = comptab_data['Comparison ID']
 
-    # add authors to comparisons, will be used in filtering call back
-    #todo use this or remove it
-    comparisons.loc[:, 'Author'] = comptab_data.Citation.apply(lambda x: x.split(', ')[0])
+    # # add authors to comparisons, will be used in filtering call back
+    # comparisons.loc[:, 'Author'] = comptab_data.Citation.apply(lambda x: x.split(', ')[0])
 
     # ** table_of_experiments **
     # get the grouped 'Treatment', 'Cell line', 'KO', 'Library' for experiments
@@ -168,12 +167,20 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
     table_dataframes = {'exp':exptab_data, 'comp':comptab_data}
 
-    tab_columns = {
-        'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'Experiment ID',],
-        'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
-                'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Experiment ID',]
-    }
+    if public_version:
+        tab_columns = {
+            'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'Experiment ID',],
+            'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
+                    'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+                    'Library', 'Experiment ID',]
+        }
+    else:
+        tab_columns = {
+            'exp':[ 'Experiment ID', 'Treatment', 'Cell line', 'KO',  'Library', 'Citation'],
+            'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
+                    'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+                    'Library', 'Experiment ID',]
+        }
 
     selctr_tables = {
         tabk:dash_table.DataTable(
