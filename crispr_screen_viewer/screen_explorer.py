@@ -296,6 +296,9 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
     filter_keys = {'exp':['Treatment', 'Cell line', 'KO', 'Library'],
                    'comp':['Treatment', 'Cell line', 'KO', 'Library', 'Experiment ID']}
+    if not public_version:
+        for k, l in filter_keys.items():
+            l.append('Source')
     filter_dropdowns = {tabk:generate_filter_dropdowns(comptabk, tabk) for tabk, comptabk in filter_keys.items()}
 
 

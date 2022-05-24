@@ -118,7 +118,7 @@ def initiate(app, data_set, public_version=True) -> Div:
                    'Library', 'Timepoint']
 
     if not public_version:
-        filter_cols += ['Source']
+        filter_cols.append('Source')
 
     for col in filter_cols:
         filter_dropdowns.append(
