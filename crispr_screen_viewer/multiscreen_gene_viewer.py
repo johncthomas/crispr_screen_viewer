@@ -18,12 +18,7 @@ border_style = {'border': '4px solid #3DD178',
                 'border-radius': '14px'}
 
 
-# *updates
-# 1.0.3 data_version is an argument
-# 1.0.4 stat selector: mixed is now a separate selection
-# 1.1 data source selection
-# 1.2 Updating for Dash v2 and multipage app
-msgv_version = '1.2.0'
+
 def initiate(app, data_set, public_version=True) -> Div:
     """Register callbacks to app, generate layout"""
 
@@ -34,8 +29,6 @@ def initiate(app, data_set, public_version=True) -> Div:
 
     graphid = 'msgv'
 
-    def get_colour_map(list_of_things):
-        return {thing:colours[i%len(colours)] for i, thing in enumerate(list_of_things)}
 
     # Graph and table
     graph = dcc.Graph(
@@ -89,7 +82,7 @@ def initiate(app, data_set, public_version=True) -> Div:
 
     # this is also used for output of one function, so is defined once here
     order_by_categories = ['Mean score', 'Treatment', 'Experiment ID']
-
+    colourable_categories = ['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO']
     control_bar = Div([
         # Div([
         #     html.P('Use controls below to filter which comparisons are shown. ')
@@ -107,10 +100,21 @@ def initiate(app, data_set, public_version=True) -> Div:
             html.Label('Colour by:', htmlFor='msgv-color-by'),
             dcc.Dropdown(
                 id='msgv-color-by', value='Treatment',
-                options=get_lab_val(['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO'])
+                options=get_lab_val(colourable_categories)
             ),
         ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
     ])
+
+    #
+    # get color map, asssiging colors to the most common values first, so that
+    #   common things have different colours.
+    def get_colour_map(list_of_things):
+        return {thing:colours[i%len(colours)] for i, thing in enumerate(list_of_things)}
+    colour_maps = {}
+    for color_by in colourable_categories:
+        ordered_things = data_set.comparisons.loc[:, color_by].value_counts().index
+        cm = get_colour_map(ordered_things)
+        colour_maps[color_by] = cm
 
     # make the dropdowns for filtering
     filter_dropdowns = []
@@ -201,29 +205,33 @@ def initiate(app, data_set, public_version=True) -> Div:
         # assemble the figure
         fig = go.Figure()
         # plot the gene scatters
+        trace_numbers = [str(i) for i in range(1, len(trace_order)+1)]
         for gn in selected_genes:
             fig.add_trace(
                 go.Scatter(
-                    x=trace_order, y=filtered_scores.loc[gn, trace_order],
+                    x=trace_numbers,
+                    y=filtered_scores.loc[gn, trace_order],
                     mode='markers', name=gn,
                     marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}, 'symbol':'hexagram'}),
 
             )
         # add the boxplot traces if required
         if show_boxplots:
-            #todo sort by common, so common have different colours
-            colour_map = get_colour_map(data_set.comparisons.loc[:, color_by].unique())
-            for col in trace_order:
-                ys = data_tabs['score'][col]
-                xs = ys[:]
-                xs[:] = col
-                color_group = data_set.comparisons.loc[col, color_by]
+            for trace_i, comp in enumerate(trace_order):
+                # values that paramatise the box plot
+                ys = data_tabs['score'][comp]
+
+                boxlabels = pd.Series(str(trace_i+1), index=ys.index)
+
+                color_group = data_set.comparisons.loc[comp, color_by]
+
                 fig.add_trace(
-                    go.Box(x=xs, y=ys, name=color_group, boxpoints=False,
-                           line=dict(color=colour_map[color_group]))
+                    go.Box(x=boxlabels, y=ys, name=color_group, boxpoints=False,
+                           line=dict(color=colour_maps[color_by][color_group]))
                 )
         # labels
-        fig.update_yaxes(title_text=data_set.score_labels[score_type])
+        fig.update_layout(xaxis_title='Boxplot number',
+                          yaxis_title=data_set.score_labels[score_type],)
 
         # create the DataTable
         selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, trace_order]
@@ -233,7 +241,7 @@ def initiate(app, data_set, public_version=True) -> Div:
         selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
 
         selected_stats = selected_stats.applymap(lambda n: f"{n:.3}")
-        selected_stats.insert(0, 'Comparison', selected_stats.index)
+        selected_stats.insert(0, 'Boxplot number', trace_numbers)
         cols_oi = ['Experiment ID', 'Treatment', 'Dose', 'KO', 'Growth inhibition %', 'Days grown',
                    'Cell line', 'Library']
         selected_metadata = data_set.comparisons.loc[selected_stats.index, cols_oi]
