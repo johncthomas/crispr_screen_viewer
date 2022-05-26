@@ -44,57 +44,97 @@ cell_number_style = {
     'font-size':'17px'
 }
 
+idprfx_res_table = 'gene-results'
 
-def initiate(app, data_set:DataSet, public_version=False) -> Div:
-    """Source directory should contain the relevant info: metadata.csv,
-    screen_analyses and expyaml directories."""
+# modified by initiate() depending on public/private
+filter_keys = {'exp':['Treatment', 'Cell line', 'KO', 'Library'],
+               'comp':['Treatment', 'Cell line', 'KO', 'Library', 'Experiment ID']}
 
-    comparisons = data_set.comparisons
-    try:
-        comparisons = comparisons.drop('Available analyses', 1)
-    except:
-        pass
-
-    if public_version:
-        source_display = 'none'
+# ** helpful functions **
+def column_dict(c, markdown=('DOI',), ):
+    """return {'name':k, 'id':k} for all k except "DOI" which
+    sets style to markdown"""
+    if c in markdown:
+        return {"name": c, "id": c, 'type': 'text', 'presentation':'markdown'}
     else:
-        source_display = 'block'
+        return {'name':c, 'id':c}
+
+def doi_to_link(doi):
+    return f"[{doi}](https://doi.org/{doi})"
 
 
-    # ** helpful functions **
-    def column_dict(c, markdown=('DOI',), ):
-        """return {'name':k, 'id':k} for all k except "DOI" which
-        sets style to markdown"""
-        if c in markdown:
-            return {"name": c, "id": c, 'type': 'text', 'presentation':'markdown'}
-        else:
-            return {'name':c, 'id':c}
 
-    def doi_to_link(doi):
-        return f"[{doi}](https://doi.org/{doi})"
+def register_gene_selection_processor(app, figure_id):
+    """Registers a function for putting genes selected via interacting with
+    the graph into the gene dropdown. Registers a callback with following
+    arguments:
+
+    Output(f'{figure_id}-gene-dropdown', 'value'),
+    Input(figure_id, 'selectedData'),
+    State('{figure_id}-gene-dropdown', 'value')
+    """
+
+    # update selected genes by points that are selected on the graph
+    # this should only ever add points.
+    @app.callback(
+        Output(f'{figure_id}-gene-dropdown', 'value'),
+        Input(figure_id, 'selectedData'),
+        State(f'{figure_id}-gene-dropdown', 'value')
+    )
+    def put_selected_genes_into_dropdown(selected_data, dropdown_genes):
+        LOG.debug(f'Adding genes from {figure_id}.selectedData: {selected_data}')
+
+        if not selected_data:
+            raise PreventUpdate
+
+        selected_genes = set()
+        for p in selected_data['points']:
+            selected_genes.add(p['text'])
+
+        if selected_genes.issubset(dropdown_genes):
+            LOG.debug('...no new genes, preventing update')
+            raise PreventUpdate
+
+        return dropdown_genes+list(selected_genes.difference(dropdown_genes))
+
+    return put_selected_genes_into_dropdown
 
 
-    def get_gene_selector(idprefix) -> list:
-        return [
-            html.Label('Select genes:',
-                       htmlFor=f'{idprefix}-gene-dropdown',
-                       style=big_text_style),
-            dcc.Dropdown(
-                id=f'{idprefix}-gene-dropdown',
-                placeholder='Select genes by name',
-                multi=True,
-                value=[],
-                options=[]),
-        ]
+def spawn_gene_dropdown(app, fig_id) -> list:
+    """Returns layout for dropdown, registers callback with
+    register_gene_selection_processor(app, fig_id).
+
+    Dropdowns need extra callbacks to communicate with each other. That
+    is not handled here."""
+
+    register_gene_selection_processor(app, fig_id)
+
+    return [
+        html.Label('Select genes:',
+                   htmlFor=f'{fig_id}-gene-dropdown',
+                   style=big_text_style),
+        dcc.Dropdown(
+            id=f'{fig_id}-gene-dropdown',
+            placeholder='Select genes by name',
+            multi=True,
+            value=[],
+            options=[]),
+    ]
 
 
-    # ################## #
-    # ****COMPONENTS**** #
-    # ################## #
+def spawn_volcano_graph(app, fig_id='volcano'):
+    """Return layout containing the plotly Graph object and stat/gene
+    selectors. Register volcano chart callbacks.
 
-    # **GRAPHS****
+    Callbacks:
+        render_volcano: produces volcano figure data, to plot selected data.
+            Gets data (and is triggered by changes to graph-data.data)
+        add_volcano_selection: deals with gene selections coming from users
+            interacting with the graph
+        calls register_gene_selection_processor(app, fig_id)
+    """
     volcano = dcc.Graph(
-        id='volcano0',
+        id=fig_id,
         config={
             'editable':True,
             'edits':{'annotationPosition':False},
@@ -110,23 +150,84 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     volcano_layout = [
         Div(get_stat_source_selector('volcano', 'Analysis:')),
         Div([volcano]),
-        Div(get_gene_selector('volc'))
+        Div(spawn_gene_dropdown(app, 'volcano'))
     ]
 
-    # ***TABLES***
-    # comptab and exptab are data selectors.
-    # Experiments, select experiment, switch to comparisons table with comp.expid == selected_expid
-    #   each needs own filter dropdowns
-    # The Experiments and Comparisons tables identified using 'exp' and 'comp'
+    ####
+    # render volc should trigger only when a comparison has been selected
+    # another call back should deal with selection, look at comparison maker
+    # Some more of that should be shared, like the title generator.
+    @app.callback(
+        Output('volcano', 'figure'),
 
-    # Timepoint, renaming to readable
-    for val, lab in [('fromstart', 'From experiment start'),
-                     ('otherprior', 'From midpoint'),
-                     ('endpoints', 'Matched time points')]:
-        m = comparisons.Timepoint.str.startswith(val)
-        comparisons.loc[m, 'Time point group'] = lab
+        Input('volcano-gene-dropdown', 'value'),
+        Input('graph-data', 'data'),
+
+        State('comp-table', 'data'),
+        State('comp-table', 'selected_rows'),
+    )
+    def render_volcano(selected_genes, xy_genes,
+                       table_data, selected_row):
+
+        LOG.debug(f"Rendering volcano")
+
+        if not selected_row:
+            raise PreventUpdate
+
+        # get values and create the figure
+        x, fdr, genes = [xy_genes[k] for k in ('score', 'fdr', 'genes')]
+        # dcc.Store converts this to a list...
+        x, fdr = [pd.Series(xy, index=genes) for xy in (x,fdr)]
+        y = fdr.apply(lambda _x: -np.log10(_x))
+
+        fig = go.Figure(
+            data=go.Scattergl(
+                x=x.values,
+                y=y.values,
+                mode='markers',
+                customdata=fdr,
+                text=genes,
+                hovertemplate= ("<b>%{text}</b><br>" +
+                                "LFC: %{x:.2f}<br>" +
+                                "FDR: %{customdata:.2e}")
+            ),
+            layout={'clickmode':'event+select',
+                    'dragmode':'select'},
+        )
+        LOG.debug(f"{(len(x), len(y))}")
+
+        # add some titles
+        # consider using data_set.comparisons.loc[<Input('selected-comp', 'data')>]
+        row = table_data[selected_row[0]]
+        line1,line2 = get_treatment_label(row)
+        title = f"<b>{line1}</b><br>{line2}"
+        fig.update_layout(
+            title=title,
+            xaxis_title='LFC',
+            yaxis_title='-Log10(FDR)',
+
+        )
+
+        # Add annotations for the selected genes
+        new_annotations = get_annotation_dicts(x[selected_genes], y[selected_genes], selected_genes)
+        for anot in new_annotations:
+            fig.add_annotation(
+                **anot
+            )
+
+        LOG.debug(str(fig))
+        LOG.debug('Finished generating volcano Figure')
+        return fig
 
 
+    return volcano_layout
+
+def spawn_selector_tables(app, comparisons, data_set, public_version) \
+        -> Dict[str, dash_table.DataTable]:
+    """Generate two DataTables, experiment and comparison (called treatment
+    in parlance of the website). Returned in dict with keys 'exp' and 'comp'.
+    Registers callbacks with each to handle filtering via values from the
+    filter boxes."""
 
     comptab_data = comparisons.copy()
     LOG.debug('Comparison tab columns'+str(comptab_data.columns))
@@ -182,184 +283,6 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
                     'Library', 'Experiment ID',]
         }
 
-    selctr_tables = {
-        tabk:dash_table.DataTable(
-            id=f'{tabk}-table',
-            # leaving it out of columns doesn't stop it from being in the table data
-            columns=[column_dict(c) for c in tab_columns[tabk] if c != 'Comparison ID' ],
-            data=table_dataframes[tabk].to_dict('records'),
-            sort_action='native',
-            sort_mode="multi",
-            selected_rows=[],
-            row_selectable='single',
-            css=[{"selector": "p", "rule": "margin: 0"}],
-            style_cell=cell_text_style,
-        ) for tabk in ('exp', 'comp')
-    }
-
-    # # ** DATA TABLE **
-    # # Filled with data when a comparison is selected
-    idprfx_res_table = 'gene-results'
-    datatable = dash_table.DataTable(
-        id=idprfx_res_table+'-table',
-        columns=[column_dict(x) for x in ('Effect size', 'FDR', 'Selected')],
-        sort_action='native',
-        sort_mode='multi',
-        filter_action='native',
-        # not sure what this does but I put it in the other table for some reason
-        css=[{"selector": "p", "rule": "margin: 0"}],
-    )
-
-    gene_results_layout = [
-        get_stat_source_selector(idprfx_res_table, 'Analysis:'),
-        Div([], id=idprfx_res_table+'-title'),
-        datatable
-    ]
-
-
-    # update the contents of the gene results tab
-    @app.callback(
-        Output(idprfx_res_table+'-table', 'columns'),
-        Output(idprfx_res_table+'-table', 'data'),
-        Output(idprfx_res_table+'-title', 'children'),
-        Output('volcano-stat-source-selector', 'value'),
-
-        Input('selected-comp', 'data'),
-        Input('volc-gene-dropdown', 'value'),
-        Input(idprfx_res_table+'-stat-source-selector', 'value'),
-        State('volcano-stat-source-selector', 'value'),
-    )
-    def update_results_table_data(selected_comp, selected_genes, stat_source,
-                                  volcano_stat_source, ):
-        LOG.debug(f'CALLBACK: update_results_table_data({selected_comp}, {stat_source})')
-        if not selected_comp:
-            raise PreventUpdate
-
-        # labels for the analysis type
-        ans_lab = data_set.analysis_labels[stat_source]
-        score_lab = data_set.score_labels[stat_source]
-
-        # data for the table
-        dat = data_set.get_score_fdr(stat_source, stat_source)
-        lfc = data_set.get_score_fdr('mag', 'mag')['score'][selected_comp]
-        score = dat['score'][selected_comp]
-        fdr = dat['fdr'][selected_comp]
-
-        # index is genes
-        index = lfc.index.union(score.index).union(fdr.index)
-        is_selected = index.map(lambda g: ['❌','Selected'][g in selected_genes])
-
-        # Build the table
-        results_tab = pd.DataFrame(
-            {
-                'Log2(FC)':lfc,
-                score_lab:score,
-                'FDR':fdr,
-                'Gene selected':is_selected,
-            },
-            index=index
-        )
-        no_stats = results_tab[[score_lab, 'FDR']].isna().any(1)
-        results_tab = results_tab.loc[~no_stats]
-        results_tab.index.name = 'Gene'
-
-        # Create the Output objects
-        results_data = results_tab.reset_index().to_dict('records')
-
-        columns = [column_dict(x) for x in results_data[0].keys()]
-        treatment_label = get_treatment_label(comparisons.loc[selected_comp], ans_lab)
-
-        treatment_para = [html.H3(f"{treatment_label[0]}"),
-                          html.H4(f"{treatment_label[1]}")]
-
-        # don't output stat_source to next selector if they all match
-        if stat_source == volcano_stat_source:
-            stat_source = dash.no_update
-
-        return columns, results_data, treatment_para, stat_source
-
-
-    # ** filter_dropdowns **
-    # Used to filterdown the rows of the experiment and comparisons tables.
-    def generate_filter_dropdowns(filter_cols, table_str):
-        """Return list of div with dcc.Dropdowns with id=table_str+'-'+col for
-        col in filter_cols. Options from comparisons[col]"""
-        filter_dropdowns = []
-        for col in filter_cols:
-            filter_dropdowns.append(
-                html.Div(
-                    children=[dcc.Dropdown(
-                        id=table_str+'-filter-'+col,
-                        placeholder='Filter by '+col,
-                        multi=True,
-                        style={'height':'80px', 'width':'250px'},
-                        value=[],
-                        options=[{'label':v, 'value':v} for v in sorted(comparisons[col].unique())]
-                    )],
-                    style={'display':'inline-block'})
-            )
-        return filter_dropdowns
-
-
-    filter_keys = {'exp':['Treatment', 'Cell line', 'KO', 'Library'],
-                   'comp':['Treatment', 'Cell line', 'KO', 'Library', 'Experiment ID']}
-    if not public_version:
-        for k, l in filter_keys.items():
-            l.append('Source')
-    filter_dropdowns = {tabk:generate_filter_dropdowns(comptabk, tabk) for tabk, comptabk in filter_keys.items()}
-
-
-    # ############## #
-    # ****LAYOUT**** #
-    # ############## #
-    tabs = dcc.Tabs(id='tabs', value='exp-tab', children=[
-        # experiment selector
-        dcc.Tab(value='exp-tab', label='Select Experiment',
-                className='selector-tab', selected_className='selector-tab--selected', children=[
-            html.P(['Choose an experiment below to filter the options in "Select Treatment" table. '
-                    'Go straight to Select Treatment to see all options.'],
-                   style={'margin-top': '15px'}),
-            Div(filter_dropdowns['exp'], style={'margin-bottom': '15px', }),
-            Div([selctr_tables['exp']])
-        ]),
-        # comparison selector
-        dcc.Tab(
-            value='comp-tab', label='Select Treatment',
-            className='selector-tab', selected_className='selector-tab--selected', children=[
-                html.P(style={'margin-top': '15px'}, children=[
-                    'Select a specific treatment using the table below. Click on tabs to '
-                    'the right to see results for a selected treatment'
-                ]),
-            Div(filter_dropdowns['comp'], style={'margin-bottom': '15px', }),
-            Div([selctr_tables['comp']])
-        ]),
-        # volcano
-        dcc.Tab(
-            label='Volcano plot', value='volcano-tab',
-            className='data-tab', selected_className='data-tab--selected',
-            children=volcano_layout
-        ),
-        dcc.Tab(
-            label='Results Table', value=idprfx_res_table+'-tab',
-            className='data-tab', selected_className='data-tab--selected',
-            children=gene_results_layout
-        ),
-
-    ])
-
-    se_layout = Div([
-        html.H1("Screens explorer"),
-        html.P("Select data using the blue tabs, and view results in the green tabs."),
-        tabs,
-        Div([html.P(id='debug')], ),
-
-        dcc.Store(id='selected-exp', storage_type='session',),
-        dcc.Store(id='selected-comp', storage_type='session'),
-        dcc.Store(id='volcano-data', storage_type='session',),
-    ])
-
-
-    # ***CALLBACKS***
     for tabk in ('exp', 'comp'):
         table_id = f'{tabk}-table'
         @app.callback(
@@ -427,6 +350,266 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
             return (filtered_table.to_dict('records'),
                     new_selected_row)
 
+    return {
+        tabk:dash_table.DataTable(
+            id=f'{tabk}-table',
+            # leaving it out of columns doesn't stop it from being in the table data
+            columns=[column_dict(c) for c in tab_columns[tabk] if c != 'Comparison ID' ],
+            data=table_dataframes[tabk].to_dict('records'),
+            sort_action='native',
+            sort_mode="multi",
+            selected_rows=[],
+            row_selectable='single',
+            css=[{"selector": "p", "rule": "margin: 0"}],
+            style_cell=cell_text_style,
+        ) for tabk in ('exp', 'comp')
+    }
+
+def initiate(app, data_set:DataSet, public_version=False) -> Div:
+    """Source directory should contain the relevant info: metadata.csv,
+    screen_analyses and expyaml directories."""
+
+    comparisons = data_set.comparisons
+    try:
+        comparisons = comparisons.drop('Available analyses', 1)
+    except:
+        pass
+
+    if not public_version:
+        for k, l in filter_keys.items():
+            l.append('Source')
+
+    # **GRAPHS****
+    volcano_layout = spawn_volcano_graph(app, 'volcano')
+
+    # ***TABLES***
+    # Timepoint, renaming values to something more readable
+    for val, lab in [('fromstart', 'From experiment start'),
+                     ('otherprior', 'From midpoint'),
+                     ('endpoints', 'Matched time points')]:
+        m = comparisons.Timepoint.str.startswith(val)
+        comparisons.loc[m, 'Time point group'] = lab
+
+    # The Experiments and Comparisons tables keys 'exp' and 'comp'
+    # User selection of row in exp table switches to comp tab, selection in comp tab
+    #   updates plot and datatable.
+    selctr_tables = spawn_selector_tables(app, comparisons, data_set, public_version)
+
+    datatable = dash_table.DataTable(
+        id=idprfx_res_table+'-table',
+        columns=[column_dict(x) for x in ('Effect size', 'FDR', 'Selected')],
+        sort_action='native',
+        sort_mode='multi',
+        filter_action='native',
+        # not sure what this does but I put it in the other table for some reason
+        css=[{"selector": "p", "rule": "margin: 0"}],
+    )
+
+    results_table_layout = [
+        get_stat_source_selector(idprfx_res_table, 'Analysis:'),
+        Div([], id=idprfx_res_table+'-title'),
+        datatable
+    ]
+
+
+    # ** filter_dropdowns **
+    # Used to filterdown the rows of the experiment and comparisons tables.
+    def generate_filter_dropdowns(filter_cols, table_str):
+        """Return list of div with dcc.Dropdowns with id=table_str+'-'+col for
+        col in filter_cols. Options from comparisons[col]"""
+        filter_dropdowns = []
+        for col in filter_cols:
+            filter_dropdowns.append(
+                html.Div(
+                    children=[dcc.Dropdown(
+                        id=table_str+'-filter-'+col,
+                        placeholder='Filter by '+col,
+                        multi=True,
+                        style={'height':'80px', 'width':'250px'},
+                        value=[],
+                        options=[{'label':v, 'value':v} for v in sorted(comparisons[col].unique())]
+                    )],
+                    style={'display':'inline-block'})
+            )
+        return filter_dropdowns
+
+    filter_dropdowns = {tabk:generate_filter_dropdowns(comptabk, tabk) for tabk, comptabk in filter_keys.items()}
+
+
+    # ############## #
+    # ****LAYOUT**** #
+    # ############## #
+    tabs = dcc.Tabs(id='tabs', value='exp-tab', children=[
+        # experiment selector
+        dcc.Tab(value='exp-tab', label='Select Experiment',
+                className='selector-tab', selected_className='selector-tab--selected', children=[
+            html.P(['Choose an experiment below to filter the options in "Select Treatment" table. '
+                    'Go straight to Select Treatment to see all options.'],
+                   style={'margin-top': '15px'}),
+            Div(filter_dropdowns['exp'], style={'margin-bottom': '15px', }),
+            Div([selctr_tables['exp']])
+        ]),
+        # comparison selector
+        dcc.Tab(
+            value='comp-tab', label='Select Treatment',
+            className='selector-tab', selected_className='selector-tab--selected', children=[
+                html.P(style={'margin-top': '15px'}, children=[
+                    'Select a specific treatment using the table below. Click on tabs to '
+                    'the right to see results for a selected treatment'
+                ]),
+            Div(filter_dropdowns['comp'], style={'margin-bottom': '15px', }),
+            Div([selctr_tables['comp']])
+        ]),
+        # volcano
+        dcc.Tab(
+            label='Volcano plot', value='volcano-tab',
+            className='data-tab', selected_className='data-tab--selected',
+            children=volcano_layout
+        ),
+        dcc.Tab(
+            label='Results Table', value=idprfx_res_table+'-tab',
+            className='data-tab', selected_className='data-tab--selected',
+            children=results_table_layout
+        ),
+    ])
+
+    se_layout = Div([
+        html.H1("Screens explorer"),
+        html.P("Select data using the blue tabs, and view results in the green tabs."),
+        tabs,
+        Div([html.P(id='debug')], ),
+
+        dcc.Store(id='selected-exp', storage_type='session'),
+        dcc.Store(id='selected-comp', storage_type='session'),
+        dcc.Store(id='graph-data', storage_type='session'),
+        dcc.Store(id='selected-genes', storage_type='session'),
+    ])
+
+
+    # ***CALLBACKS***
+
+    # Note on gene selection dropdown callbacks:
+    #   I want them all to be updated together (currently 2, but am building for an arbitrary number)
+    #   but I only want the currently selected graph to be updated. So, the call down for the current
+    #   tab takes Input from the current tab's gene dropdown and Outputs to the next tabs dropdown.
+    #   The final one outputs to a data storage object, which triggers a callback checking if all
+    #   of the gene dropdowns have the same values. If they do, raise PreventUpdate, if not, pass
+    #   selections to the first tab's gene dropdown.
+
+    #  Y is changable source of significance
+    #  Not sure this needs to be split from render_volcano
+    @app.callback(
+        Output('graph-data', 'data'),
+        Output('volcano-gene-dropdown', 'options'),
+        Output(idprfx_res_table+'-stat-source-selector', 'value'),
+
+        Input('selected-comp', 'data' ),
+        Input('volcano-stat-source-selector', 'value'),
+        State(idprfx_res_table+'-stat-source-selector', 'value')
+    )
+    def store_selected_data(compid, sig_source, table_stat_source):
+        """Output data for the charts.
+
+        Returns:
+        {'x':score, 'y':fdr, 'genes':"""
+
+        args_for_printing = {k:v for k, v in zip(
+            'selected_row, sig_source'.split(', '),
+            [compid, sig_source]
+        )}
+        LOG.debug(f'CALLBACK: update_volcano_data with {args_for_printing}')
+
+        if not compid:
+            raise PreventUpdate
+
+        # get x, y and genes values
+        score_fdr = data_set.get_score_fdr('mag', sig_source)
+        score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
+
+        # some genes may get filtered out
+        unified_index = score.index.intersection(fdr.index)
+        score,fdr = [xy.reindex(unified_index) for xy in (score,fdr)]
+
+        volcano_data = {'score': score, 'fdr': fdr, 'genes': score.index}
+        gene_options = get_lab_val(score.index)
+
+        LOG.debug(f'End of update_volcano_data with:')
+        LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('score', 'fdr')]))
+
+        # don't output stat_source to next selector if they all match
+        if sig_source  == table_stat_source:
+            sig_source = dash.no_update
+
+        return (
+            volcano_data,
+            gene_options,
+            sig_source,
+        )
+
+    # update the contents of the gene results tab
+    @app.callback(
+        Output(idprfx_res_table+'-table', 'columns'),
+        Output(idprfx_res_table+'-table', 'data'),
+        Output(idprfx_res_table+'-title', 'children'),
+        Output('volcano-stat-source-selector', 'value'),
+
+        Input('selected-comp', 'data'),
+        Input('volcano-gene-dropdown', 'value'),
+        Input(idprfx_res_table+'-stat-source-selector', 'value'),
+        Input('tabs', 'value'),
+        State('volcano-stat-source-selector', 'value'),
+    )
+    def update_results_table_data(selected_comp, selected_genes, stat_source,
+                                  selected_tab, volcano_stat_source, ):
+        LOG.debug(f'CALLBACK: update_results_table_data({selected_comp}, {stat_source})')
+        if not selected_comp:
+            raise PreventUpdate
+        if selected_tab != idprfx_res_table+'-tab':
+            raise PreventUpdate
+
+        # labels for the analysis type
+        ans_lab = data_set.analysis_labels[stat_source]
+        score_lab = data_set.score_labels[stat_source]
+
+        # data for the table
+        dat = data_set.get_score_fdr(stat_source, stat_source)
+        lfc = data_set.get_score_fdr('mag', 'mag')['score'][selected_comp]
+        score = dat['score'][selected_comp]
+        fdr = dat['fdr'][selected_comp]
+
+        # index is genes
+        index = lfc.index.union(score.index).union(fdr.index)
+        is_selected = index.map(lambda g: ['❌','Selected'][g in selected_genes])
+
+        # Build the table
+        results_tab = pd.DataFrame(
+            {
+                'Log2(FC)':lfc,
+                score_lab:score,
+                'FDR':fdr,
+                'Gene selected':is_selected,
+            },
+            index=index
+        )
+        no_stats = results_tab[[score_lab, 'FDR']].isna().any(1)
+        results_tab = results_tab.loc[~no_stats]
+        results_tab.index.name = 'Gene'
+
+        # Create the Output objects
+        results_data = results_tab.reset_index().to_dict('records')
+
+        columns = [column_dict(x) for x in results_data[0].keys()]
+        treatment_label = get_treatment_label(comparisons.loc[selected_comp], ans_lab)
+
+        treatment_para = [html.H3(f"{treatment_label[0]}"),
+                          html.H4(f"{treatment_label[1]}")]
+
+        # don't output stat_source to next selector if they all match
+        if stat_source == volcano_stat_source:
+            stat_source = dash.no_update
+
+        return columns, results_data, treatment_para, stat_source
+
 
     # Upon selecting experiment, filter the comparisons table (by setting the value of the
     #   filter dropdown) and switch to the comp table tab
@@ -469,152 +652,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
         return compid
 
-
-    # Output data for the volcano chart. X is LFC from mageck
-    #  Y is changable source of significance
-    #  Not sure this needs to be split from render_volcano
-    @app.callback(
-        Output('volcano-data', 'data'),
-        Output('volc-gene-dropdown', 'options'),
-        Output(idprfx_res_table+'-stat-source-selector', 'value'),
-
-        Input('selected-comp', 'data' ),
-        Input('volcano-stat-source-selector', 'value'),
-        State(idprfx_res_table+'-stat-source-selector', 'value')
-    )
-    def update_volcano_data(compid, sig_source, table_stat_source):
-
-        args_for_printing = {k:v for k, v in zip(
-            'selected_row, sig_source'.split(', '),
-            [compid, sig_source]
-        )}
-        LOG.debug(f'CALLBACK: update_volcano_data with {args_for_printing}')
-
-        if not compid:
-            raise PreventUpdate
-
-        # get x, y and genes values
-        score_fdr = data_set.get_score_fdr('mag', sig_source)
-        score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
-
-        # some genes may get filtered out
-        unified_index = score.index.intersection(fdr.index)
-        score,fdr = [xy.reindex(unified_index) for xy in (score,fdr)]
-
-        volcano_data = {'x': score, 'y': fdr, 'genes': score.index}
-        gene_options = get_lab_val(score.index)
-
-        LOG.debug(f'End of update_volcano_data with:')
-        LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('x', 'y')]))
-
-        # don't output stat_source to next selector if they all match
-        if sig_source  == table_stat_source:
-            sig_source = dash.no_update
-
-        return (
-            volcano_data,
-            gene_options,
-            sig_source,
-        )
-
-    ####
-    # render volc should trigger only when a comparison has been selected
-    # another call back should deal with selection, look at comparison maker
-    # Some more of that should be shared, like the title generator.
-    @app.callback(
-        Output('volcano0', 'figure'),
-
-        Input('volc-gene-dropdown', 'value'),
-        Input('volcano-data', 'data'),
-
-        State('comp-table', 'data'),
-        State('comp-table', 'selected_rows'),
-    )
-    def render_volcano(selected_genes, xy_genes,
-                       table_data, selected_row):
-
-        # debug device
-        def count_upper():
-            n = 0
-            while True:
-                n+=1
-                yield str(n)
-        counter = count_upper()
-        LOG.debug(f"Rendering volcano {next(counter)}")
-
-        if not selected_row:
-            raise PreventUpdate
-
-        # get values and create the figure
-        x, fdr, genes = [xy_genes[k] for k in ('x', 'y', 'genes')]
-        # dcc.Store converts this to a list...
-        x, fdr = [pd.Series(xy, index=genes) for xy in (x,fdr)]
-        y = fdr.apply(lambda _x: -np.log10(_x))
-
-        fig = go.Figure(
-            data=go.Scattergl(
-                x=x.values,
-                y=y.values,
-                mode='markers',
-                customdata=fdr,
-                text=genes,
-                hovertemplate= ("<b>%{text}</b><br>" +
-                                "LFC: %{x:.2f}<br>" +
-                                "FDR: %{customdata:.2e}")
-            ),
-            layout={'clickmode':'event+select',
-                              'dragmode':'select'},
-        )
-        LOG.debug(f"{(len(x), len(y))}")
-        LOG.debug(next(counter))
-        # add some titles
-        # consider using data_set.comparisons.loc[<Input('selected-comp', 'data')>]
-        row = table_data[selected_row[0]]
-        line1,line2 = get_treatment_label(row)
-        title = f"<b>{line1}</b><br>{line2}"
-        fig.update_layout(
-            title=title,
-            xaxis_title='LFC',
-            yaxis_title='-Log10(FDR)',
-
-        )
-        LOG.debug(next(counter))
-        # Add annotations for the selected genes
-        new_annotations = get_annotation_dicts(x[selected_genes], y[selected_genes], selected_genes)
-        for anot in new_annotations:
-            fig.add_annotation(
-                **anot
-            )
-        LOG.debug(next(counter))
-        LOG.debug(str(fig))
-        return fig
-
-
-    # update selected genes by points that are selected on the graph
-    # this should only ever add points.
-    @app.callback(
-        Output('volc-gene-dropdown', 'value'),
-        Input('volcano0', 'selectedData'),
-        State('volc-gene-dropdown', 'value')
-    )
-    def add_volcano_selection(selected_data, dropdown_genes):
-        LOG.debug(f'add_volcano_selection, {selected_data}')
-
-        if not selected_data:
-            raise PreventUpdate
-
-        selected_genes = set()
-        for p in selected_data['points']:
-            selected_genes.add(p['text'])
-
-        if selected_genes.issubset(dropdown_genes):
-            raise PreventUpdate
-
-        return dropdown_genes+list(selected_genes.difference(dropdown_genes))
-
     return se_layout
-
-
 
 
 # if __name__ == '__main__':
