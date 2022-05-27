@@ -12,6 +12,7 @@ from crispr_screen_viewer.shared_components import (
     get_stat_source_selector,
     colours,
     big_text_style,
+    timepoint_labels,
 )
 
 border_style = {'border': '4px solid #3DD178',
@@ -105,7 +106,6 @@ def initiate(app, data_set, public_version=True) -> Div:
         ], style={'width':'150px', 'display':'inline-block', 'vertical-align':'top'}),
     ])
 
-    #
     # get color map, asssiging colors to the most common values first, so that
     #   common things have different colours.
     def get_colour_map(list_of_things):
@@ -124,6 +124,14 @@ def initiate(app, data_set, public_version=True) -> Div:
     if not public_version:
         filter_cols.append('Source')
 
+    def filter_options(col):
+        sorted_vals = sorted(data_set.comparisons[col].unique())
+        if col != 'Timepoint':
+            opts = [{'label':v, 'value':v} for v in sorted_vals]
+        else:
+            opts = [{'label':timepoint_labels[v], 'value':v} for v in sorted_vals]
+        return opts
+
     for col in filter_cols:
         filter_dropdowns.append(
             html.Div([dcc.Dropdown(
@@ -132,7 +140,7 @@ def initiate(app, data_set, public_version=True) -> Div:
                 multi=True,
                 style={'height':'80px', 'width':'220px'},
                 value=[] if col != 'Timepoint' else ['endpoints'],
-                options=[{'label':v, 'value':v} for v in sorted(data_set.comparisons[col].unique())]
+                options=filter_options(col),
             )], style={'display':'inline-block'})
         )
 

@@ -18,9 +18,9 @@ from crispr_screen_viewer.shared_components import (
     get_treatment_label,
     get_annotation_dicts,
     big_text_style,
-    styles,
     LOG,
-    get_stat_source_selector
+    get_stat_source_selector,
+    timepoint_labels
 )
 
 from crispr_screen_viewer.functions_etc import (
@@ -384,9 +384,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
 
     # ***TABLES***
     # Timepoint, renaming values to something more readable
-    for val, lab in [('fromstart', 'From experiment start'),
-                     ('otherprior', 'From midpoint'),
-                     ('endpoints', 'Matched time points')]:
+    for val, lab in timepoint_labels.items():
         m = comparisons.Timepoint.str.startswith(val)
         comparisons.loc[m, 'Time point group'] = lab
 

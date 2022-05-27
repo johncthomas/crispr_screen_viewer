@@ -172,6 +172,13 @@ options_analyses = [
     {'label':'MAGeCK',  'value':'mag'}
 ]
 
+timepoint_labels = dict([
+        ('fromstart', 'From experiment start'),
+        ('otherprior', 'From midpoint'),
+        ('endpoints', 'Matched time points')
+])
+
+
 def get_stat_source_selector(idprefix, label) -> Div:
     """List of single Div with dcc.RadioItems with id
     idprefix+'-stat-source-selector'. Options from `options_analyses`"""

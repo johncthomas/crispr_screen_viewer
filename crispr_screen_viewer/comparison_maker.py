@@ -12,14 +12,13 @@ import plotly.graph_objs as go
 
 import pathlib, os
 from dash.dependencies import Input, Output, State
-from typing import Collection, Union, Dict
+import typing
 from crispr_screen_viewer.functions_etc import DataSet
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
-    get_reg_stat_selectors,
     get_annotation_dicts,
-    big_text_style,
-    LOG
+    LOG,
+    timepoint_labels,
 )
 
 
@@ -52,7 +51,7 @@ def initiate(app, data_set):
         # get a nice string
         #exp_metadata = data_set.experiments_metadata.loc[exp_id]
         exp_metadata = experiments_metadata.loc[exp_id]
-        who = exp_metadata['Investigator']
+        #who = exp_metadata['Investigator']
         when = exp_metadata['Date screen completed (yyyy-mm-dd)']
         exp_str = f"{exp_id}, {when} – {treats}"
 
@@ -233,10 +232,7 @@ def initiate(app, data_set):
         if not exp_id:
             return [], True
         timepoints = comparisons.loc[comparisons['Experiment ID'] == exp_id, 'Timepoint'].unique()
-        time_labels = {'endpoints':'From end points',
-                       'fromstart':"From experiment start",
-                       'otherprior':"From pre-treatment"}
-        return [{'value':tp, 'label':time_labels[tp]} for tp in timepoints], False
+        return [{'value':tp, 'label':timepoint_labels[tp]} for tp in timepoints], False
 
     # when an exp and timepoint is selected, update the X/Y options
     @app.callback(
