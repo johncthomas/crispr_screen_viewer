@@ -2,7 +2,7 @@
 import sys
 from argparse import ArgumentParser
 from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer, comparison_maker
-from crispr_screen_viewer.functions_etc import DataSet
+from crispr_screen_viewer.functions_etc import DataSet, doi_to_link
 from crispr_screen_viewer.shared_components import (
     #external_stylesheets,
     # get_lab_val,
@@ -86,7 +86,7 @@ def initiate_app(data_set, public_version=False,):
     dois = data_set.experiments_metadata.loc[
         data_set.comparisons['Experiment ID'],
         'DOI'
-    ].values
+    ].apply(doi_to_link).values
 
     data_set.comparisons.insert(2, 'DOI', dois)
 

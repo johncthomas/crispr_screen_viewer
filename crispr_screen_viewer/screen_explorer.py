@@ -256,14 +256,14 @@ def spawn_selector_tables(app, data_set, public_version) \
 
     if public_version:
         tab_columns = {
-            'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'Experiment ID',],
+            'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Experiment ID', ],
             'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
                     'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
                     'Library', 'Experiment ID', 'DOI']
         }
     else:
         tab_columns = {
-            'exp':[ 'Experiment ID', 'Treatment', 'Cell line', 'KO',  'Library', 'Citation'],
+            'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation', 'Experiment ID', 'DOI'],
             'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
                     'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
                     'Library', 'Experiment ID', 'DOI']
@@ -587,7 +587,7 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
         # Create the Output objects
         results_data = results_tab.reset_index().to_dict('records')
 
-        columns = [column_dict(x) for x in results_data[0].keys()]
+        columns = [datatable_column_dict(x) for x in results_data[0].keys()]
         treatment_label = get_treatment_label(comparisons.loc[selected_comp], ans_lab)
 
         treatment_para = [html.H3(f"{treatment_label[0]}"),
