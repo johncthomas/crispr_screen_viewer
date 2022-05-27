@@ -82,10 +82,19 @@ def initiate_app(data_set, public_version=False,):
                     url_base_pathname='/',
                     external_stylesheets=[dbc.themes.BOOTSTRAP])
 
+    # add formated DOI to the comparisons metadata
+    dois = data_set.experiments_metadata.loc[
+        data_set.comparisons['Experiment ID'],
+        'DOI'
+    ].values
+
+    data_set.comparisons.insert(2, 'DOI', dois)
+
     # register the callbacks and get the page layouts
     msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public_version=public_version)
     se_layout = screen_explorer.initiate(app, data_set, public_version=public_version)
     cm_layout = comparison_maker.initiate(app, data_set)
+
 
 
     landing_page = Div(style={"background-color":our_colour}, children=[
