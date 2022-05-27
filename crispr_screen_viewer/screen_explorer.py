@@ -12,7 +12,12 @@ import plotly.graph_objs as go
 import pathlib, os
 from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict, List
-from crispr_screen_viewer.functions_etc import DataSet
+
+from crispr_screen_viewer.functions_etc import (
+    DataSet,
+    datatable_column_dict,
+    doi_to_link,
+)
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
     get_treatment_label,
@@ -20,12 +25,8 @@ from crispr_screen_viewer.shared_components import (
     big_text_style,
     LOG,
     get_stat_source_selector,
-    timepoint_labels
-)
+    timepoint_labels,
 
-from crispr_screen_viewer.functions_etc import (
-    DataSet,
-    parse_expid
 )
 
 Div = html.Div
@@ -50,17 +51,7 @@ idprfx_res_table = 'gene-results'
 filter_keys = {'exp':['Treatment', 'Cell line', 'KO', 'Library'],
                'comp':['Treatment', 'Cell line', 'KO', 'Library', 'Experiment ID']}
 
-# ** helpful functions **
-def column_dict(c, markdown=('DOI',), ):
-    """return {'name':k, 'id':k} for all k except "DOI" which
-    sets style to markdown"""
-    if c in markdown:
-        return {"name": c, "id": c, 'type': 'text', 'presentation':'markdown'}
-    else:
-        return {'name':c, 'id':c}
 
-def doi_to_link(doi):
-    return f"[{doi}](https://doi.org/{doi})"
 
 
 
@@ -222,25 +213,20 @@ def spawn_volcano_graph(app, fig_id='volcano'):
 
     return volcano_layout
 
-def spawn_selector_tables(app, comparisons, data_set, public_version) \
+def spawn_selector_tables(app, data_set, public_version) \
         -> Dict[str, dash_table.DataTable]:
     """Generate two DataTables, experiment and comparison (called treatment
     in parlance of the website). Returned in dict with keys 'exp' and 'comp'.
     Registers callbacks with each to handle filtering via values from the
     filter boxes."""
 
+    comparisons = data_set.comparisons
     comptab_data = comparisons.copy()
-    LOG.debug('Comparison tab columns'+str(comptab_data.columns))
-
-    # get the experiment data for these comparisons
-    for k in ('DOI', 'Citation'):
-        comptab_data.loc[:, k] = comptab_data['Experiment ID'].apply(
-            lambda exp: data_set.experiments_metadata.loc[exp, k]
-        )
-    comptab_data['DOI'] = comptab_data['DOI'].apply(doi_to_link)
-    comptab_data.loc[:, 'Comparison ID'] = comptab_data['Comparison ID']
+    LOG.debug('Comparison tab columns '+str(comptab_data.columns))
 
     # # add authors to comparisons, will be used in filtering call back
+    # NOTE: Comparisons does not have Citation column, if you want to add it, add it in launch.py
+    #   so that it's available everywhere.
     # comparisons.loc[:, 'Author'] = comptab_data.Citation.apply(lambda x: x.split(', ')[0])
 
     # ** table_of_experiments **
@@ -273,14 +259,14 @@ def spawn_selector_tables(app, comparisons, data_set, public_version) \
             'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'Experiment ID',],
             'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
                     'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                    'Library', 'Experiment ID',]
+                    'Library', 'Experiment ID', 'DOI']
         }
     else:
         tab_columns = {
             'exp':[ 'Experiment ID', 'Treatment', 'Cell line', 'KO',  'Library', 'Citation'],
             'comp':['Comparison ID',  'Treatment', 'Dose', 'Time point group',
                     'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                    'Library', 'Experiment ID',]
+                    'Library', 'Experiment ID', 'DOI']
         }
 
     for tabk in ('exp', 'comp'):
@@ -350,11 +336,15 @@ def spawn_selector_tables(app, comparisons, data_set, public_version) \
             return (filtered_table.to_dict('records'),
                     new_selected_row)
 
+    LOG.debug(
+        'Comptable columns going out:\n'+', '.join(table_dataframes['comp'].columns)
+    )
+
     return {
         tabk:dash_table.DataTable(
             id=f'{tabk}-table',
             # leaving it out of columns doesn't stop it from being in the table data
-            columns=[column_dict(c) for c in tab_columns[tabk] if c != 'Comparison ID' ],
+            columns=[datatable_column_dict(c) for c in tab_columns[tabk] if c != 'Comparison ID' ],
             data=table_dataframes[tabk].to_dict('records'),
             sort_action='native',
             sort_mode="multi",
@@ -370,14 +360,15 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     screen_analyses and expyaml directories."""
 
     comparisons = data_set.comparisons
-    try:
-        comparisons = comparisons.drop('Available analyses', 1)
-    except:
-        pass
+    # try:
+    #     comparisons = comparisons.drop('Available analyses', 1)
+    # except:
+    #     pass
 
     if not public_version:
         for k, l in filter_keys.items():
             l.append('Source')
+
 
     # **GRAPHS****
     volcano_layout = spawn_volcano_graph(app, 'volcano')
@@ -391,11 +382,11 @@ def initiate(app, data_set:DataSet, public_version=False) -> Div:
     # The Experiments and Comparisons tables keys 'exp' and 'comp'
     # User selection of row in exp table switches to comp tab, selection in comp tab
     #   updates plot and datatable.
-    selctr_tables = spawn_selector_tables(app, comparisons, data_set, public_version)
+    selctr_tables = spawn_selector_tables(app, data_set, public_version)
 
     datatable = dash_table.DataTable(
         id=idprfx_res_table+'-table',
-        columns=[column_dict(x) for x in ('Effect size', 'FDR', 'Selected')],
+        columns=[datatable_column_dict(x) for x in ('Effect size', 'FDR', 'Selected')],
         sort_action='native',
         sort_mode='multi',
         filter_action='native',
