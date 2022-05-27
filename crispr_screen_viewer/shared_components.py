@@ -2,7 +2,7 @@ from dash.dependencies import Input, Output, State
 import logging
 from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
-from functions_etc import datatable_column_dict
+from crispr_screen_viewer.functions_etc import datatable_column_dict
 from dash import dcc, html
 Div = html.Div
 #from crispr_screen_viewer.functions_etc import DataSet
