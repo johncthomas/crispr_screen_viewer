@@ -8,12 +8,25 @@ from scipy import odr
 from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection
 
-# this should all be part of crispr tools and I should make people install both
-#   much of this is too useful to be sequetered away here (and I don't want to install
-#   dash everywhere)
-# ...So DataSet doesn't really need to be anywhere else, but probably
 
 parse_expid = lambda comp: comp.split('.')[0]
+
+def datatable_column_dict(c,):
+    """return {'name':k, 'id':k} for all k except "DOI" which
+    sets style to markdown. List of returned dicts to be passed to
+    DataTable columns arg.
+
+    The idea is that more columns can get specific options that are shared
+    across all the tables in all the tools."""
+    markdown=('DOI',)
+    if c in markdown:
+        return {"name": c, "id": c, 'type': 'text', 'presentation':'markdown',}
+    else:
+        return {'name':c, 'id':c}
+
+def doi_to_link(doi):
+    """Return string formated as a markdown link to doi.org/{doi}"""
+    return f"[{doi}](https://doi.org/{doi})"
 
 def orthoregress(x, y):
     """Orthogonal Distance Regression.
@@ -82,7 +95,11 @@ class DataSet:
 
         comparisons = pd.read_csv(f'{source_directory}/comparisons_metadata.csv', )
         comparisons = comparisons.set_index('Comparison ID', drop=False)
-        comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
+        #comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
+        try:
+            comparisons = comparisons.drop('Available analyses', 1)
+        except KeyError:
+            pass
         comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'None'
         # these cols could be blank and aren't essential to have values
         for col in  ['Cell line', 'Library', 'Source']:
@@ -170,9 +187,9 @@ class DataSet:
         # Filter returned comparisons (columns) by inclusion in data sources and having
         #   results for both analysis types
         comps_mask = self.comparisons.Source.isin(data_sources)
-        for analysis_type in (score_anls, fdr_anls):
-            m = self.comparisons['Available analyses'].apply(lambda available: analysis_type in available)
-            comps_mask = comps_mask & m
+        # for analysis_type in (score_anls, fdr_anls):
+        #     m = self.comparisons['Available analyses'].apply(lambda available: analysis_type in available)
+        #     comps_mask = comps_mask & m
         comparisons = index_of_true(comps_mask)
         score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
 
