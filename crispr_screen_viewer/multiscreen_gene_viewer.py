@@ -15,6 +15,11 @@ from crispr_screen_viewer.shared_components import (
     timepoint_labels,
 )
 
+from crispr_screen_viewer.functions_etc import (
+    doi_to_link,
+    datatable_column_dict
+)
+
 border_style = {'border': '4px solid #3DD178',
                 'border-radius': '14px'}
 
@@ -201,31 +206,31 @@ def initiate(app, data_set, public_version=True) -> Div:
 
         # determine order of plots
         if order_by in selected_genes:
-            trace_order = filtered_scores.loc[order_by].sort_values().index.values
+            ordered_comps = filtered_scores.loc[order_by].sort_values().index.values
         elif order_by == 'Mean score':
-            trace_order = filtered_scores.mean().sort_values().index.values
+            ordered_comps = filtered_scores.mean().sort_values().index.values
         elif order_by in order_by_categories[1:]:
             # subset the metadata to included comps and then sort by the order_by
-            trace_order = data_set.comparisons.loc[filtered_scores.columns, order_by].sort_values().index
+            ordered_comps = data_set.comparisons.loc[filtered_scores.columns, order_by].sort_values().index
         else: # this shouldn't happen, though maybe I should have a "whatever" order option
-            trace_order = filtered_scores.columns.values
+            ordered_comps = filtered_scores.columns.values
 
         # assemble the figure
         fig = go.Figure()
         # plot the gene scatters
-        trace_numbers = [str(i) for i in range(1, len(trace_order)+1)]
+        trace_numbers = [str(i) for i in range(1, len(ordered_comps)+1)]
         for gn in selected_genes:
             fig.add_trace(
                 go.Scatter(
                     x=trace_numbers,
-                    y=filtered_scores.loc[gn, trace_order],
+                    y=filtered_scores.loc[gn, ordered_comps],
                     mode='markers', name=gn,
                     marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}, 'symbol':'hexagram'}),
 
             )
         # add the boxplot traces if required
         if show_boxplots:
-            for trace_i, comp in enumerate(trace_order):
+            for trace_i, comp in enumerate(ordered_comps):
                 # values that paramatise the box plot
                 ys = data_tabs['score'][comp]
 
@@ -241,19 +246,26 @@ def initiate(app, data_set, public_version=True) -> Div:
         fig.update_layout(xaxis_title='Boxplot number',
                           yaxis_title=data_set.score_labels[score_type],)
 
-        # create the DataTable
-        selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, trace_order]
-        filtered_scores = filtered_scores.reindex(columns=trace_order)
+        # DataTable structure:
+        # First column trace numbers,
+        #   then score/FDR for each gene selected,
+        #   then the metadata.
+
+        # Create the stat columns
+        selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, ordered_comps]
+        filtered_scores = filtered_scores.reindex(columns=ordered_comps)
         filtered_scores.index = filtered_scores.index.map(lambda x: x+' (Effect size)')
         selected_fdr.index = selected_fdr.index.map(lambda x: x+' (FDR)')
         selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
 
         selected_stats = selected_stats.applymap(lambda n: f"{n:.3}")
         selected_stats.insert(0, 'Boxplot number', trace_numbers)
-        cols_oi = ['Experiment ID', 'Treatment', 'Dose', 'KO', 'Growth inhibition %', 'Days grown',
+        cols_oi = ['Experiment ID', 'DOI', 'Treatment', 'Dose', 'KO', 'Growth inhibition %', 'Days grown',
                    'Cell line', 'Library']
         selected_metadata = data_set.comparisons.loc[selected_stats.index, cols_oi]
+
         data_table_data = pd.concat([selected_stats, selected_metadata], axis=1)
+
         dtable = create_datatable(data_table_data)
 
         sort_by_opts = get_lab_val(order_by_categories+ selected_genes)
