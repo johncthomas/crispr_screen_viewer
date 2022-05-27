@@ -2,6 +2,7 @@ from dash.dependencies import Input, Output, State
 import logging
 from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
+from functions_etc import datatable_column_dict
 from dash import dcc, html
 Div = html.Div
 #from crispr_screen_viewer.functions_etc import DataSet
@@ -197,12 +198,13 @@ def get_stat_source_selector(idprefix, label) -> Div:
 
 # **DATATABLE**
 def create_datatable(data_df=None, columns_if_no_df=None):
-    #todo make numfmt work
-    # to do that, it should be set per column
+
     #numfmt = Format(precision=3, scheme=Scheme.decimal_or_exponent)
     #formatted = Format()
     #numfmt = formatted.precision(3)
 
+    # None of this works and I need to figure out why
+    #
     # conditional formatting for the FDR
     thresholds = [0.6, 0.3, 0.1, -0.1]
     fdr_colours = ['#ff0000', '#ff9933', '#ffff00', '#66ff33']
@@ -223,13 +225,12 @@ def create_datatable(data_df=None, columns_if_no_df=None):
     if data_df is None:
         return DataTable(
             id='table',
-            columns=[{'name':c, 'id':c, } for c in columns_if_no_df],
+            columns=[datatable_column_dict(c) for c in columns_if_no_df],
         )
 
     return DataTable(
         id='table',
-        # 'format':get_fmt(c)
-        columns=[{'name':c, 'id':c, } for c in data_df.columns],
+        columns=[datatable_column_dict(c) for c in data_df.columns],
         data=data_df.to_dict('records'),
         export_format='csv',
         style_data_conditional=cond_fmts,
