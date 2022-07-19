@@ -22,6 +22,7 @@ from crispr_screen_viewer.shared_components import (
 )
 
 
+
 def initiate(app, data_set):
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
@@ -481,7 +482,8 @@ if __name__ == '__main__':
 
         data_set = DataSet(source_directory)
 
-        initiate(app, data_set)
+        app.layout = initiate(app, data_set)
+
         app.run_server(debug=debug, host='0.0.0.0', port=int(port))
 
     main()
