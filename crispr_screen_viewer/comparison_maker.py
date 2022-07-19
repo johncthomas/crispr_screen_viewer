@@ -38,11 +38,16 @@ def initiate(app, data_set):
     #   gives some info about the experiment
     experiment_options = []
     for exp_id in sorted(comparisons['Experiment ID'].unique()):
-        thisexp = comparisons.loc[comparisons['Experiment ID'] == exp_id]
+        comps_for_exp = comparisons.loc[comparisons['Experiment ID'] == exp_id]
 
-        # get some of the treatments at least...
-        treats = sorted(thisexp.Treatment.dropna().apply(lambda t: t.split(' ➤ ')[-1]).unique())
-        treats = " | ".join([t for t in treats if t and t != 'DMSO'])
+        expd = experiments_metadata.loc[exp_id]
+
+        if 'Treatments' in expd:
+            treats = expd['Treatments']
+        else:
+            # get some of the treatments at least...
+            treats = sorted(comps_for_exp.Treatment.dropna().apply(lambda t: t.split(' ➤ ')[-1]).unique())
+            treats = ", ".join([t for t in treats if t and t != 'DMSO'])
 
         maxlen = 60
         if len(treats) > maxlen:
@@ -52,7 +57,9 @@ def initiate(app, data_set):
         #exp_metadata = data_set.experiments_metadata.loc[exp_id]
         exp_metadata = experiments_metadata.loc[exp_id]
         #who = exp_metadata['Investigator']
-        when = exp_metadata['Date screen completed (yyyy-mm-dd)']
+        date_k = exp_metadata.index.map(lambda s: s.startswith('Date'))
+        date_k = exp_metadata.index[date_k]
+        when = exp_metadata[date_k]
         exp_str = f"{exp_id}, {when} – {treats}"
 
         experiment_options.append(
