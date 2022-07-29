@@ -13,6 +13,7 @@ from crispr_screen_viewer.shared_components import (
     colours,
     big_text_style,
     timepoint_labels,
+    LOG,
 )
 
 from crispr_screen_viewer.functions_etc import (
@@ -130,7 +131,10 @@ def initiate(app, data_set, public_version=True) -> Div:
         filter_cols.append('Source')
 
     def filter_options(col):
-        sorted_vals = sorted(data_set.comparisons[col].unique())
+        vals = data_set.comparisons[col]
+        if vals.isna().any():
+            LOG.warning(f'Column "{col}" used for data filtering contains NaN, this may be a problem.')
+        sorted_vals = sorted(vals.unique())
         if col != 'Timepoint':
             opts = [{'label':v, 'value':v} for v in sorted_vals]
         else:
