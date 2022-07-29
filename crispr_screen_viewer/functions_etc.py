@@ -94,6 +94,12 @@ class DataSet:
                        for ans in self.available_analyses}
 
         comparisons = pd.read_csv(f'{source_directory}/comparisons_metadata.csv', )
+        # this is sometimes put in wrong...
+        m = comparisons['Timepoint'] == 'endpoint'
+        comparisons.loc[m, 'Timepoint'] = 'endpoints'
+        comparisons.loc[m, 'Control group'] = comparisons.loc[m, 'Control group'] \
+            .apply(lambda x: x.replace('endpoint', 'endpoints'))
+
         comparisons = comparisons.set_index('Comparison ID', drop=False)
         #comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
         try:
@@ -194,6 +200,7 @@ class DataSet:
         score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
 
         return score_fdr
+
 
 
 def load_mageck_tables(prefix:str, controls:Iterable[str]):
