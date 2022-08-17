@@ -45,7 +45,7 @@ other setting when conditions are true.*/
 
 .selector-tab {
     background-color: #ccddff !important;
-    width: 300px !important;
+    width: 200px !important;
     display: block; !important;
     align-items: center;
     justify-content: center;
@@ -57,14 +57,20 @@ other setting when conditions are true.*/
 
 .data-tab {
     background-color: #ccff99 !important;
-    width: 300px !important;
-    display: flex !important;
+    width: 200px !important;
+    display: block; !important;
     align-items: center;
     justify-content: center;
 
 }
 .data-tab--selected {
     background-color: #b3ff66 !important;
+}
+
+.selector-results-tabs {
+    width: 1010px;
+    display: inline-block;
+    margin-top: 15px;
 }
 
 .myheader {
@@ -89,7 +95,6 @@ other setting when conditions are true.*/
     padding: 27px 15px 10px 15px;
     color: #fefefe;
     text-decoration: none;
-
 }
 
 .navbar a:hover {
@@ -100,12 +105,54 @@ other setting when conditions are true.*/
     border-color: darkgray;
     border-width: 3px;
     height: 150px;
-    display: flex;
-    justify-content: center;
-
 }
 
 .myfooter img {
     max-height: 65px;
     padding: 5px 15px 5px 15px;
+}
+
+.center-flex {
+    display: flex;
+    justify-content: center;
+}
+
+.inputPanel {
+}
+
+.tab-content-box {
+    /*border: 2px dotted blue;*/
+    display: flex;
+}
+
+.explanatory-paragraph {
+    max-width: 1000px;
+}
+
+/*.VirtualizedSelectOption {*/
+/*    display: flex;*/
+/*    font-size: small;*/
+/*    min-width: 500px;*/
+/*}*/
+
+.comp-selector {
+    font-size: small;
+    align-items: start;
+    min-width: 320px;
+    text-align: left;
+    right: 0; !important;
+}
+
+.filter-tab {
+    height: 10px;
+    padding: 0;
+}
+
+.home-text {
+    color: white;
+    text-align: center;
+}
+
+#h1 #h2 .home-text {
+    padding-top: 80px;
 }

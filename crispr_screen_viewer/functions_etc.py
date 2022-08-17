@@ -1,3 +1,5 @@
+import typing
+
 from statsmodels.stats.multitest import multipletests
 import pandas as pd
 import numpy as np
@@ -7,9 +9,40 @@ from scipy.stats import norm
 from scipy import odr
 from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection
-
-
+import logging, pickle
 parse_expid = lambda comp: comp.split('.')[0]
+
+logging.basicConfig()
+LOG = logging.getLogger('screen_viewers')
+
+cell_text_style = {
+    'font-family':'Helvetica',
+    'font-size':'15px',
+    'text-align':'left',
+    "whiteSpace": "pre-line",
+}
+
+cell_number_style = {
+    'font-family':'monospace',
+    'font-size':'17px'
+}
+
+timepoint_labels = dict([
+    ('fromstart', 'From experiment start'),
+    ('otherprior', 'From midpoint'),
+    ('endpoints', 'Matched time points')
+])
+
+
+# Styles for things that get hidden - these should not be transferred to
+# .css file because they are dynamically changed.
+style_comparisons_card = {'padding-top':'98px',
+                          'display':'inline-block',
+                          #'border':'2px red dotted',
+                          'width':'350px'}
+
+style_hidden = {'display':'none'}
+style_gene_selector_div = {}
 
 def datatable_column_dict(c,):
     """return {'name':k, 'id':k} for all k except "DOI" which
@@ -26,6 +59,8 @@ def datatable_column_dict(c,):
 
 def doi_to_link(doi):
     """Return string formated as a markdown link to doi.org/{doi}"""
+    # should be formated to not be a hyperlink, but sometimes it is
+    doi = doi.replace('https', '').replace('http', '').replace('://', '').replace('doi.org/', '')
     return f"[{doi}](https://doi.org/{doi})"
 
 def orthoregress(x, y):
@@ -103,21 +138,39 @@ class DataSet:
         comparisons = comparisons.set_index('Comparison ID', drop=False)
         #comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
         try:
-            comparisons = comparisons.drop('Available analyses', 1)
+            comparisons = comparisons.drop('Available analyses', axis=1)
         except KeyError:
             pass
-        comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'None'
+        comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'No treatment'
         # these cols could be blank and aren't essential to have values
         for col in  ['Cell line', 'Library', 'Source']:
             if col not in comparisons.columns:
                 comparisons.loc[:, col] = 'Unspecified'
             comparisons.loc[comparisons[col].isna(), col] = 'Unspecified'
 
+        # replace some values with ones that read better
+        for old, new in timepoint_labels.items():
+            comparisons.loc[comparisons.Timepoint == old, 'Timepoint'] = new
+
         # list of all datasources for filtering
         self.data_sources = comparisons.Source.fillna('Unspecified').unique()
         # main metadata tables
         self.comparisons = comparisons
-        self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', index_col=0)
+        self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', )
+        # rename "Experiment name" to "Experiment ID" for consistency
+        colmap = {k:k for k in self.experiments_metadata}
+        colmap['Experiment name'] = 'Experiment ID'
+        self.experiments_metadata.columns = self.experiments_metadata.columns.map(colmap)
+        self.experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
+
+
+        # add formated DOI to the comparisons metadata
+        dois = self.experiments_metadata.loc[
+            self.comparisons['Experiment ID'],
+            'DOI'
+        ].apply(doi_to_link).values
+
+        self.comparisons.insert(2, 'DOI', dois)
 
         if print_validations:
             # Print information that might be helpful in spotting data validity issues
@@ -202,6 +255,16 @@ class DataSet:
         return score_fdr
 
 
+def load_dataset(paff):
+    """If paff is a dir, the dataset is constructed from the files
+    within, otherwise it is assumed to be a pickle."""
+    if os.path.isfile(paff):
+        LOG.info('args.data_path is a file, assuming pickle and loading.')
+        with open(paff, 'rb') as f:
+            data_set = pickle.load(f)
+    else:
+        data_set = DataSet(Path(paff))
+    return data_set
 
 def load_mageck_tables(prefix:str, controls:Iterable[str]):
     """Get a dict of DF of mageck results keyed to control groups.
@@ -437,4 +500,58 @@ def tabulate_drugz_files(file_names, prefix, compjoiner='-'):
     return table
 
 
+def get_selector_table_filter_keys(public=False) -> Dict[str, List[str]]:
+    """Get dictionary used to filter the exp and comp tables. """
+    filter_keys = {
+        'exp':['Treatment', 'Cell line', 'KO', 'Library'],
+        'comp':['Treatment', 'Cell line', 'KO', 'Timepoint',
+                'Library', 'Experiment ID',]
+    }
+    if not public:
+        for k, l in filter_keys.items():
+            l.append('Source')
+    return filter_keys
 
+
+def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
+    # this is set up so that different pages can recieve different columns but
+    # at the time of writing they all use the same...
+    tab_columns_public = {
+        'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Experiment ID', ],
+        'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
+                'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+                'Library', 'Experiment ID', 'DOI']
+    }
+    tab_columns_private = {
+        'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation', 'Experiment ID', 'DOI'],
+        'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
+                'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+                'Library', 'Experiment ID', 'DOI']
+    }
+
+    tab_columns = tab_columns_public if public else tab_columns_private
+
+    if page_id == 'msgv':
+        return tab_columns
+    elif page_id in ('cm', 'se'):
+        return tab_columns
+    else:
+        raise RuntimeError(f"page_id={page_id} not recognised, only 'cm', 'se' or 'msgv")
+
+
+
+def get_cmdline_options() -> typing.Tuple[str, str, bool]:
+    """[script.py] SOURCE PORT [DEBUG]"""
+    import sys
+    args = sys.argv
+    if (len(args) == 1) or (args[1] in ('-h', '--help')):
+        print('usage: comparison_maker.py source_dir port [debug]\n    Any value in the debug position means True.')
+        sys.exit(0)
+    source = sys.argv[1]
+    port = sys.argv[2]
+    if len(sys.argv) > 3:
+        debug = True
+    else:
+        debug = False
+
+    return source, port, debug

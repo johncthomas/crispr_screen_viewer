@@ -2,7 +2,10 @@
 import sys
 from argparse import ArgumentParser
 from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer, comparison_maker
-from crispr_screen_viewer.functions_etc import DataSet, doi_to_link
+from crispr_screen_viewer.functions_etc import (
+    doi_to_link,
+    load_dataset
+)
 from crispr_screen_viewer.shared_components import (
     #external_stylesheets,
     # get_lab_val,
@@ -20,17 +23,6 @@ import pathlib, pickle, os
 import dash_bootstrap_components as dbc
 
 our_colour = '#3db9c2'
-
-def load_dataset(paff):
-    """If paff is a dir, the dataset is constructed from the files
-    within, otherwise it is assumed to be a pickle."""
-    if os.path.isfile(paff):
-        LOG.info('args.data_path is a file, assuming pickle and loading.')
-        with open(paff, 'rb') as f:
-            data_set = pickle.load(f)
-    else:
-        data_set = DataSet(pathlib.Path(paff))
-    return data_set
 
 
 def parse_clargs():
@@ -82,45 +74,51 @@ def initiate_app(data_set, public_version=False,):
                     url_base_pathname='/',
                     external_stylesheets=[dbc.themes.BOOTSTRAP])
 
-    # add formated DOI to the comparisons metadata
-    dois = data_set.experiments_metadata.loc[
-        data_set.comparisons['Experiment ID'],
-        'DOI'
-    ].apply(doi_to_link).values
 
-    data_set.comparisons.insert(2, 'DOI', dois)
 
     # register the callbacks and get the page layouts
-    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public_version=public_version)
-    se_layout = screen_explorer.initiate(app, data_set, public_version=public_version)
-    cm_layout = comparison_maker.initiate(app, data_set)
+    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public=public_version)
+    se_layout = screen_explorer.initiate(app, data_set, public=public_version)
+    cm_layout = comparison_maker.initiate(app, data_set, public=public_version)
 
 
 
     landing_page = Div(style={"background-color":our_colour}, children=[
-        Div(style={'margin':'auto', 'width':'780px', 'height':'450px'}, children=[
+        Div(style={'margin':'auto', 'width':'980px', 'height':'450px'}, children=[
             html.H1(
                 'DDRcs – DDR CRISPR screen data explorer',
-                style={'color':'white',
-                       'text-align': 'center',
-                       'padding-top':'80px'},
-                ),
+                className='home-text',
+            ),
             html.Br(),
             html.P(
                 "A web portal for the exploration of DNA damage reponse (DDR) related CRISPR screens. "
                 "DDRcs allows researchers to see results for a few selected genes across all the screens "
                 "in the database, explore all the results of a specific screen, and directly compare treatments "
                 "to find differential effects.",
-                style={'color':'white',
-                       'text-align': 'center'},
+                className='home-text',
             ),
             html.Br(),
             # documentation link
             Div(className='centre',
                 children=[dbc.Button("View documentation", href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
                        color="light", className="lg-1", size='lg', target="_blank")]),
+            html.H2(
+                "About the analyses",
+                className='home-text',
+            ),
+            html.P(
+                "Screen results presented here come from publically available, or personally provided, "
+                "count data analysed using DrugZ and MAGeCK. A pseudocount of 5 was added to all counts "
+                "prior to analysis, otherwise they were not adjusted. "
+                "Where the experimental design used biological clones, paired analysis "
+                "modes were used when appropriate. In the future, results from other analysis methods "
+                "will be included, and preprocessing of the data will be investigated.",
+                className='home-text',
+            )
+
         ]),
     ])
+
 
     # header with links
     header = html.Header(className='myheader', children=[
@@ -132,6 +130,7 @@ def initiate_app(data_set, public_version=False,):
             html.A(href='/gene-explorer', children="Query Genes"),
             html.A(href='/screen-explorer', children="Explore Screens"),
             html.A(href='/comparison-explorer', children="Compare treatments"),
+            html.A(href='/about', children="About"),
         ])
     ])
 
@@ -140,15 +139,25 @@ def initiate_app(data_set, public_version=False,):
 
     # logos and external links
     footer = Div(className='myfooter', children=[
-        html.A( rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
-               children=[html.Img(src="assets/images/univ_cam_logo.jpg",)]
+        Div(
+            html.P("Developed by John C. Thomas. Data processing by John C. Thomas, Vipul Gupta & Simon Lam."),
+            className='center-flex',
         ),
-        html.A(rel='noopener nofollow', target='_blank', href='https://www.gurdon.cam.ac.uk/', children=[
-            html.Img(src="assets/images/gurdon_logo.jpg", )
-        ]),
-        html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
-            html.Img(src="assets/images/new_lab_logo.png", )
-        ])
+
+        Div(
+            className='center-flex',
+            children=[
+                html.A( rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
+                   children=[html.Img(src="assets/images/univ_cam_logo.jpg",)]
+                ),
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.gurdon.cam.ac.uk/', children=[
+                    html.Img(src="assets/images/gurdon_logo.jpg", )
+                ]),
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
+                    html.Img(src="assets/images/new_lab_logo.png", )
+                ])
+            ]
+        )
     ])
 
     app.layout = Div([
@@ -180,8 +189,8 @@ def initiate_app(data_set, public_version=False,):
 
 
 if __name__ == '__main__':
-    data_set, port, dash_debug, debug_messages, public = parse_clargs()
-
+    data_set, port, dash_debug, debug_messages, public = args = parse_clargs()
+    print(args)
     import logging
     if debug_messages:
         print('Debug messages on')

@@ -3,14 +3,23 @@ import logging
 from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
 from crispr_screen_viewer.functions_etc import datatable_column_dict
-from dash import dcc, html
+from dash import dcc, html, callback_context
+from functions_etc import (
+    cell_text_style,
+    cell_number_style,
+    LOG,
+    timepoint_labels,
+    style_gene_selector_div,
+)
+from dash.exceptions import PreventUpdate
 Div = html.Div
+import pandas as pd
+
+import dash_bootstrap_components as dbc
+
 #from crispr_screen_viewer.functions_etc import DataSet
 
-from typing import Tuple, List, Dict
-
-logging.basicConfig()
-LOG = logging.getLogger('screen_viewers')
+from typing import Tuple, List, Dict, Callable
 
 #from https://sashamaps.net/docs/resources/20-colors/, 99%,
 
@@ -45,7 +54,7 @@ def get_treatment_label(row, analysis_label='') -> Tuple[str, str]:
         analysis_label = f"{analysis_label}, "
 
 
-    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Time point group']})",
+    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Timepoint']})",
              f"{row['Library']} library, experiment ID {row['Experiment ID']}")
 
     return title
@@ -170,31 +179,33 @@ def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
 
 options_analyses = [
     {'label':'DrugZ', 'value':'drz'},
-    {'label':'MAGeCK',  'value':'mag'}
+    {'label':'MAGeCK', 'value':'mag'}
 ]
 
-timepoint_labels = dict([
-        ('fromstart', 'From experiment start'),
-        ('otherprior', 'From midpoint'),
-        ('endpoints', 'Matched time points')
-])
 
-
-def get_stat_source_selector(idprefix, label) -> Div:
+def get_stat_source_selector(id_prefix, label, cardheader='Select analysis algorithm') -> Div:
     """List of single Div with dcc.RadioItems with id
-    idprefix+'-stat-source-selector'. Options from `options_analyses`"""
+    '{id_prefix}-stat-source-selector'. Options from `options_analyses`"""
 
-    sigsourceid = f'{idprefix}-stat-source-selector'
-    #sigtypeid   = f'{idprefix}-stat-type-selector'
+    sigsourceid = f'{id_prefix}-stat-source-selector'
 
-    return Div(style=styles['selector'], children=[
-        html.Label(label, htmlFor=sigsourceid),
-        dcc.RadioItems(
-            id=sigsourceid,
-            options=options_analyses,
-            value='drz',
-        )
-    ])
+    return Div(dbc.Card(
+        [
+            dbc.CardHeader(
+                cardheader
+            ),
+            dbc.CardBody(
+                children=[
+                    html.Label(label, htmlFor=sigsourceid),
+                    dcc.RadioItems(
+                        id=sigsourceid,
+                        options=options_analyses,
+                        value='drz',
+                    )
+                ]
+            ),
+        ]
+    ))
 
 # **DATATABLE**
 def create_datatable(data_df=None, columns_if_no_df=None):
@@ -236,6 +247,124 @@ def create_datatable(data_df=None, columns_if_no_df=None):
         style_data_conditional=cond_fmts,
     )
 
+def register_gene_selection_processor(app, figure_id, selected_genes_state, output) -> Callable:
+    """Registers a function for putting genes selected via interacting with
+    the graph into the gene dropdown. Registers a callback with following
+    arguments:
+
+    output, Input(figure_id, 'selectedData'), state
+
+    output and state pointing to the same object probably makes the most sense,
+    but using Output/State
+    """
+
+    # update selected genes by points that are selected on the graph
+    # this should only ever add points.
+    @app.callback(
+        output,
+        Input(figure_id, 'selectedData'),
+        selected_genes_state,
+    )
+    def put_selected_genes_into_dropdown(selected_data, dropdown_genes):
+        LOG.debug(f'Adding genes from {figure_id}.selectedData: {selected_data}')
+
+        if not selected_data:
+            raise PreventUpdate
+
+        selected_genes = set()
+        for p in selected_data['points']:
+            selected_genes.add(p['text'])
+
+        if selected_genes.issubset(dropdown_genes):
+            LOG.debug('...no new genes, preventing update')
+            raise PreventUpdate
+
+        return dropdown_genes+list(selected_genes.difference(dropdown_genes))
+
+    return put_selected_genes_into_dropdown
 
 
-#external_stylesheets = ['https://codepen.io/chriddyp/pen/bWLwgP.css']
+def spawn_gene_dropdown(app, id_prefix) -> Div:
+    """Returns layout for dropdown,
+    register_gene_selection_processor(app, fig_id).
+
+    Dropdowns need extra callbacks to communicate with each other. That
+    is not handled here."""
+
+    return Div(
+        id=f'{id_prefix}-gene-selector-div',
+        style=style_gene_selector_div,
+        children=[
+            html.Label('Label genes:',
+                       htmlFor=f'{id_prefix}-gene-dropdown',
+                       style=big_text_style),
+            dcc.Dropdown(
+                id=f'{id_prefix}-gene-dropdown',
+                placeholder='Label genes',
+                style={'width':'100%', 'height':'100px', },
+                value=[],
+                options=[],
+                clearable=True,
+                multi=True,
+            )
+        ]
+    )
+
+
+def spawn_filter_dropdowns(
+        id_prefix, table_str, filter_cols:List[str], comparisons, values:dict=None,
+        card_header='Filter table rows by their contents.',
+) -> List[dbc.Card]:
+    """Get Dropdown objects for layout. No callbacks registered.
+
+    filter_cols: list giving the columns for which filter boxes will be
+        spawned.
+
+    values:
+
+    Return list of div with dcc.Dropdowns with
+    id=f"{id_prefix}-{table_str}-filter-{col}" for col in filter_cols.
+    Options from comparisons[col].
+
+    """
+    filter_dropdowns = []
+    for col in filter_cols:
+        idd = f"{id_prefix}-{table_str}-filter-{col}"
+        LOG.debug(f"Filter dropdown: register ID={idd}")
+
+        try:
+            value = values[col]
+        except:
+            value = []
+
+        drpdwn = dbc.Card(
+            [
+                dbc.CardBody([
+                    dcc.Dropdown(
+                        id=idd,
+                        placeholder='Filter by '+col,
+                        multi=True,
+                        style={'min-height':'80px', 'width':'100%'},
+                        value=value,
+                        options=[{'label':v, 'value':v} for v in sorted(comparisons[col].unique())]
+                    ),
+                ])
+            ],
+            className='mt-3'
+        )
+        filter_dropdowns.append(
+            dbc.Tab(
+                drpdwn,
+                label=col,
+                #className='filter-tab'
+            )
+        )
+
+    filter_tabs = dbc.Card(
+        [
+            dbc.CardHeader(card_header),
+            dbc.CardBody(dbc.Tabs(children=filter_dropdowns, active_tab=None)),
+        ]
+    )
+
+    return [filter_tabs]
