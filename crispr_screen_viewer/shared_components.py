@@ -4,7 +4,7 @@ from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
 from crispr_screen_viewer.functions_etc import datatable_column_dict
 from dash import dcc, html, callback_context
-from functions_etc import (
+from crispr_screen_viewer.functions_etc import (
     cell_text_style,
     cell_number_style,
     LOG,

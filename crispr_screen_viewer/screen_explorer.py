@@ -44,7 +44,7 @@ from crispr_screen_viewer.selector_tables import (
     get_selector_table_filter_keys,
     register_exptable_filters_comps
 )
-from shared_components import spawn_filter_dropdowns
+from crispr_screen_viewer.shared_components import spawn_filter_dropdowns
 
 Div = html.Div
 
