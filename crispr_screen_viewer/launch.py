@@ -130,7 +130,7 @@ def initiate_app(data_set, public_version=False,):
             html.A(href='/gene-explorer', children="Query Genes"),
             html.A(href='/screen-explorer', children="Explore Screens"),
             html.A(href='/comparison-explorer', children="Compare treatments"),
-            html.A(href='/about', children="About"),
+            #html.A(href='/about', children="About"),
         ])
     ])
 
