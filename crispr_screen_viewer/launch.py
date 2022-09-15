@@ -4,7 +4,8 @@ from argparse import ArgumentParser
 from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer, comparison_maker
 from crispr_screen_viewer.functions_etc import (
     doi_to_link,
-    load_dataset
+    load_dataset,
+    DataSet
 )
 from crispr_screen_viewer.shared_components import (
     #external_stylesheets,
@@ -67,12 +68,14 @@ def parse_clargs():
 
     return data_set, args.port, args.app_debug, args.debug_messages, args.public_version
 
-def initiate_app(data_set, public_version=False,):
+def initiate_app(data_set:DataSet, public_version=False,):
     server = flask.Flask(__name__)
 
     app = dash.Dash(__name__,  server=server,
                     url_base_pathname='/',
                     external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    app.title = 'DDRcs - DDR CRISPR screens'
 
 
 
