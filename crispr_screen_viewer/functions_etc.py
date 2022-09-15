@@ -60,6 +60,8 @@ def datatable_column_dict(c,):
 def doi_to_link(doi):
     """Return string formated as a markdown link to doi.org/{doi}"""
     # should be formated to not be a hyperlink, but sometimes it is
+    if pd.isna(doi) or (not doi):
+        return ''
     doi = doi.replace('https', '').replace('http', '').replace('://', '').replace('doi.org/', '')
     return f"[{doi}](https://doi.org/{doi})"
 
@@ -523,7 +525,7 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
                 'Library', 'Experiment ID', 'DOI']
     }
     tab_columns_private = {
-        'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation', 'Experiment ID', 'DOI'],
+        'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation/Investigator', 'Experiment ID', 'DOI'],
         'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
                 'Library', 'Experiment ID', 'DOI']
