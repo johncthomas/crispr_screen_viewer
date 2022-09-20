@@ -20,7 +20,7 @@ from crispr_screen_viewer.functions_etc import (
 
 from dash.exceptions import PreventUpdate
 
-from shared_components import (
+from crispr_screen_viewer.shared_components import (
     spawn_filter_dropdowns
 )
 
