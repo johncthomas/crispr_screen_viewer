@@ -152,11 +152,11 @@ def initiate(app, data_set, public=True) -> Div:
     #   common things have different colours.
     def get_colour_map(list_of_things):
         return {thing:colours[i%len(colours)] for i, thing in enumerate(list_of_things)}
-    colour_maps = {}
+    box_colour_maps = {}
     for color_by in colourable_categories:
         ordered_things = data_set.comparisons.loc[:, color_by].value_counts().index
         cm = get_colour_map(ordered_things)
-        colour_maps[color_by] = cm
+        box_colour_maps[color_by] = cm
 
 
 
@@ -241,17 +241,29 @@ def initiate(app, data_set, public=True) -> Div:
             )
         # add the boxplot traces if required
         if show_boxplots:
+            included = set()
+            # add a boxplot trace for each comparison
             for trace_i, comp in enumerate(ordered_comps):
-                # values that paramatise the box plot
+                # these values define the boxplot
                 ys = data_tabs['score'][comp]
 
+                # x-labels are just numbers
                 boxlabels = pd.Series(str(trace_i+1), index=ys.index)
 
-                color_group = data_set.comparisons.loc[comp, color_by]
+                # Get the value by which the box will be coloured
+                colorable_value = data_set.comparisons.loc[comp, color_by]
+
+                # key-word args for the box
+                boxkw = dict(x=boxlabels, y=ys, name=colorable_value, boxpoints=False,
+                           legendgroup=colorable_value,
+                           line=dict(color=box_colour_maps[color_by][colorable_value]))
+                # include each treatment/whatever in the legend only once.
+                if colorable_value in included:
+                    boxkw['showlegend'] = False
+                included.add(colorable_value)
 
                 fig.add_trace(
-                    go.Box(x=boxlabels, y=ys, name=color_group, boxpoints=False,
-                           line=dict(color=colour_maps[color_by][color_group]))
+                    go.Box(**boxkw)
                 )
         # labels
         fig.update_layout(xaxis_title='Boxplot number',
