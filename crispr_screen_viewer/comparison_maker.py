@@ -27,6 +27,7 @@ from crispr_screen_viewer.shared_components import (
     get_annotation_dicts,
     register_gene_selection_processor,
     spawn_gene_dropdown,
+    spawn_filter_dropdowns,
 )
 
 from crispr_screen_viewer.selector_tables import (
@@ -37,7 +38,7 @@ from crispr_screen_viewer.selector_tables import (
     register_exptable_filters_comps,
 
 )
-from shared_components import spawn_filter_dropdowns
+
 
 import dash_bootstrap_components as dbc
 
