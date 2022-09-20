@@ -520,9 +520,9 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # at the time of writing they all use the same...
     tab_columns_public = {
         'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Experiment ID', ],
-        'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
+        'comp':['Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Experiment ID', 'DOI']
+                'Library', 'Experiment ID', 'DOI', 'Comparison ID',  ]
     }
     tab_columns_private = {
         'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation/Investigator', 'Experiment ID', 'DOI'],
