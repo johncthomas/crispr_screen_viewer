@@ -254,7 +254,7 @@ def initiate(app, data_set, public=True) -> Div:
                 colorable_value = data_set.comparisons.loc[comp, color_by]
 
                 # key-word args for the box
-                boxkw = dict(x=boxlabels, y=ys, name=colorable_value, boxpoints=False,
+                boxkw = dict(x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
                            legendgroup=colorable_value,
                            line=dict(color=box_colour_maps[color_by][colorable_value]))
                 # include each treatment/whatever in the legend only once.
