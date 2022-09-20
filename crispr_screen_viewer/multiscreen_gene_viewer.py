@@ -1,3 +1,5 @@
+import itertools
+
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
 Div = html.Div
@@ -81,7 +83,8 @@ def initiate(app, data_set, public=True) -> Div:
         html.H1("Multi-Screen Gene Viewer"),
         html.P("Select your gene(s) of interest. Comparisons that show significant results "
                 "(below adjustable FDR) for at least one selected gene are shown below. "
-                "Box plots give the overall distribution of scores, and stars show specific genes."),
+                "Box plots give the overall distribution of scores, and markers show specific genes. "
+               "Diamonds indicate significant genes, and squares non-significant genes."),
         Div([
             dcc.Checklist(
                 id='msgv-show-boxplots',
@@ -193,27 +196,27 @@ def initiate(app, data_set, public=True) -> Div:
         LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, show_boxplots={show_boxplots}, "
                   f"fdr_thres={fdr_thresh}, ...")
 
-        # # Identify data sources that are unavailable for selected analyses
-        # # hopefully depreciated - will probably take a different tack if it ends up not everything
-        # #  can be analysed by everything
-        # available_sources = data_set.comparisons.loc[data_tabs['fdr'].columns, 'Source'].unique()
-        # missing_data_sources = [d for d in selected_data_sources if d not in available_sources]
-        # if missing_data_sources:
-        #     missing_data_sources = "(unavailable with current analysis type: "+', '.join(missing_data_sources)+')'
-        # else:
-        #     missing_data_sources = '(All selections available for analysis type)'
+
 
         # get boolean masks for which comparisons to include in the charts
-        # first get comparisons filtered by metadata filters
+        # Filter comparisons by metadata filters
         comparison_mask = pd.Series(True, index=data_set.comparisons.index)
         LOG.debug(f'update_figure: filters={filters} filter_cols={filter_cols}')
         for filter_id, values in zip(filter_cols, filters):
             if values:
                 comparison_mask = comparison_mask & data_set.comparisons[filter_id].isin(values)
 
-        # then by FDR threshold
-        fdr_mask = (data_tabs['fdr'].loc[selected_genes] < fdr_thresh).any()
+        # Filter comparisons by FDR threshold
+        fdr_mask = (data_tabs['fdr'].loc[selected_genes] <= fdr_thresh).any()
         filtered_scores = data_tabs['score'].loc[selected_genes, (fdr_mask & comparison_mask)]
+
+        # assemble the figure
+        fig = go.Figure()
+
+        if (sum((fdr_mask & comparison_mask)) == 0) and selected_genes:
+            fig.add_annotation(x=4, y=4,
+                               text=f"None of the selected genes have FDR <= {fdr_thresh}",
+                               showarrow=False,)
 
         # determine order of plots
         if order_by in selected_genes:
@@ -226,19 +229,31 @@ def initiate(app, data_set, public=True) -> Div:
         else: # this shouldn't happen, though maybe I should have a "whatever" order option
             ordered_comps = filtered_scores.columns.values
 
-        # assemble the figure
-        fig = go.Figure()
+
         # plot the gene scatters
         trace_numbers = [str(i) for i in range(1, len(ordered_comps)+1)]
+
         for gn in selected_genes:
+            fdrs = data_tabs['fdr'].loc[gn, ordered_comps]
+            sig:pd.Series = fdrs <= fdr_thresh
+            sig[sig == True] = 'diamond'
+            sig[sig == False] = 'square'
+
+
             fig.add_trace(
                 go.Scatter(
                     x=trace_numbers,
                     y=filtered_scores.loc[gn, ordered_comps],
                     mode='markers', name=gn,
-                    marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}, 'symbol':'hexagram'}),
+                    marker_symbol=sig.values,
+                    marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}},
+                    customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}'),
+                    hovertemplate=f"Gene: {gn}"+"<br>FDR: %{customdata}<br>Score: %{y}<extra></extra>"
+                ),
 
             )
+
+
         # add the boxplot traces if required
         if show_boxplots:
             included = set()
@@ -254,9 +269,11 @@ def initiate(app, data_set, public=True) -> Div:
                 colorable_value = data_set.comparisons.loc[comp, color_by]
 
                 # key-word args for the box
-                boxkw = dict(x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
-                           legendgroup=colorable_value,
-                           line=dict(color=box_colour_maps[color_by][colorable_value]))
+                boxkw = dict(
+                    x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
+                    legendgroup=colorable_value,
+                    line=dict(color=box_colour_maps[color_by][colorable_value]),
+                )
                 # include each treatment/whatever in the legend only once.
                 if colorable_value in included:
                     boxkw['showlegend'] = False
@@ -265,6 +282,7 @@ def initiate(app, data_set, public=True) -> Div:
                 fig.add_trace(
                     go.Box(**boxkw)
                 )
+
         # labels
         fig.update_layout(xaxis_title='Boxplot number',
                           yaxis_title=data_set.score_labels[score_type],)
