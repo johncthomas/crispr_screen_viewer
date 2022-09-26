@@ -193,7 +193,7 @@ def initiate_app(data_set:DataSet, public_version=False,):
 
 if __name__ == '__main__':
     data_set, port, dash_debug, debug_messages, public = args = parse_clargs()
-    print(args)
+    print('args:', args)
     import logging
     if debug_messages:
         print('Debug messages on')
