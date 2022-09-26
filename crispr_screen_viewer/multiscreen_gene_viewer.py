@@ -264,7 +264,7 @@ def initiate(app, data_set, public=True) -> Div:
                     marker_symbol=mrkrs.values,
                     marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}},
                     customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}'),
-                    hovertemplate=f"Gene: {gn}"+"<br>FDR: %{customdata}<br>Score: %{y}<extra></extra>"
+                    hovertemplate=f"{gn}"+"<br>Score: %{y}<br>FDR: %{customdata}<extra></extra>"
                 ),
 
             )
@@ -276,7 +276,7 @@ def initiate(app, data_set, public=True) -> Div:
         for trace_i, comp in enumerate(ordered_comps):
             # these values define the boxplot
             ys = data_tabs['score'][comp]
-
+            fdr = data_tabs['fdr'][comp]
             # This gives the X value for each y value used to create the boxplot, which
             #   is apparently required? I guess this is approximating Tidy formated data?
             boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
@@ -288,7 +288,15 @@ def initiate(app, data_set, public=True) -> Div:
             boxkw = dict(
                 x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
                 legendgroup=colorable_value,
+                customdata=fdr,
+                text=ys.index,
                 line=dict(color=box_colour_maps[color_by][colorable_value]),
+
+                hovertemplate = (
+                        "<b>%{text}</b><br>" +
+                        "Score: %{y:.2f}<br>" +
+                        "FDR:   %{customdata:.2f}"
+                )
             )
             # include each treatment/whatever in the legend only once.
             if colorable_value in included:
