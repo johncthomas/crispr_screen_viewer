@@ -64,9 +64,7 @@ def initiate(app, data_set, public=True) -> Div:
                          options=get_gene_dropdown_lab_val(data_set, data_set.genes),
                          multi=True),
         ],
-
         style={'margin-bottom': '15px'})
-
 
     filter_cols = get_selector_table_filter_keys(public)['comp']
 
@@ -82,8 +80,8 @@ def initiate(app, data_set, public=True) -> Div:
     text_header = Div([
         html.H1("Multi-Screen Gene Viewer"),
         html.P("Select your gene(s) of interest. Comparisons that show significant results "
-                "(below adjustable FDR) for at least one selected gene are shown below. "
-                "Box plots give the overall distribution of scores, and markers show specific genes. "
+               "(below adjustable FDR) for at least one selected gene are shown below. "
+               "Box plots give the overall distribution of scores, and markers show specific genes. "
                "Diamonds indicate significant genes, and squares non-significant genes."),
     ])
 
@@ -237,22 +235,33 @@ def initiate(app, data_set, public=True) -> Div:
             ordered_comps = filtered_scores.columns.values
 
 
-        # plot the gene scatters
-        trace_numbers = [str(i) for i in range(1, len(ordered_comps)+1)]
+        # *plot the gene scatters*
+
+        # x tick labels
+        trace_numbers = pd.Series([str(i) for i in range(1, len(ordered_comps)+1)])
+
+        if len(ordered_comps):
+            ordered_expid = data_set.comparisons.loc[ordered_comps, 'Experiment ID']
+            citations = data_set.experiments_metadata.loc[ordered_expid, 'Short citation'].fillna('')
+            treats = data_set.comparisons.loc[ordered_comps, 'Treatment'].fillna('')
+            x_tick_labels = trace_numbers.values + '. ' +citations.values + ', ' + treats.values
+        else:
+            x_tick_labels = trace_numbers.values
+
+        #x_tick_labels = pd.Series(x_tick_labels, index=ordered_comps)
 
         for gn in selected_genes:
             fdrs = data_tabs['fdr'].loc[gn, ordered_comps]
-            sig:pd.Series = fdrs <= fdr_thresh
-            sig[sig == True] = 'diamond'
-            sig[sig == False] = 'square'
-
+            mrkrs:pd.Series = fdrs <= fdr_thresh
+            mrkrs[mrkrs == True] = 'diamond'
+            mrkrs[mrkrs == False] = 'square'
 
             fig.add_trace(
                 go.Scatter(
-                    x=trace_numbers,
+                    x=x_tick_labels,
                     y=filtered_scores.loc[gn, ordered_comps],
                     mode='markers', name=gn,
-                    marker_symbol=sig.values,
+                    marker_symbol=mrkrs.values,
                     marker={'size': 15, 'line':{'width':2, 'color':'DarkSlateGrey'}},
                     customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}'),
                     hovertemplate=f"Gene: {gn}"+"<br>FDR: %{customdata}<br>Score: %{y}<extra></extra>"
@@ -261,34 +270,34 @@ def initiate(app, data_set, public=True) -> Div:
             )
 
 
-        # add the boxplot traces if required
-        if show_boxplots:
-            included = set()
-            # add a boxplot trace for each comparison
-            for trace_i, comp in enumerate(ordered_comps):
-                # these values define the boxplot
-                ys = data_tabs['score'][comp]
+        # add the boxplot traces
+        included = set()
+        # add a boxplot trace for each comparison
+        for trace_i, comp in enumerate(ordered_comps):
+            # these values define the boxplot
+            ys = data_tabs['score'][comp]
 
-                # x-labels are just numbers
-                boxlabels = pd.Series(str(trace_i+1), index=ys.index)
+            # This gives the X value for each y value used to create the boxplot, which
+            #   is apparently required? I guess this is approximating Tidy formated data?
+            boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
 
-                # Get the value by which the box will be coloured
-                colorable_value = data_set.comparisons.loc[comp, color_by]
+            # Get the value by which the box will be coloured
+            colorable_value = data_set.comparisons.loc[comp, color_by]
 
-                # key-word args for the box
-                boxkw = dict(
-                    x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
-                    legendgroup=colorable_value,
-                    line=dict(color=box_colour_maps[color_by][colorable_value]),
-                )
-                # include each treatment/whatever in the legend only once.
-                if colorable_value in included:
-                    boxkw['showlegend'] = False
-                included.add(colorable_value)
+            # key-word args for the box
+            boxkw = dict(
+                x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
+                legendgroup=colorable_value,
+                line=dict(color=box_colour_maps[color_by][colorable_value]),
+            )
+            # include each treatment/whatever in the legend only once.
+            if colorable_value in included:
+                boxkw['showlegend'] = False
+            included.add(colorable_value)
 
-                fig.add_trace(
-                    go.Box(**boxkw)
-                )
+            fig.add_trace(
+                go.Box(**boxkw)
+            )
 
         # labels
         fig.update_layout(xaxis_title='Boxplot number',
