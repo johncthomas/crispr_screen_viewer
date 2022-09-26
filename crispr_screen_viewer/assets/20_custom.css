@@ -156,3 +156,8 @@ other setting when conditions are true.*/
 #h1 #h2 .home-text {
     padding-top: 80px;
 }
+
+.options-horizontal {
+    display: flex;
+    flex-direction: row;
+}

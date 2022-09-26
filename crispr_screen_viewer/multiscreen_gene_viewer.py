@@ -76,81 +76,95 @@ def initiate(app, data_set, public=True) -> Div:
         filter_cols,
         data_set.comparisons,
         values={'Timepoint':['Matched time points']},
-        card_header='Filter results using boxes below.'
+        card_header='Filter samples by categories below:'
     )
 
-    # the graph/table object and the data prefilters
-    graph_and_data_selection_div = Div([
+    text_header = Div([
         html.H1("Multi-Screen Gene Viewer"),
         html.P("Select your gene(s) of interest. Comparisons that show significant results "
                 "(below adjustable FDR) for at least one selected gene are shown below. "
                 "Box plots give the overall distribution of scores, and markers show specific genes. "
                "Diamonds indicate significant genes, and squares non-significant genes."),
-        Div([
-            dcc.Checklist(
-                id='msgv-show-boxplots',
-                options=[{'label':'Show boxplots', 'value':'msgv-show-boxplots'}],
-                value=['msgv-show-boxplots']
-            ),
-        ], style={'display':'none'}), # hidden for now, might remove entirely
+    ])
 
-        gene_selector,
-        Div(filter_dropdowns, ),
-        # This Tabs will show either graph or datatable
-        Div([dcc.Tabs(id='output-tabs', value='graph',
-                  children=[
-                      dcc.Tab([graph], label='Graph', value='graph', className='data-tab',
-                              selected_className='data-tab--selected',),
-                      dcc.Tab([table], label='Table', value='table',
-                              className='data-tab', selected_className='data-tab--selected',)
-                  ])
-             ]),
-        # Div([
-        #     Div(get_reg_stat_selectors(app, id_prefix='msgv'),
-        #         style={'display':source_display, 'width':'170px','vertical-align':'top'}),
-        # ])
-    ], style={'display':'inline-block'})
+    # # This Tabs will show either graph or datatable
+    #  tabs = Div([dcc.Tabs(id='output-tabs', value='graph',
+    #           children=[
+    #               dcc.Tab([graph], label='Graph', value='graph', className='data-tab',
+    #                       selected_className='data-tab--selected',),
+    #               dcc.Tab([table], label='Table', value='table',
+    #                       className='data-tab', selected_className='data-tab--selected',)
+    #           ])
+    #      ]),
 
-    ### SIDE PANEL
 
-    stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Select significance source:')
-    fdr_selectr = Div([
+
+    ### CONTROL PANEL for the plot
+
+    stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Significance source:')
+
+    fdr_selectr = dbc.Card([
+        dbc.CardHeader('Maximum FDR:'),
         #html.Label('FDR:', htmlFor='msgv-fdr-threshold'),
-        dcc.Input(id='msgv-fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.1),
-    ], style={ 'display':'block', 'width':'135px'})
+        dbc.CardBody([
+            dcc.Input(id='msgv-fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.1),
+        ])
+    ], style={'max-width': '170px'})
+
     # this is also used for output of one function, so is defined once here
     order_by_categories = ['Mean score', 'Treatment', 'Experiment ID']
     colourable_categories = ['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO']
-    control_bar = Div([
-        # Div([
-        #     html.P('Use controls below to filter which comparisons are shown. ')
-        # ]),
 
-        Div([
-            html.Label('Order by:', htmlFor='msgv-order-by'),
+    control_order_by = dbc.Card([
+        dbc.CardHeader('Order by:'),
+        dbc.CardBody([
+            #html.Label('Order by:', htmlFor='msgv-order-by'),
             dcc.Dropdown(id='msgv-order-by', value=order_by_categories[0],
-                         options=get_lab_val(order_by_categories)),
-        ], style={'width':'150px', 'display':'block', 'vertical-align':'top'}),
-        Div([
-            html.Label('Colour by:', htmlFor='msgv-color-by'),
+                         options=get_lab_val(order_by_categories),style={'width':'150px'}),
+        ]),
+    ], style={'max-width': '200px'})
+
+    control_colour_by = dbc.Card([
+        dbc.CardHeader('Colour by:'),
+        dbc.CardBody([
             dcc.Dropdown(
                 id='msgv-color-by', value='Treatment',
-                options=get_lab_val(colourable_categories)
+                options=get_lab_val(colourable_categories),
+             style = {'width': '150px'}
             ),
-        ], style={'width':'150px', 'display':'block', 'vertical-align':'top'}),
-    ])
+        ]),
+    ], style={'max-width': '200px'})
 
-    side_panel = Div([
-        dbc.Card(
-            children=[
-                dbc.CardHeader('Set maximum FDR:'),
-                dbc.CardBody(fdr_selectr),
-                stat_source_selectr,
-                dbc.CardHeader('Change boxplots:'),
-                dbc.CardBody(control_bar)
-            ]
-        )
-    ], style={'display':'inline-block', 'padding-left':'20px'})
+
+    # Div([
+    #     dcc.Checklist(
+    #         id='msgv-show-boxplots',
+    #         options=[{'label':'Show boxplots', 'value':'msgv-show-boxplots'}],
+    #         value=['msgv-show-boxplots']
+    #     ),
+    # ], style={'display':'none'}), # hidden for now, might remove entirely
+
+    control_panel = dbc.CardGroup(
+        [
+            fdr_selectr,
+            control_order_by,
+            control_colour_by,
+            stat_source_selectr
+        ],
+        style={'max-width':'1100px'}
+    )
+
+    ### FINAL LAYOUT
+    msgv_layout = Div([
+        text_header,
+        gene_selector,
+        Div(filter_dropdowns, ),
+        control_panel,
+        graph,
+        table,
+    ], style={'display':'inline-block'})
+
+
 
     # get color map, asssiging colors to the most common values first, so that
     #   common things have different colours.
@@ -162,16 +176,6 @@ def initiate(app, data_set, public=True) -> Div:
         cm = get_colour_map(ordered_things)
         box_colour_maps[color_by] = cm
 
-
-
-
-    # put it all together
-    msgv_layout = Div([
-        Div(graph_and_data_selection_div, style={'display':'inline-block'}),
-        side_panel,
-    ])
-
-
     # Define callback to update graph
     @app.callback(
         [Output('msgv-gene-violins', 'figure'),
@@ -181,7 +185,7 @@ def initiate(app, data_set, public=True) -> Div:
         [Input('msgv-stat-source-selector', 'value'),
 
          Input('msgv-gene-selector', 'value'),
-         Input('msgv-show-boxplots', 'value'),
+         #Input('msgv-show-boxplots', 'value'),
          Input('msgv-fdr-threshold', 'value'),
 
          Input('msgv-order-by', 'value'),
@@ -189,12 +193,14 @@ def initiate(app, data_set, public=True) -> Div:
          ] + [Input(f'{PAGE_ID}-comp-filter-{cid}', 'value') for cid in filter_cols]
     )
     def update_figure(score_type,
-                      selected_genes, show_boxplots, fdr_thresh,
+                      selected_genes,
+                      #show_boxplots,
+                      fdr_thresh,
                       order_by, color_by, *filters):
 
         data_tabs = data_set.get_score_fdr(score_type, score_type, )
 
-        LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, show_boxplots={show_boxplots}, "
+        LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, show_boxplots=OBSOLETE, "
                   f"fdr_thres={fdr_thresh}, ...")
 
 
