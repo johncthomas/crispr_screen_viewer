@@ -27,6 +27,9 @@ from typing import Tuple, List, Dict, Callable
 colours = ['#e6194B', '#3cb44b', '#ffe119', '#4363d8', '#f58231', '#42d4f4', '#f032e6', '#fabed4', '#469990',
            '#dcbeff', '#9A6324', '#fffac8', '#800000', '#aaffc3', '#000075', '#a9a9a9', '#333333', ]
 get_lab_val = lambda arr: [{'label': v, 'value':v} for v in arr]
+def get_gene_dropdown_lab_val(data_set, genes):
+    return [{'label': data_set.dropdown_gene_label(gn), 'value': gn} for gn in genes]
+
 styles = {'selector':{'display': 'inline-block', 'border-collapse': 'separate',
                       'border-spacing': '15px 50px', 'margin-bottom': '15px', 'width':'150px'},
           'hidden':{'display':'none'}}

@@ -24,6 +24,7 @@ from crispr_screen_viewer.functions_etc import (
 )
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
+    get_gene_dropdown_lab_val,
     get_annotation_dicts,
     register_gene_selection_processor,
     spawn_gene_dropdown,
@@ -266,6 +267,7 @@ def initiate(app, data_set, public):
 
 
     # update the keys stored in the data store, and gene selection options
+    # when the x/y comparisons are changed.
     @app.callback(
         Output('selected-comps', 'data'),
         Output(f'{PAGE_ID}-gene-dropdown', 'options'),
@@ -278,7 +280,7 @@ def initiate(app, data_set, public):
             LOG.debug('not updating')
             raise PreventUpdate
         x, _ = get_xyscores_genes(xk, yk, 'drz')
-        return {'xk':xk, 'yk':yk}, get_lab_val(x.index)
+        return {'xk':xk, 'yk':yk}, get_gene_dropdown_lab_val(data_set, x.index)
 
     # enable selecting genes by interacting with the graph
     register_gene_selection_processor(

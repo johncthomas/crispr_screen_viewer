@@ -174,6 +174,13 @@ class DataSet:
 
         self.comparisons.insert(2, 'DOI', dois)
 
+        # DF of previous symbols and IDs for currently used.
+        self.previous_and_id = pd.read_csv(
+            os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
+        )
+
+        self.previous_and_id.fillna('', inplace=True)
+
         if print_validations:
             # Print information that might be helpful in spotting data validity issues
             # Check for comparisons present in the metadata/actual-data but missing
@@ -218,6 +225,12 @@ class DataSet:
                 print('Experiment IDs used in comparisons_metadata not found in experiments_metadata:\n'
                       f'   {", ".join(not_found)}')
 
+    def validate_previous_and_id(self):
+        """Check all stats index in datasets are in previous_and_id"""
+        for ans in self.available_analyses:
+            score_index = self.exp_data[ans]['score'].index
+            m = score_index.isin(self.previous_and_id.index)
+            print(m.sum(), 'of', len(m), f'indexes have record in previous_and_id.csv, {ans}_score.csv')
 
 
     def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
@@ -255,6 +268,22 @@ class DataSet:
         score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
 
         return score_fdr
+
+    def dropdown_gene_label(self, gn):
+        try:
+            row = self.previous_and_id.loc[gn]
+        except:
+            return gn
+
+        if not row.HGNC_ID:
+            return gn
+
+        s = f"{row.Symbol}  ({row.HGNC_ID}"
+        s_end = ')'
+        if row.Previous_symbol:
+            s_end = f"; {row.Previous_symbol})"
+
+        return s + s_end
 
 
 def load_dataset(paff):

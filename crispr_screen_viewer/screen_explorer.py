@@ -27,6 +27,7 @@ from crispr_screen_viewer.functions_etc import (
 
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
+    get_gene_dropdown_lab_val,
     get_treatment_label,
     get_annotation_dicts,
     big_text_style,
@@ -334,7 +335,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         score,fdr = [xy.reindex(unified_index) for xy in (score,fdr)]
 
         volcano_data = {'score': score, 'fdr': fdr, 'genes': score.index}
-        gene_options = get_lab_val(score.index)
+        gene_options = get_gene_dropdown_lab_val(data_set, score.index)
 
         LOG.debug(f'End of update_volcano_data with:')
         LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('score', 'fdr')]))

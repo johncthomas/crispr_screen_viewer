@@ -12,6 +12,7 @@ from typing import Collection, Union, Dict
 from crispr_screen_viewer.shared_components import (
     create_datatable,
     get_lab_val,
+    get_gene_dropdown_lab_val,
     get_reg_stat_selectors,
     get_stat_source_selector,
     colours,
@@ -43,25 +44,25 @@ def initiate(app, data_set, public=True) -> Div:
     # else:
     #     source_display = 'inline-block'
 
-
-
-
     # Graph and table
     graph = dcc.Graph(
         id='msgv-gene-violins',
         figure=go.Figure(),
-        style={'height':'800px'}
+        style={'height':'800px', 'width':'1500px'}
     )
 
     table = Div([create_datatable(columns_if_no_df=data_set.comparisons.columns)],
                 id='msgv-table-div', className="u-full-width", style={'margin-bottom':'30px'})
+
+
 
     # select genes by name, and comparisons FDR in selected samples
     gene_selector = Div(
         children=[
             html.P('Select genes:', style=big_text_style),
             dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes', value=[],
-                         options=get_lab_val(data_set.genes), multi=True),
+                         options=get_gene_dropdown_lab_val(data_set, data_set.genes),
+                         multi=True),
         ],
 
         style={'margin-bottom': '15px'})
