@@ -58,7 +58,7 @@ def datatable_column_dict(c,):
         return {'name':c, 'id':c}
 
 def doi_to_link(doi):
-    """Return string formated as a markdown link to doi.org/{doi}"""
+    """Return string formated as a Markdown link to doi.org/{doi}"""
     # should be formated to not be a hyperlink, but sometimes it is
     if pd.isna(doi) or (not doi):
         return ''
@@ -84,6 +84,7 @@ def orthoregress(x, y):
 def index_of_true(bool_mask):
     return bool_mask[bool_mask].index
 
+
 class DataSet:
     """Class for holding, retrieving screen data and metadata.
 
@@ -102,6 +103,8 @@ class DataSet:
             datasets."""
     def __init__(self, source_directory, print_validations=True):
         source_directory = Path(source_directory)
+        # for future ref
+        self.source_directory = source_directory
 
         # shorthand internal name: label name
         avail_analyses = []
@@ -182,48 +185,52 @@ class DataSet:
         self.previous_and_id.fillna('', inplace=True)
 
         if print_validations:
-            # Print information that might be helpful in spotting data validity issues
-            # Check for comparisons present in the metadata/actual-data but missing
-            #   in the other
-            all_good = True
-            for ans in self.available_analyses:
-                score_comps = self.exp_data[ans]['score'].columns
-                meta_comps = self.comparisons.index
+            self.validate_comparisons()
+            self.validate_previous_and_id()
 
-                meta_in_score = meta_comps.isin(score_comps)
-                missing_in_data = meta_comps[~meta_in_score]
-                # todo log.warning
-                # todo check experiments metadata
-                if missing_in_data.shape[0] > 0:
-                    all_good = False
-                    print(
-                        f"Comparisons in comparisons metadata but not in {ans}_score.csv:"
-                        f"\n    {', '.join(missing_in_data)}\n"
-                    )
-                score_in_meta = score_comps.isin(meta_comps)
-                missing_in_score = score_comps[~score_in_meta]
-                if missing_in_data.shape[0] > 0:
-                    all_good = False
-                    print(
-                        f"Comparisons in {ans}_score.csv, but not in comparisons metadata:"
-                        f"\n    {', '.join(missing_in_score)}\n"
-                    )
-            comps = self.comparisons.index
-            if comps.duplicated().any():
+    def validate_comparisons(self):
+        """Print information that might be helpful in spotting data validity issues
+        Check for comparisons present in the metadata/actual-data but missing
+          in the other"""
+        all_good = True
+        for ans in self.available_analyses:
+            score_comps = self.exp_data[ans]['score'].columns
+            meta_comps = self.comparisons.index
+
+            meta_in_score = meta_comps.isin(score_comps)
+            missing_in_data = meta_comps[~meta_in_score]
+            # todo log.warning
+            # todo check experiments metadata
+            if missing_in_data.shape[0] > 0:
                 all_good = False
-                print('Duplicate comparisons found - this will probably stop the server from working:')
-                print('   ' , ', '.join(sorted(comps.index[comps.index.duplicated(keep=False)])))
-            if all_good:
-                print(f'All comparisons data in {source_directory} are consistent')
+                print(
+                    f"Comparisons in comparisons metadata but not in {ans}_score.csv:"
+                    f"\n    {', '.join(missing_in_data)}\n"
+                )
+            score_in_meta = score_comps.isin(meta_comps)
+            missing_in_score = score_comps[~score_in_meta]
+            if missing_in_data.shape[0] > 0:
+                all_good = False
+                print(
+                    f"Comparisons in {ans}_score.csv, but not in comparisons metadata:"
+                    f"\n    {', '.join(missing_in_score)}\n"
+                )
+        comps = self.comparisons.index
+        if comps.duplicated().any():
+            all_good = False
+            print('Duplicate comparisons found - this will probably stop the server from working:')
+            print('   ' , ', '.join(sorted(comps.index[comps.index.duplicated(keep=False)])))
+        if all_good:
+            print(f'All comparisons data in {self.source_directory} are consistent')
 
-            # check all comparison ExpID appear in experiments metadata
-            # the reverse isn't fatal
-            expids = self.comparisons['Experiment ID'].unique()
-            found = [xi in self.experiments_metadata.index for xi in expids]
-            if not all(found):
-                not_found = [x for (x, b) in zip(expids, found) if not b]
-                print('Experiment IDs used in comparisons_metadata not found in experiments_metadata:\n'
-                      f'   {", ".join(not_found)}')
+        # check all comparison ExpID appear in experiments metadata
+        # the reverse isn't fatal
+        expids = self.comparisons['Experiment ID'].unique()
+        found = [xi in self.experiments_metadata.index for xi in expids]
+        if not all(found):
+            not_found = [x for (x, b) in zip(expids, found) if not b]
+            print('Experiment IDs used in comparisons_metadata not found in experiments_metadata:\n'
+                  f'   {", ".join(not_found)}')
 
     def validate_previous_and_id(self):
         """Check all stats index in datasets are in previous_and_id"""
@@ -295,6 +302,7 @@ def load_dataset(paff):
             data_set = pickle.load(f)
     else:
         data_set = DataSet(Path(paff))
+
     return data_set
 
 def load_mageck_tables(prefix:str, controls:Iterable[str]):
