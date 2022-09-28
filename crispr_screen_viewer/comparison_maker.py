@@ -29,6 +29,7 @@ from crispr_screen_viewer.shared_components import (
     register_gene_selection_processor,
     spawn_gene_dropdown,
     spawn_filter_dropdowns,
+    select_color, view_color
 )
 
 from crispr_screen_viewer.selector_tables import (
@@ -66,21 +67,21 @@ def initiate(app, data_set, public):
         app, data_set, filter_keys, public_version=public, id_prefix=PAGE_ID,
     )
 
-    def get_xy_choice_panel(xy:str) -> List[Div]:
-        """Return button and output Divs.
-        Button: id="cm-choose-{xy.lower()}-text"
-        Para:   id="cm-chosen-{xy.lower()}-text"
-        """
-        xy = xy.lower()
-        XY = xy.upper()
-        xybutton = html.Button(f'Choose {XY} treatment', id=f'{PAGE_ID}-choose-{xy}', n_clicks=0)
-        return [
-            Div([xybutton]),
-            Div(html.P(
-                id=f"{PAGE_ID}-chosen-{xy}-text",
-                children=f'No {XY} treatment selected. Choose from list and press "Choose" button'
-            ))
-        ]
+    # def get_xy_choice_panel(xy:str) -> List[Div]:
+    #     """Return button and output Divs.
+    #     Button: id="cm-choose-{xy.lower()}-text"
+    #     Para:   id="cm-chosen-{xy.lower()}-text"
+    #     """
+    #     xy = xy.lower()
+    #     XY = xy.upper()
+    #     xybutton = html.Button(f'Choose {XY} treatment', id=f'{PAGE_ID}-choose-{xy}', n_clicks=0)
+    #     return [
+    #         Div([xybutton]),
+    #         Div(html.P(
+    #             id=f"{PAGE_ID}-chosen-{xy}-text",
+    #             children=f'No {XY} treatment selected. Choose from list and press "Choose" button'
+    #         ))
+    #     ]
 
 
     scatter_chart = Div([dcc.Graph(
@@ -128,8 +129,8 @@ def initiate(app, data_set, public):
                    '"Choose X/Y Treatment" buttons. Once an X and Y treatment '
                    'has been selected, the comparison will appear in the "Chart" '
                    'and "Table" tabs.'),
-        comp_choice_panel=[Div(get_xy_choice_panel('x')),
-                           Div(get_xy_choice_panel('y'))],
+        # comp_choice_panel=[Div(get_xy_choice_panel('x')),
+        #                    Div(get_xy_choice_panel('y'))],
     )
 
     ################
@@ -194,55 +195,58 @@ def initiate(app, data_set, public):
     #   with the comp chosen via ('cm-comp-table', 'selected_rows')
 
     # for updating what the chosen treatments are
-    @app.callback(
-        # dropdown selections/options and text below button
-        Output(f"{PAGE_ID}-x-selector", 'value'),
-        Output(f"{PAGE_ID}-x-selector", 'options'),
-        Output(f'{PAGE_ID}-chosen-x-text', 'children'),
+    # @app.callback(
+    #     # dropdown selections/options and text below button
+    #
+    #
+    #     # Output(f"{PAGE_ID}-x-selector", 'value'),
+    #     # Output(f"{PAGE_ID}-x-selector", 'options'),
+    #     Output(f'{PAGE_ID}-chosen-x-text', 'children'),
+    #
+    #     # Output(f"{PAGE_ID}-y-selector", 'value'),
+    #     # Output(f"{PAGE_ID}-y-selector", 'options'),
+    #     Output(f'{PAGE_ID}-chosen-y-text', 'children'),
+    #
+    #     # Input(f'{PAGE_ID}-choose-x', 'n_clicks'),
+    #     # Input(f'{PAGE_ID}-choose-y', 'n_clicks'),
+    #
+    #     Input(f'{PAGE_ID}-comp-table', 'selected_rows'),
+    #     State(f'{PAGE_ID}-comp-table', 'data'),
+    #     #State(f'{PAGE_ID}-x-selector', 'options'),
+    #     #State(f'{PAGE_ID}-y-selector', 'options'),
+    #
+    # )
+    # def select_treat_for_cm(
+    #         selected_row, table_data,
+    # ):
+    #     if not selected_row:
+    #         raise PreventUpdate
+    #
+    #     try:
+    #         triggered = callback_context.triggered_id
+    #     except AttributeError:
+    #         # v<2.4
+    #         triggered = callback_context.triggered[0]['prop_id'].split('.')[0]
+    #     if not triggered:
+    #         raise PreventUpdate
+    #
+    #     xy = triggered.split('-')[-1]
+    #     compid = table_data[selected_row[0]]['Comparison ID']
+    #     LOG.debug(f'Choosing {compid} for axis {xy}')
+    #
+    #     if compid not in [d['value'] for d in opt]:
+    #         opt.append(
+    #             {'value':compid, 'label':compid}
+    #         )
+    #
+    #     if xy == 'x':
+    #         return [compid, opt, compid,
+    #                 dash.no_update, opt, dash.no_update]
+    #     else:
+    #         return [dash.no_update, opt , dash.no_update,
+    #                 compid, opt, compid]
 
-        Output(f"{PAGE_ID}-y-selector", 'value'),
-        Output(f"{PAGE_ID}-y-selector", 'options'),
-        Output(f'{PAGE_ID}-chosen-y-text', 'children'),
 
-        Input(f'{PAGE_ID}-choose-x', 'n_clicks'),
-        Input(f'{PAGE_ID}-choose-y', 'n_clicks'),
-
-        State(f'{PAGE_ID}-comp-table', 'selected_rows'),
-        State(f'{PAGE_ID}-comp-table', 'data'),
-        State(f'{PAGE_ID}-x-selector', 'options'),
-        #State(f'{PAGE_ID}-y-selector', 'options'),
-
-    )
-    def select_treat_for_cm(
-            xbutton, ybutton, selected_row, table_data,
-            opt
-    ):
-        if not selected_row:
-            PreventUpdate
-
-        try:
-            triggered = callback_context.triggered_id
-        except AttributeError:
-            # v<2.4
-            triggered = callback_context.triggered[0]['prop_id'].split('.')[0]
-        if not triggered:
-            raise PreventUpdate
-
-        xy = triggered.split('-')[-1]
-        compid = table_data[selected_row[0]]['Comparison ID']
-        LOG.debug(f'Choosing {compid} for axis {xy}')
-
-        if compid not in [d['value'] for d in opt]:
-            opt.append(
-                {'value':compid, 'label':compid}
-            )
-
-        if xy == 'x':
-            return [compid, opt, compid,
-                    dash.no_update, opt, dash.no_update]
-        else:
-            return [dash.no_update, opt , dash.no_update,
-                    compid, opt, compid]
 
     def get_xyscores_genes(xk, yk, selected_analysis_type='drz'):
         """return score series from Dataset with unified indexes"""
@@ -261,6 +265,7 @@ def initiate(app, data_set, public):
         Output(f'{PAGE_ID}-gene-dropdown', 'options'),
         Input(f'{PAGE_ID}-x-selector', 'value'),
         Input(f'{PAGE_ID}-y-selector', 'value'),
+        #todo is this right? what is xy-selector now? still value?
     )
     def update_selection(xk, yk):
         LOG.debug(f'update_selection({xk}, {yk})')
@@ -393,11 +398,6 @@ def initiate(app, data_set, public):
                 sort_action='native',
                 filter_action='native',
                 data = records,
-                # style_cell={ # doesn't work...
-                #     # all three widths are needed
-                #     'minWidth': '150px', 'width': '150px', 'maxWidth':'180px',
-                #     'whiteSpace': 'normal'
-                # },
                 selected_rows=[],
                 row_selectable='multi',
                 export_format='csv',
