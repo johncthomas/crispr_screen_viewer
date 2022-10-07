@@ -544,7 +544,7 @@ def get_selector_table_filter_keys(public=False) -> Dict[str, List[str]]:
     filter_keys = {
         'exp':['Treatment', 'Cell line', 'KO', 'Library'],
         'comp':['Treatment', 'Cell line', 'KO', 'Timepoint',
-                'Library', 'Experiment ID',]
+                'Library', 'Citation',]
     }
     if not public:
         for k, l in filter_keys.items():
@@ -556,16 +556,17 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # this is set up so that different pages can recieve different columns but
     # at the time of writing they all use the same...
     tab_columns_public = {
-        'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Experiment ID', ],
+        'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Citation', ],
         'comp':['Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Experiment ID', 'DOI', 'Comparison ID',  ]
+                'Library', 'Citation', 'DOI', 'Comparison ID',  ]
     }
     tab_columns_private = {
-        'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation/Investigator', 'Experiment ID', 'DOI'],
+        'exp':['Treatment', 'Cell line', 'KO',  'Library',
+               'Citation', 'DOI'],
         'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Experiment ID', 'DOI']
+                'Library', 'Citation', 'DOI']
     }
 
     tab_columns = tab_columns_public if public else tab_columns_private
@@ -575,7 +576,7 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     elif page_id in ('cm', 'se'):
         return tab_columns
     else:
-        raise RuntimeError(f"page_id={page_id} not recognised, only 'cm', 'se' or 'msgv")
+        raise RuntimeError(f"page_id={page_id} not recognised, only 'cm', 'se' or 'msgv'")
 
 
 
