@@ -54,8 +54,6 @@ def initiate(app, data_set, public=True) -> Div:
     table = Div([create_datatable(columns_if_no_df=data_set.comparisons.columns)],
                 id='msgv-table-div', className="u-full-width", style={'margin-bottom':'30px'})
 
-
-
     # select genes by name, and comparisons FDR in selected samples
     gene_selector = Div(
         children=[
@@ -110,8 +108,8 @@ def initiate(app, data_set, public=True) -> Div:
     ], style={'max-width': '170px'})
 
     # this is also used for output of one function, so is defined once here
-    order_by_categories = ['Mean score', 'Treatment', 'Experiment ID']
-    colourable_categories = ['Treatment', 'Cell line', 'Experiment ID', 'Library', 'KO']
+    order_by_categories = ['Mean score', 'Treatment', 'Citation']
+    colourable_categories = ['Treatment', 'Cell line', 'Citation', 'Library', 'KO']
 
     control_order_by = dbc.Card([
         dbc.CardHeader('Order by:'),
@@ -174,7 +172,7 @@ def initiate(app, data_set, public=True) -> Div:
         cm = get_colour_map(ordered_things)
         box_colour_maps[color_by] = cm
 
-    # Define callback to update graph
+    # Callback to update graph
     @app.callback(
         [Output('msgv-gene-violins', 'figure'),
          Output('msgv-table-div', 'children'),
@@ -198,7 +196,7 @@ def initiate(app, data_set, public=True) -> Div:
 
         data_tabs = data_set.get_score_fdr(score_type, score_type, )
 
-        LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, show_boxplots=OBSOLETE, "
+        LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, "
                   f"fdr_thres={fdr_thresh}, ...")
 
 
@@ -215,7 +213,7 @@ def initiate(app, data_set, public=True) -> Div:
         fdr_mask = (data_tabs['fdr'].loc[selected_genes] <= fdr_thresh).any()
         filtered_scores = data_tabs['score'].loc[selected_genes, (fdr_mask & comparison_mask)]
 
-        # assemble the figure
+        # *assemble the figure*
         fig = go.Figure()
 
         if (sum((fdr_mask & comparison_mask)) == 0) and selected_genes:
@@ -241,8 +239,8 @@ def initiate(app, data_set, public=True) -> Div:
         trace_numbers = pd.Series([str(i) for i in range(1, len(ordered_comps)+1)])
 
         if len(ordered_comps):
-            ordered_expid = data_set.comparisons.loc[ordered_comps, 'Experiment ID']
-            citations = data_set.experiments_metadata.loc[ordered_expid, 'Short citation'].fillna('')
+            ordered_citations = data_set.comparisons.loc[ordered_comps, 'Citation']
+            citations = data_set.experiments_metadata.loc[ordered_citations, 'Citation'].fillna('')
             treats = data_set.comparisons.loc[ordered_comps, 'Treatment'].fillna('')
             x_tick_labels = trace_numbers.values + '. ' +citations.values + ', ' + treats.values
         else:
@@ -268,7 +266,6 @@ def initiate(app, data_set, public=True) -> Div:
                 ),
 
             )
-
 
         # add the boxplot traces
         included = set()
