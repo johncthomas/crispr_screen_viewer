@@ -103,8 +103,13 @@ def initiate_app(data_set:DataSet, public_version=False,):
             html.Br(),
             # documentation link
             Div(className='centre',
-                children=[dbc.Button("View documentation", href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
-                       color="light", className="lg-1", size='lg', target="_blank")]),
+                children=[
+                    dbc.Button(
+                        "View documentation",
+                        href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
+                        color="light", className="lg-1", size='lg', target="_blank")
+                ]
+            ),
             html.H2(
                 "About the analyses",
                 className='home-text',
