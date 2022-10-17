@@ -164,10 +164,7 @@ def register_filter_callbacks(app, id_prefix, exp_or_comp, filter_columns,
 
 def register_exptable_filters_comps(app, id_prefix):
     """Register the callback that causes row selections in the exp-table
-    to filter the comp table, via the '{id_prefix}-comp-filter-{Experiment ID}'.
-
-    Current implimentation means that any change to selected rows will override
-    selections made via the dropdown. Which is probably fine."""
+    to filter the comp table, via the '{id_prefix}-comp-filter-{Experiment ID}'."""
     @app.callback(
         Output(f"{id_prefix}-comp-filter-Experiment ID", 'value'),
         Input(f"{id_prefix}-exp-table", 'selected_rows'),
