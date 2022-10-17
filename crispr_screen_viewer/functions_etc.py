@@ -1,5 +1,4 @@
 import typing
-
 from statsmodels.stats.multitest import multipletests
 import pandas as pd
 import numpy as np
@@ -167,7 +166,6 @@ class DataSet:
         colmap['Experiment name'] = 'Experiment ID'
         self.experiments_metadata.columns = self.experiments_metadata.columns.map(colmap)
         self.experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
-
 
         # add formated DOI to the comparisons metadata
         dois = self.experiments_metadata.loc[
@@ -555,21 +553,20 @@ def get_selector_table_filter_keys(public=False) -> Dict[str, List[str]]:
 def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # this is set up so that different pages can recieve different columns but
     # at the time of writing they all use the same...
-    tab_columns_public = {
-        'exp':[ 'Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', 'Citation', ],
+    tab_columns = {
+        'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI',  ],
         'comp':['Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Citation', 'DOI', 'Comparison ID',  ]
+                'Library', 'Citation', 'DOI', ]
     }
-    tab_columns_private = {
-        'exp':['Treatment', 'Cell line', 'KO',  'Library',
-               'Citation', 'DOI'],
-        'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
-                'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
-                'Library', 'Citation', 'DOI']
-    }
+    # tab_columns_private = {
+    #     'exp':['Treatment', 'Cell line', 'KO',  'Library', 'Citation', 'DOI'],
+    #     'comp':['Comparison ID',  'Treatment', 'Dose', 'Timepoint',
+    #             'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+    #             'Library', 'Citation', 'DOI']
+    # }
 
-    tab_columns = tab_columns_public if public else tab_columns_private
+    #tab_columns = tab_columns_public if public else tab_columns_private
 
     if page_id == 'msgv':
         return tab_columns
