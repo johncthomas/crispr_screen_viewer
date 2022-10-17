@@ -322,8 +322,8 @@ def initiate(app, data_set, public):
         # put them together
         rowx = comparisons.loc[xk]
         rowy = comparisons.loc[yk]
-        metadeets_str = "Experiment ID {}, {} library"
-        xymet = [metadeets_str.format(row['Experiment ID'], row['Library']) for row in (rowx, rowy)]
+        metadeets_str = "{}, {} library"
+        xymet = [metadeets_str.format(row['Citation'], row['Library']) for row in (rowx, rowy)]
 
         if xymet[0] == xymet[1]:
             xy_metadeets = xymet[0]
@@ -409,8 +409,6 @@ def initiate(app, data_set, public):
         return fig, table_output
 
     return layout
-
-
 
 
 def launch_page(source, port, debug):
