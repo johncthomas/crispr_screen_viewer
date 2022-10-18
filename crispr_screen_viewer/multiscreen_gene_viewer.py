@@ -2,6 +2,7 @@ import itertools
 
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
+from dash.exceptions import PreventUpdate
 Div = html.Div
 import plotly.graph_objs as go
 
@@ -194,12 +195,13 @@ def initiate(app, data_set, public=True) -> Div:
                       fdr_thresh,
                       order_by, color_by, *filters):
 
+        if not selected_genes:
+            raise PreventUpdate
+
         data_tabs = data_set.get_score_fdr(score_type, score_type, )
 
         LOG.debug(f"MSGV: update_figure({score_type}, {selected_genes}, "
                   f"fdr_thres={fdr_thresh}, ...")
-
-
 
         # get boolean masks for which comparisons to include in the charts
         # Filter comparisons by metadata filters
