@@ -136,7 +136,6 @@ def initiate(app, data_set, public):
     ################
     # LAYOUT
     tabs = dcc.Tabs(
-
         id=f'{PAGE_ID}-tabs',
         value=f'{PAGE_ID}-exp-tab',
         className='selector-results-tabs',
@@ -265,7 +264,6 @@ def initiate(app, data_set, public):
         Output(f'{PAGE_ID}-gene-dropdown', 'options'),
         Input(f'{PAGE_ID}-x-selector', 'value'),
         Input(f'{PAGE_ID}-y-selector', 'value'),
-        #todo is this right? what is xy-selector now? still value?
     )
     def update_selection(xk, yk):
         LOG.debug(f'update_selection({xk}, {yk})')

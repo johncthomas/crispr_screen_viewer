@@ -14,7 +14,7 @@ from crispr_screen_viewer.shared_components import (
     create_datatable,
     get_lab_val,
     get_gene_dropdown_lab_val,
-    get_reg_stat_selectors,
+    #get_reg_stat_selectors,
     get_stat_source_selector,
     colours,
     big_text_style,

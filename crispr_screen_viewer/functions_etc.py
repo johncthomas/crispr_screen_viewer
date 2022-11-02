@@ -132,7 +132,7 @@ class DataSet:
                             for stt in ('score', 'fdr')}
                        for ans in self.available_analyses}
 
-        comparisons = pd.read_csv(f'{source_directory}/comparisons_metadata.csv', )
+        comparisons = pd.read_csv(source_directory/'comparisons_metadata.csv', )
         # this is sometimes put in wrong...
         m = comparisons['Timepoint'] == 'endpoint'
         comparisons.loc[m, 'Timepoint'] = 'endpoints'
@@ -235,7 +235,7 @@ class DataSet:
         for ans in self.available_analyses:
             score_index = self.exp_data[ans]['score'].index
             m = score_index.isin(self.previous_and_id.index)
-            print(m.sum(), 'of', len(m), f'indexes have record in previous_and_id.csv, {ans}_score.csv')
+            print(m.sum(), 'of', len(m), f'gene symbols have record in previous_and_id.csv, in file {ans}_score.csv')
 
 
     def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
