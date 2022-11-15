@@ -241,8 +241,7 @@ def initiate(app, data_set, public=True) -> Div:
         trace_numbers = pd.Series([str(i) for i in range(1, len(ordered_comps)+1)])
 
         if len(ordered_comps):
-            ordered_citations = data_set.comparisons.loc[ordered_comps, 'Citation']
-            citations = data_set.experiments_metadata.loc[ordered_citations, 'Citation'].fillna('')
+            citations = data_set.comparisons.loc[ordered_comps, 'Citation']
             treats = data_set.comparisons.loc[ordered_comps, 'Treatment'].fillna('')
             x_tick_labels = trace_numbers.values + '. ' +citations.values + ', ' + treats.values
         else:
