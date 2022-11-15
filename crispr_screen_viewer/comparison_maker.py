@@ -48,6 +48,8 @@ import dash_bootstrap_components as dbc
 def initiate(app, data_set, public):
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
+
+    # this is hardcoded in at least selector_tables.py, filter initialisation
     PAGE_ID = 'cm'
 
     comparisons = data_set.comparisons
@@ -67,23 +69,6 @@ def initiate(app, data_set, public):
     selctr_tables = spawn_selector_tables(
         app, data_set, filter_keys, public_version=public, id_prefix=PAGE_ID,
     )
-
-    # def get_xy_choice_panel(xy:str) -> List[Div]:
-    #     """Return button and output Divs.
-    #     Button: id="cm-choose-{xy.lower()}-text"
-    #     Para:   id="cm-chosen-{xy.lower()}-text"
-    #     """
-    #     xy = xy.lower()
-    #     XY = xy.upper()
-    #     xybutton = html.Button(f'Choose {XY} treatment', id=f'{PAGE_ID}-choose-{xy}', n_clicks=0)
-    #     return [
-    #         Div([xybutton]),
-    #         Div(html.P(
-    #             id=f"{PAGE_ID}-chosen-{xy}-text",
-    #             children=f'No {XY} treatment selected. Choose from list and press "Choose" button'
-    #         ))
-    #     ]
-
 
     scatter_chart = Div([dcc.Graph(
         id='graph',
@@ -122,14 +107,10 @@ def initiate(app, data_set, public):
         PAGE_ID,
         filter_dropdowns,
         selctr_tables,
-        exp_tab_text=('Choose an experiment from the table below. This will '
-                       'filter the available treatments in the "Select Treatments" tab. '
-                       'Optionally, go straight to "Select Treatments" to see all possible '
-                       'samples.'),
-        comp_tab_text=('Choose treatments by selecting a row and then pressing the '
-                   '"Choose X/Y Treatment" buttons. Once an X and Y treatment '
-                   'has been selected, the comparison will appear in the "Chart" '
-                   'and "Table" tabs.'),
+        exp_tab_text=('Filter treatments shown in the Select Treatments tab to those from specific articles. '
+                      'Select Treatments shows all possible by default.'),
+        comp_tab_text=('Choose treatments to be displayed on scatter plot using the '
+                       'radio buttons in the X/Y columns.'),
         # comp_choice_panel=[Div(get_xy_choice_panel('x')),
         #                    Div(get_xy_choice_panel('y'))],
     )
@@ -190,64 +171,6 @@ def initiate(app, data_set, public):
     ################
     # CALLBACKS
     # when an exp and timepoint is selected, update the X/Y options
-
-    # When 'cm-choose-x/y' pressed (n_clicks), updated ('x/y-selector', 'value'&'options')
-    #   with the comp chosen via ('cm-comp-table', 'selected_rows')
-
-    # for updating what the chosen treatments are
-    # @app.callback(
-    #     # dropdown selections/options and text below button
-    #
-    #
-    #     # Output(f"{PAGE_ID}-x-selector", 'value'),
-    #     # Output(f"{PAGE_ID}-x-selector", 'options'),
-    #     Output(f'{PAGE_ID}-chosen-x-text', 'children'),
-    #
-    #     # Output(f"{PAGE_ID}-y-selector", 'value'),
-    #     # Output(f"{PAGE_ID}-y-selector", 'options'),
-    #     Output(f'{PAGE_ID}-chosen-y-text', 'children'),
-    #
-    #     # Input(f'{PAGE_ID}-choose-x', 'n_clicks'),
-    #     # Input(f'{PAGE_ID}-choose-y', 'n_clicks'),
-    #
-    #     Input(f'{PAGE_ID}-comp-table', 'selected_rows'),
-    #     State(f'{PAGE_ID}-comp-table', 'data'),
-    #     #State(f'{PAGE_ID}-x-selector', 'options'),
-    #     #State(f'{PAGE_ID}-y-selector', 'options'),
-    #
-    # )
-    # def select_treat_for_cm(
-    #         selected_row, table_data,
-    # ):
-    #     if not selected_row:
-    #         raise PreventUpdate
-    #
-    #     try:
-    #         triggered = callback_context.triggered_id
-    #     except AttributeError:
-    #         # v<2.4
-    #         triggered = callback_context.triggered[0]['prop_id'].split('.')[0]
-    #     if not triggered:
-    #         raise PreventUpdate
-    #
-    #     xy = triggered.split('-')[-1]
-    #     compid = table_data[selected_row[0]]['Comparison ID']
-    #     LOG.debug(f'Choosing {compid} for axis {xy}')
-    #
-    #     if compid not in [d['value'] for d in opt]:
-    #         opt.append(
-    #             {'value':compid, 'label':compid}
-    #         )
-    #
-    #     if xy == 'x':
-    #         return [compid, opt, compid,
-    #                 dash.no_update, opt, dash.no_update]
-    #     else:
-    #         return [dash.no_update, opt , dash.no_update,
-    #                 compid, opt, compid]
-
-
-
     def get_xyscores_genes(xk, yk, selected_analysis_type='drz'):
         """return score series from Dataset with unified indexes"""
         score_fdr = data_set.get_score_fdr(selected_analysis_type)
