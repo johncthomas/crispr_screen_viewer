@@ -172,8 +172,15 @@ class DataSet:
             self.comparisons['Experiment ID'],
             'DOI'
         ].apply(doi_to_link).values
-
         self.comparisons.insert(2, 'DOI', dois)
+
+        # add citation to comparisons table
+        cites = self.experiments_metadata.loc[
+            self.comparisons['Experiment ID'],
+            'Citation'
+        ].values
+        self.comparisons.loc[:, 'Citation'] =  cites
+
 
         # DF of previous symbols and IDs for currently used.
         self.previous_and_id = pd.read_csv(
@@ -554,7 +561,7 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # this is set up so that different pages can recieve different columns but
     # at the time of writing they all use the same...
     tab_columns = {
-        'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI',  ],
+        'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI',  'Date'],
         'comp':['Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
                 'Library', 'Citation', 'DOI', ]
