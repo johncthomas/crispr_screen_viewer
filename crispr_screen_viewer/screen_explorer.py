@@ -225,27 +225,8 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
     # ############## #
 
 
-        # # experiment selector
-        # dcc.Tab(value=f'{PAGE_ID}-exp-tab', label='Select Experiment',
-        #         className='selector-tab', selected_className='selector-tab--selected', children=[
-        #     html.P(['Choose an experiment below to filter the options in "Select Treatment" table. '
-        #             'Go straight to Select Treatment to see all options.'],
-        #            style={'margin-top': '15px'}),
-        #     Div(filter_dropdowns['exp'], style={'margin-bottom': '15px', }),
-        #     Div([selctr_tables['exp']])
-        # ]),
-        # # comparison selector
-        # dcc.Tab(
-        #     value=f'{PAGE_ID}-comp-tab', label='Select Treatment',
-        #     className='selector-tab', selected_className='selector-tab--selected', children=[
-        #         html.P(style={'margin-top': '15px'}, children=[
-        #             'Select a specific treatment using the table below. Click on tabs to '
-        #             'the right to see results for a selected treatment'
-        #         ]),
-        #     Div(filter_dropdowns['comp'], style={'margin-bottom': '15px', }),
-        #     Div([selctr_tables['comp']])
-        # ]),
-    tabs = dcc.Tabs(id=f'{PAGE_ID}-tabs', value=f'exp-tab', children=[
+    tabs = dcc.Tabs(
+        id=f'{PAGE_ID}-tabs', value=f'{PAGE_ID}-exp-tab', children=[
         exptab,
         comptab,
 
@@ -404,30 +385,6 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
         return (columns, results_data, treatment_para, )
 
-
-    # # Upon selecting experiment, filter the comparisons table (by setting the value of the
-    # #   filter dropdown) and switch to the comp table tab
-    # @app.callback(
-    #     Output(f'{PAGE_ID}-tabs', 'value'),
-    #     Output(f'{PAGE_ID}-comp-filter-Experiment ID', 'value'),
-    #     Output(f'{PAGE_ID}-selected-exp', 'data', ),
-    #     Input(f'{PAGE_ID}-exp-table', 'selected_rows'),
-    #     State(f'{PAGE_ID}-exp-table', 'data'),
-    #     State(f'{PAGE_ID}-selected-exp', 'data', ),
-    # )
-    # def picked_experiment(selected_row, table_data, previous_exp):
-    #     LOG.debug(f'CALLBACK: picked_experiment (from exp-table): {selected_row}')
-    #     if not selected_row:
-    #         raise PreventUpdate
-    #     print('picked_exp', callback_context.triggered)
-    #     selected_exp = table_data[selected_row[0]]['Experiment ID']
-    #     if selected_exp == previous_exp:
-    #         raise PreventUpdate
-    #
-    #     return ('comp-tab', [selected_exp], selected_exp)
-
-
-    #todo look for Input(f'{PAGE_ID}-selected-comp', 'data') and update
     @app.callback(
         Output(f'{PAGE_ID}-comp-selector', 'value' ),
         Output(f'{PAGE_ID}-comp-selector', 'options'),
