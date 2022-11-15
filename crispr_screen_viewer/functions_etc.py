@@ -592,3 +592,11 @@ def get_cmdline_options() -> typing.Tuple[str, str, bool]:
         debug = False
 
     return source, port, debug
+
+
+def html_small_span(s):
+    """Wrap s in html tags specifying small text using <span>
+
+    Lit: f'<span style="font-size: small;">{s}</span>'
+    """
+    return f'<span style="font-size: small;">{s}</span>'

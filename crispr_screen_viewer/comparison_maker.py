@@ -21,6 +21,7 @@ from crispr_screen_viewer.functions_etc import (
     LOG,
     style_gene_selector_div,
     get_cmdline_options,
+    html_small_span,
 )
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
@@ -324,16 +325,23 @@ def initiate(app, data_set, public):
         xymet = [metadeets_str.format(row['Citation'], row['Library']) for row in (rowx, rowy)]
 
         if xymet[0] == xymet[1]:
-            xy_metadeets = xymet[0]
+
+            xy_metadeets = f'{xymet[0]}<br>{html_small_span(f"(IDs: {xk} & {yk})")}<br>'
         else:
-            xy_metadeets = f"X: {xymet[0]}<br>Y: {xymet[1]}"
+
+            xy_metadeets = (
+
+                f'X: {xymet[0]}  {html_small_span(f"(ID: {xk})")}<br>'
+                f'Y: {xymet[1]}  {html_small_span(f"(ID: {yk})")}<br>'
+            )
         title = (f"{treatlines[0]} Vs {treatlines[1]}<br>"+xy_metadeets
                 )
         LOG.debug(title)
 
         # axis labels
-        xy_labs = [f"{comparisons.loc[k, 'Ctrl samp']} ➤ {comparisons.loc[k, 'Treat samp']}"
-                   for k in (xk, yk)]
+        # xy_labs = [f"{comparisons.loc[k, 'Ctrl samp']} ➤ {comparisons.loc[k, 'Treat samp']}"
+        #            for k in (xk, yk)]
+        xy_labs = xymet
 
         fig = go.Figure(
             data=go.Scattergl(
