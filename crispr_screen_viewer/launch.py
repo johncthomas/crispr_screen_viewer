@@ -44,11 +44,12 @@ def parse_clargs():
     )
     launcher_parser.add_argument(
         '--app-debug', action='store_true',
-        help='Launch Dash app in debug mode, may be less functional but messages might be useful.'
+        help='Launch Dash app in debug mode, tends to break things, but allows you to look at the'
+             ' callback graph and JS debug messages.'
     )
     launcher_parser.add_argument(
         '--debug-messages', action='store_true',
-        help='Set log level to debug, print messages describing the internal state of the app. '
+        help='Set log level to debug – print messages describing the internal state of the app. '
              'Also hide Werkzeug messages'
     )
     launcher_parser.add_argument(
