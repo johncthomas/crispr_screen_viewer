@@ -46,7 +46,7 @@ other setting when conditions are true.*/
 }
 
 .selector-tab {
-    background-color: #ccddff !important;
+    background-color: #93A9E5 !important;
     width: 200px !important;
     display: block; !important;
     align-items: center;
@@ -54,11 +54,11 @@ other setting when conditions are true.*/
 
 }
 .selector-tab--selected {
-    background-color: #b3ccff !important;
+    background-color: #6683D3 !important;
 }
 
 .data-tab {
-    background-color: #ccff99 !important;
+    background-color: #8DED99 !important;
     width: 200px !important;
     display: block; !important;
     align-items: center;
@@ -66,7 +66,7 @@ other setting when conditions are true.*/
 
 }
 .data-tab--selected {
-    background-color: #b3ff66 !important;
+    background-color: #5EE06E !important;
 }
 
 .selector-results-tabs {
