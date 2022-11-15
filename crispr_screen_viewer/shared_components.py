@@ -45,7 +45,7 @@ big_text_style = {
     'word-spacing': '-0.4px',
     'font-weight': '700'}
 
-def get_treatment_label(row, analysis_label='') -> Tuple[str, str]:
+def get_treatment_label(row:dict, analysis_label='') -> Tuple[str, str]:
     """Pass comparison row (either from data_set.comparisons.loc[compid] or
     from dashtable data), return a pair of strings.
 
@@ -61,9 +61,9 @@ def get_treatment_label(row, analysis_label='') -> Tuple[str, str]:
     if analysis_label:
         analysis_label = f"{analysis_label}, "
 
-
+    idstr = f'<span style="font-size: small;">(ID: {row["Comparison ID"]})</span>'
     title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Timepoint']})",
-             f"{row['Library']} library, experiment ID {row['Experiment ID']}")
+             f"{row['Library']} library {idstr}")
 
     return title
 
@@ -92,97 +92,6 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None) -> List[dict]:
         annotations.append(d)
     return annotations
 
-
-# # DEPRECIATED
-# def get_reg_stat_selectors(app=None, id_prefix='') -> List[Div]:
-#     """Return radio selectors, for selecting stats to be used in plotting.
-#
-#     Registers a function that handles the score selection. Needs to have
-#     output values prefix+"-score-selector" & prefix+"-fdr-selector" captured by the fig
-#     update callback.
-#
-#     If app is None, you'll need to reimpliment all that."""
-#
-#     if id_prefix:
-#         id_prefix = id_prefix+'-'
-#
-#     if app is not None:
-#         @app.callback(
-#             [Output(id_prefix + 'score-selector', 'value'),
-#              Output(id_prefix + 'fdr-selector', 'value'),
-#              Output(id_prefix + 'mixed-div', 'style')],
-#
-#             [Input(id_prefix + 'analysis-selector', 'value')],
-#
-#             [State(id_prefix + 'score-selector', 'value'),
-#              State(id_prefix + 'fdr-selector', 'value')]
-#         )
-#         def select_stats_primary(selection, curr_score, curr_fdr):
-#             if selection == 'mixed':
-#                 return curr_score, curr_fdr, styles['selector']
-#             else:
-#                 return selection, selection, styles['hidden']
-#
-#     return [
-#         Div([
-#             html.Label('Analysis type:  ', htmlFor='analysis-selector'),
-#             dcc.RadioItems(
-#                 id=id_prefix + 'analysis-selector',
-#                 options=[
-#                     {'label':'DrugZ', 'value':'drz'},
-#                     {'label':'MAGeCK',  'value':'mag'},
-#                     #{'label':'Mixed...', 'value':'mixed'}
-#                 ],
-#                 value='drz',
-#                 labelStyle={'display': 'inline-block'},
-#             )
-#         ], style={**styles['selector'], **{'width':170}}),
-#
-#         # This Div is hidden unless "Mixed" is chosen from Div above.
-#         #   Currently inaccessible
-#         Div([
-#             Div([
-#                 html.Label('Effect size_____', htmlFor=id_prefix+'score-selector'),
-#                 dcc.RadioItems(
-#                     id=id_prefix + 'score-selector',
-#                     options=[{'label':'NormZ', 'value':'drz'},
-#                              {'label':'LFC',  'value':'mag'}],
-#                     value='drz',
-#                 ),
-#             ], style=styles['selector']),
-#
-#             Div([
-#                 html.Label('FDR source', htmlFor=id_prefix+'fdr-selector', ),
-#                 dcc.RadioItems(
-#                     id=id_prefix + 'fdr-selector',
-#                     options=[
-#                         {'label':'DrugZ', 'value':'drz'},
-#                         {'label':'MAGeCK',  'value':'mag'}
-#                     ],
-#                     value='drz',
-#                 )], style=styles['selector'])
-#         ],  id=id_prefix + 'mixed-div', style=styles['hidden'])
-#     ]
-
-# def get_data_source_selector(data_set, id_prefix='') -> List[dcc.Checklist]:
-#     """A Div with a checklist that will be populated data_sources and a
-#     paragraph for reporting missing datasets
-#
-#     IDs: data-source-selector, missing-datasets"""
-#
-#     if id_prefix:
-#         id_prefix = id_prefix+'-'
-#
-#     return [
-#         html.Label('Select data sources:', htmlFor=id_prefix+'data-source-selector'),
-#         dcc.Checklist(
-#             id=id_prefix+'data-source-selector',
-#             options=get_lab_val(data_set.data_sources),
-#             value=data_set.data_sources, # set all selected by default
-#             labelStyle={'display':'inline-block'}
-#         ),
-#         html.P([''], id=id_prefix+'missing-datasets'),
-#     ]
 
 options_analyses = [
     {'label':'DrugZ', 'value':'drz'},
