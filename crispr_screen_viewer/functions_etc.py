@@ -600,6 +600,25 @@ def get_cmdline_options() -> typing.Tuple[str, str, bool]:
 
     return source, port, debug
 
+import dash, pathlib
+import dash_bootstrap_components as dbc
+def launch_page(source:Union[pathlib.Path, str],
+                port:int,
+                debug:bool,
+                name:str,
+                initiate:typing.Callable):
+
+    # pycharm debug doesn't like __name__ here for some reason.
+    app = dash.Dash(name, external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    if debug:
+        LOG.setLevel(logging.DEBUG)
+
+    source_directory = pathlib.Path(source)
+    data_set = DataSet(source_directory)
+    app.layout = initiate(app, data_set, public=True)
+    app.run_server(debug=debug, host='0.0.0.0', port=int(port), )
+
 
 def html_small_span(s):
     """Wrap s in html tags specifying small text using <span>

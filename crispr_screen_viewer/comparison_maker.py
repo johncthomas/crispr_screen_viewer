@@ -39,7 +39,6 @@ from crispr_screen_viewer.selector_tables import (
     spawn_treatment_reselector,
     get_selector_table_filter_keys,
     register_exptable_filters_comps,
-
 )
 
 
@@ -342,22 +341,6 @@ def initiate(app, data_set, public):
     return layout
 
 
-def launch_page(source, port, debug):
-
-    # pycharm debug doesn't like __name__ here for some reason.
-    app = dash.Dash('comparison_maker', external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-    if debug:
-        LOG.setLevel(logging.DEBUG)
-
-    source_directory = pathlib.Path(source)
-
-    data_set = DataSet(source_directory)
-
-    app.layout = initiate(app, data_set, public=True)
-
-    app.run_server(debug=debug, host='0.0.0.0', port=int(port), )
-
 if __name__ == '__main__':
-
-    launch_page(*get_cmdline_options())
+    from crispr_screen_viewer.functions_etc import launch_page
+    launch_page(*get_cmdline_options(), 'Comparisons', initiate)

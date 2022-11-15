@@ -337,25 +337,11 @@ def initiate(app, data_set, public=True) -> Div:
 
     return msgv_layout
 
-def launch_page(source, port, debug):
-    from crispr_screen_viewer.functions_etc import DataSet
 
-    # pycharm debug doesn't like __name__ here for some reason.
-    app = dash.Dash('comparison_maker', external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-    if debug:
-        LOG.setLevel(logging.DEBUG)
-
-    source_directory = pathlib.Path(source)
-
-    data_set = DataSet(source_directory)
-
-    app.layout = initiate(app, data_set, public=True)
-
-    app.run_server(debug=debug, host='0.0.0.0', port=int(port), )
 
 if __name__ == '__main__':
     from crispr_screen_viewer.functions_etc import get_cmdline_options
-    clargs = get_cmdline_options()
-    launch_page(*clargs)
+    from crispr_screen_viewer.functions_etc import launch_page
+    launch_page(*get_cmdline_options(), 'MSGV', initiate)
+
 
