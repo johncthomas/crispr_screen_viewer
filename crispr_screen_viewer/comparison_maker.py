@@ -97,10 +97,10 @@ def initiate(app, data_set, public):
     )
 
     selected_store = dcc.Store('selected-comps',
-                    data={'xk':None, 'yk':None})
+                    data={'X':None, 'Y':None})
     previous_row_store = dcc.Store('previous-rows',
                               data=[])
-
+    comp_table_data = dcc.Store('cm-comp-table-data', data=None)
 
     exptab, comptab = spawn_selector_tabs(
         app,
@@ -153,6 +153,7 @@ def initiate(app, data_set, public):
                className='explanatory-paragraph'),
         selected_store,
         previous_row_store,
+        comp_table_data,
         # Div(
         #     style={'display':'inline-block'},
         #     children=[
@@ -191,11 +192,12 @@ def initiate(app, data_set, public):
     )
     def update_selection(xk, yk):
         LOG.debug(f'update_selection({xk}, {yk})')
+        selected_comps = {'X':xk, 'Y':yk}
         if (not xk) or (not yk):
-            LOG.debug('not updating')
-            raise PreventUpdate
+            LOG.debug('\tOnly 0-1 comps selected, not making graph')
+            return selected_comps, dash.no_update
         x, _ = get_xyscores_genes(xk, yk, 'drz')
-        return {'xk':xk, 'yk':yk}, get_gene_dropdown_lab_val(data_set, x.index)
+        return selected_comps, get_gene_dropdown_lab_val(data_set, x.index)
 
     # enable selecting genes by interacting with the graph
     register_gene_selection_processor(
@@ -215,7 +217,7 @@ def initiate(app, data_set, public):
 
     )
     def update_chart_table(selected_comps, selected_genes):
-        xk, yk = selected_comps['xk'], selected_comps['yk']
+        xk, yk = selected_comps['X'], selected_comps['Y']
 
         LOG.debug(f'update_chart_table(selected_comps={selected_comps},\n'
                   f'                   selected_genes={selected_genes})')
