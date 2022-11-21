@@ -607,6 +607,7 @@ def launch_page(source:Union[pathlib.Path, str],
                 debug:bool,
                 name:str,
                 initiate:typing.Callable):
+    """Create the app, set debug levels, call `initiate` """
 
     # pycharm debug doesn't like __name__ here for some reason.
     app = dash.Dash(name, external_stylesheets=[dbc.themes.BOOTSTRAP])

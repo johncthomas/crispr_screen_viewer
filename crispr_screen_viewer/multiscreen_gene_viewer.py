@@ -37,6 +37,31 @@ import dash_bootstrap_components as dbc
 
 PAGE_ID = 'msgv'
 
+
+# todo clustergram
+# Maybe give it it's own page,  use the selector-tables to select comps, and gene box
+# But for now it's going to be a tab inside of MSGV
+
+# todo data selection
+# Currently MSGV is a single callback function, needs to be split
+#  - Select the data and outputs to a datastore
+#  - Update the boxplots/clustergram
+#    * 2 functions, each has input from datastore and selected tab
+#    * Output is the below Tabs Div
+
+# todo the rendering of the graphs
+# 2 cols, one gene vs comp, other heatmap of pearsons between comps using the selected genes
+# Where some comps don't have some genes, we do one row of graphs excluding comps, one excluding genes
+
+# todo controls
+# The boxplot specific controls aren't needed and should probably be excluded
+# Lock selected graphs needs to be a thing
+
+# todo Make MSGV work like the others with the comparison selection tables
+#   with select by FDR as an additional option.
+# Obviously this is a bigger deal and further down the pipe
+
+
 def initiate(app, data_set, public=True) -> Div:
     """Register callbacks to app, generate layout"""
 
@@ -51,9 +76,9 @@ def initiate(app, data_set, public=True) -> Div:
         figure=go.Figure(),
         style={'height':'800px', 'width':'1500px'}
     )
-
-    table = Div([create_datatable(columns_if_no_df=data_set.comparisons.columns)],
-                id='msgv-table-div', className="u-full-width", style={'margin-bottom':'30px'})
+    def spawn_datatable(app, id_prefix='msgv'):
+        table = Div([create_datatable(columns_if_no_df=data_set.comparisons.columns)],
+                id=f'{id_prefix}-table-div', className="u-full-width", style={'margin-bottom':'30px'})
 
     # select genes by name, and comparisons FDR in selected samples
     gene_selector = Div(
@@ -83,17 +108,6 @@ def initiate(app, data_set, public=True) -> Div:
                "Box plots give the overall distribution of scores, and markers show specific genes. "
                "Diamonds indicate significant genes, and squares non-significant genes."),
     ])
-
-    # # This Tabs will show either graph or datatable
-    #  tabs = Div([dcc.Tabs(id='output-tabs', value='graph',
-    #           children=[
-    #               dcc.Tab([graph], label='Graph', value='graph', className='data-tab',
-    #                       selected_className='data-tab--selected',),
-    #               dcc.Tab([table], label='Table', value='table',
-    #                       className='data-tab', selected_className='data-tab--selected',)
-    #           ])
-    #      ]),
-
 
 
     ### CONTROL PANEL for the plot
@@ -233,7 +247,6 @@ def initiate(app, data_set, public=True) -> Div:
             ordered_comps = data_set.comparisons.loc[filtered_scores.columns, order_by].sort_values().index
         else: # this shouldn't happen, though maybe I should have a "whatever" order option
             ordered_comps = filtered_scores.columns.values
-
 
         # *plot the gene scatters*
 
