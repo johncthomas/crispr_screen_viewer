@@ -290,7 +290,7 @@ def register_comp_table_xy_row_selection(app, id_prefix):
                 row[axiskey] = radiobutton
 
         selected_comps[axiskey] = compid
-        LOG.debug(f'{comp_options=}')
+        LOG.debug(f'comp_options={comp_options}')
 
         if comp_options:
             co = set(comp_options)
