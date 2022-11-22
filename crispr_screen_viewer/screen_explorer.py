@@ -308,6 +308,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             raise PreventUpdate
 
         # get x, y and genes values
+        # todo LFC as it's own table!
         score_fdr = data_set.get_score_fdr('mag', sig_source)
         score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
 
