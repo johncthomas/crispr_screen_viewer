@@ -175,11 +175,15 @@ class DataSet:
         self.comparisons.insert(2, 'DOI', dois)
 
         # add citation to comparisons table
-        cites = self.experiments_metadata.loc[
-            self.comparisons['Experiment ID'],
-            'Citation'
-        ].values
-        self.comparisons.loc[:, 'Citation'] =  cites
+        try:
+            cites = self.experiments_metadata.loc[
+                self.comparisons['Experiment ID'],
+                'Citation'
+            ].values
+            self.comparisons.loc[:, 'Citation'] =  cites
+        except:
+            LOG.warning('Citations column missing from exeriments_metadata')
+            self.comparisons.loc[:, 'Citation'] = ''
 
 
         # DF of previous symbols and IDs for currently used.
