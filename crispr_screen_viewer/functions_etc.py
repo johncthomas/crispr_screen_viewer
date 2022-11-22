@@ -66,7 +66,6 @@ def doi_to_link(doi):
 
 def orthoregress(x, y):
     """Orthogonal Distance Regression.
-
     Returns: [slope, offset]"""
 
     def f(p, x):

@@ -226,7 +226,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
 
     tabs = dcc.Tabs(
-        id=f'{PAGE_ID}-tabs', value=f'{PAGE_ID}-exp-tab', children=[
+        id=f'{PAGE_ID}-tabs', value=f'{PAGE_ID}-comp-tab', children=[
         exptab,
         comptab,
 

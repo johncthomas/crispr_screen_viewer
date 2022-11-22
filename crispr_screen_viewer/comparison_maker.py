@@ -119,7 +119,7 @@ def initiate(app, data_set, public):
     # LAYOUT
     tabs = dcc.Tabs(
         id=f'{PAGE_ID}-tabs',
-        value=f'{PAGE_ID}-exp-tab',
+        value=f'{PAGE_ID}-comp-tab',
         className='selector-results-tabs',
         children=[
             exptab,
