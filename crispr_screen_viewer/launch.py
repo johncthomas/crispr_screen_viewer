@@ -1,26 +1,23 @@
 #!/usr/bin/env python
-import sys
 from argparse import ArgumentParser
-from crispr_screen_viewer import multiscreen_gene_viewer, screen_explorer, comparison_maker
-from crispr_screen_viewer.functions_etc import (
-    doi_to_link,
-    load_dataset,
-    DataSet
+
+from crispr_screen_viewer import (
+    multiscreen_gene_viewer,
+    screen_explorer,
+    comparison_maker
 )
+
+from crispr_screen_viewer.dataset import (
+    DataSet,
+    load_dataset
+)
+
 from crispr_screen_viewer.shared_components import (
-    #external_stylesheets,
-    # get_lab_val,
-    # get_reg_stat_selectors,
-    # get_annotation_dicts,
-    # big_text_style,
     LOG
 )
 from dash import dash, html, dcc, Input, Output, State
-from dash.exceptions import PreventUpdate
 Div = html.Div
 import flask
-from pathlib import Path
-import pathlib, pickle, os
 import dash_bootstrap_components as dbc
 
 our_colour = '#3db9c2'
