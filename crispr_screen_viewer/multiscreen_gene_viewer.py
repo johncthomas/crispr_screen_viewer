@@ -213,6 +213,36 @@ def initiate(app, data_set, public=True) -> Div:
         return graph
 
 
+    def spawn_clustergram() -> Div:
+        clustergram_id = 'msgv-clustergram-div'
+        clustergram_div = Div(
+            id=clustergram_id,
+            children=[html.P('No genes selected with FDR < Maximum FDR')]
+        )
+
+        @app.callback(
+            Output(clustergram_id, 'children'),
+            Input('msgv-stat-source-selector', 'value'),
+            Input('comp-store', 'data'),
+            Input('msgv-tabs', 'value'),
+            State('msgv-gene-selector', 'value'),
+            State('msgv-fdr-threshold', 'value'),
+        )
+        def update_clustergrams(
+                score_type,
+                comps_dict: Dict[str, typing.List[str]],
+                selected_tab,
+                selected_genes,
+                fdr_thresh
+        ):
+            if selected_tab != clustergram_id:
+                raise PreventUpdate
+
+
+
+
+        return clustergram_div
+
     def spawn_datatable():
         table = Div(
             children=[
