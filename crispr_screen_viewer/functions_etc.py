@@ -1,3 +1,4 @@
+import inspect
 import typing
 from statsmodels.stats.multitest import multipletests
 import pandas as pd
@@ -260,6 +261,10 @@ class DataSet:
                 available will not be present in the table.
 
         Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
+
+
+        # todo surely we don't need to do this every time?
+        #   write tables for each score/stat, store in a dict
 
         # if only one type supplied, copy it across
         if fdr_anls is None:
@@ -627,3 +632,9 @@ def html_small_span(s):
     Lit: f'<span style="font-size: small;">{s}</span>'
     """
     return f'<span style="font-size: small;">{s}</span>'
+
+def getfuncstr():
+    try:
+        return inspect.currentframe().f_back.f_code.co_name
+    except Exception as e:
+        return f'{__name__}.getfuncstr() failed with error:\n\t{e}'
