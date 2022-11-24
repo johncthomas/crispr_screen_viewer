@@ -100,17 +100,28 @@ class DataSet:
         self.comparisons.insert(2, 'DOI', dois)
 
         # add citation to comparisons table
-        cites = self.experiments_metadata.loc[
-            self.comparisons['Experiment ID'],
-            'Citation'
-        ].values
-        self.comparisons.loc[:, 'Citation'] =  cites
+        try:
+            cites = self.experiments_metadata.loc[
+                self.comparisons['Experiment ID'],
+                'Citation'
+            ].values
+            self.comparisons.loc[:, 'Citation'] =  cites
+        except:
+            LOG.warning('Citations column missing from exeriments_metadata')
+            self.comparisons.loc[:, 'Citation'] = ''
 
 
         # DF of previous symbols and IDs for currently used.
-        self.previous_and_id = pd.read_csv(
-            os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
-        )
+        try:
+            self.previous_and_id = pd.read_csv(
+                os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
+            )
+            self.previous_and_id.fillna('', inplace=True)
+
+        except FileNotFoundError:
+            LOG.warning("file 'previous_and_id.csv' is missing.")
+            # when .loc fails to find a name in the table it just uses the current name.
+            self.previous_and_id = pd.DataFrame()        )
 
         self.previous_and_id.fillna('', inplace=True)
 
