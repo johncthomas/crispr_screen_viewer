@@ -17,7 +17,6 @@ from dash.dependencies import Input, Output, State
 import typing
 
 from crispr_screen_viewer.functions_etc import (
-    DataSet,
     LOG,
     style_gene_selector_div,
     get_cmdline_options,
@@ -41,6 +40,7 @@ from crispr_screen_viewer.selector_tables import (
     register_exptable_filters_comps,
 )
 
+from crispr_screen_viewer.dataset import DataSet
 
 import dash_bootstrap_components as dbc
 

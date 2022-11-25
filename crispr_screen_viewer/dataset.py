@@ -121,7 +121,7 @@ class DataSet:
         except FileNotFoundError:
             LOG.warning("file 'previous_and_id.csv' is missing.")
             # when .loc fails to find a name in the table it just uses the current name.
-            self.previous_and_id = pd.DataFrame()        )
+            self.previous_and_id = pd.DataFrame()
 
         self.previous_and_id.fillna('', inplace=True)
 
