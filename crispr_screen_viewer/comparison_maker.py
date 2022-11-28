@@ -44,7 +44,7 @@ from crispr_screen_viewer.dataset import DataSet
 
 import dash_bootstrap_components as dbc
 
-def initiate(app, data_set, public):
+def initiate(app, data_set:DataSet, public):
     """Source directory should contain the relevant info: metadata.csv,
     screen_analyses and expyaml directories."""
 
@@ -110,8 +110,6 @@ def initiate(app, data_set, public):
                       'Select Treatments shows all possible by default.'),
         comp_tab_text=('Choose treatments to be displayed on scatter plot using the '
                        'radio buttons in the X/Y columns.'),
-        # comp_choice_panel=[Div(get_xy_choice_panel('x')),
-        #                    Div(get_xy_choice_panel('y'))],
     )
 
     ################
@@ -153,11 +151,6 @@ def initiate(app, data_set, public):
         selected_store,
         previous_row_store,
         comp_table_data,
-        # Div(
-        #     style={'display':'inline-block'},
-        #     children=[
-        #         Div(selectors, style={'display':'inline-block'}),
-        # ]),
         Div([
             Div([tabs, ], style={'display':'inline-block',}),
             Div([
