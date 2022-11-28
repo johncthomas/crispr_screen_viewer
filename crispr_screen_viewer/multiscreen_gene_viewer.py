@@ -75,6 +75,18 @@ def initiate(app, data_set, public=True) -> Div:
     order_by_categories = ['Mean score', 'Treatment', 'Citation']
     colourable_categories = ['Treatment', 'Cell line', 'Citation', 'Library', 'KO']
 
+    def get_numbered_tick_labels(comps, just_numbers=False):
+        """list of strings giving number, citation and treatment info for
+        comps. If just_numbers, return only list of strings of numbers."""
+
+        trace_numbers = pd.Series([str(i) for i in range(1, len(comps) + 1)])
+        if just_numbers:
+            return trace_numbers
+
+        citations = data_set.comparisons.loc[comps, 'Citation']
+        treats = data_set.comparisons.loc[comps, 'Treatment'].fillna('')
+        return trace_numbers.values + '. ' + citations.values + ', ' + treats.values
+
     def spawn_boxplot_graph():
 
         graph = dcc.Graph(
@@ -110,8 +122,6 @@ def initiate(app, data_set, public=True) -> Div:
             if selected_tab != 'msgv-boxplot-tab':
                 raise PreventUpdate
 
-
-
             comps = comps_dict['selected_comps']
             LOG.debug(f"{getfuncstr()}: {comps}")
             data_tabs = data_set.get_score_fdr(score_type, score_type, )
@@ -137,14 +147,12 @@ def initiate(app, data_set, public=True) -> Div:
                 ordered_comps = filtered_scores.columns.values
 
             # x tick labels
-            trace_numbers = pd.Series([str(i) for i in range(1, len(ordered_comps) + 1)])
+
 
             if len(ordered_comps):
-                citations = data_set.comparisons.loc[ordered_comps, 'Citation']
-                treats = data_set.comparisons.loc[ordered_comps, 'Treatment'].fillna('')
-                x_tick_labels = trace_numbers.values + '. ' + citations.values + ', ' + treats.values
+                x_tick_labels = get_numbered_tick_labels(ordered_comps)
             else:
-                x_tick_labels = trace_numbers.values
+                x_tick_labels = get_numbered_tick_labels(ordered_comps, just_numbers=True)
 
             # x_tick_labels = pd.Series(x_tick_labels, index=ordered_comps)
 
@@ -222,9 +230,12 @@ def initiate(app, data_set, public=True) -> Div:
 
         @app.callback(
             Output(clustergram_id, 'children'),
+
             Input('msgv-stat-source-selector', 'value'),
             Input('comp-store', 'data'),
             Input('msgv-tabs', 'value'),
+            Input('msgv-cluster-missing-method', 'value'),
+
             State('msgv-gene-selector', 'value'),
             State('msgv-fdr-threshold', 'value'),
         )
@@ -233,13 +244,95 @@ def initiate(app, data_set, public=True) -> Div:
                 comps_dict: Dict[str, typing.List[str]],
                 selected_tab,
                 selected_genes,
-                fdr_thresh
+                fdr_thresh,
         ):
-            if selected_tab != clustergram_id:
+
+            data_missing = False
+            heatmap_only = False
+
+            if selected_tab != 'msgv-clustergram-tab':
                 raise PreventUpdate
 
+            LOG.debug(f"{getfuncstr()} updating.")
+
+            comps = comps_dict['selected_comps']
+            LOG.debug(f"{getfuncstr()}: {comps}")
+            data_tabs = data_set.get_score_fdr(score_type, score_type, )
+            filtered_scores:pd.DataFrame = data_tabs['score'].loc[selected_genes, comps]
+
+            comp_label_dict = {c:l for c, l in
+                zip(
+                    filtered_scores.columns,
+                    list(get_numbered_tick_labels(filtered_scores.columns))
+                )
+            }
+
+            # filter data if there are comps that don't have scores for genes
+            if filtered_scores.isna().any().any():
+                data_missing = True
+                missing_comps = index_of_true(filtered_scores.isna().any())
+                missing_genes = index_of_true(filtered_scores.isna().any(1))
+                # to be returned in the Div
+                misslabs = '\n    '.join([comp_label_dict[c] for c in missing_comps])
+                missing_text = f"Sample(s) has missing genes:\n  {misslabs}"
+                if missing_method == 'drop_comps':
+                    filtered_scores = filtered_scores.drop(missing_comps, axis='columns')
+                elif missing_method == 'drop_genes':
+                    filtered_scores = filtered_scores.drop(missing_genes, axis='index')
+                # Don't filter if heatmap_only
+                elif missing_method == 'heatmap_only':
+                    heatmap_only = True
+                else:
+                    raise RuntimeError(f'Unknown missing_method: {missing_method}.')
+
+            # deal with cases where we can't display any graphs.
+            if not selected_genes or (len(selected_genes) < 2):
+                return [html.P('Select at least 2 genes', className='no-data-paragraph')]
+            elif (len(comps) == 0) and (selected_genes > 2):
+                if not data_missing:
+                    return [html.P(f"None of the selected genes have FDR <= {fdr_thresh}",
+                                   className='no-data-paragraph')]
+                else:
+                    return [html.P(f"None of the selected genes have FDR <= {fdr_thresh}\n"
+                                   f"Some samples don't have scores for some genes.",
+                                   className='no-data-paragraph')]
+
+            mn, mx = filtered_scores.min().min(), filtered_scores.max().max()
+            cmap_slice = bicolour_cmap(mn, mx, )
+
+            if not heatmap_only:
+                mainfig = dash_bio.Clustergram(
+                    data=filtered_scores.values,
+                    row_labels=list(filtered_scores.index),
+                    column_labels=[comp_label_dict[c] for c in filtered_scores.columns],
+                    # maximum linkage distance to join dendrogram clusters
+                    color_threshold={
+                        'row': 100,
+                        'col': 100
+                    },
+                    height=600,
+                    width=900,
+                    color_map=cmap_slice,
+                    center_values=False,
+                    standardize=False,
 
 
+                )
+            else:
+                mainfig = px.imshow(
+                    filtered_scores,
+                    color_continuous_scale=cmap_slice,
+                    height = 600,
+                    width = 900,
+                )
+
+            output_div = [dcc.Graph(figure=mainfig)]
+            if data_missing:
+                output_div.append(
+                    html.P(missing_text,  style={'whiteSpace': 'pre-wrap'})
+                )
+
+            return output_div
 
         return clustergram_div
 
@@ -360,12 +453,35 @@ def initiate(app, data_set, public=True) -> Div:
             ]),
         ], style={'max-width': '200px'})
 
+
+        missing_opts = [
+            ('Drop samples','drop_comps'),
+            ('Drop genes','drop_genes',),
+            ("Don't cluster",'heatmap_only'),
+        ]
+        missing_opts = [{'label':l, 'value':v} for l, v in missing_opts]
+        clustergram_missing = dbc.Card(
+            id='msgv-cluster-missing-method-card',
+            children=[dbc.CardHeader('When genes missing:'),
+            dbc.CardBody([
+                dcc.RadioItems(
+                    id='msgv-cluster-missing-method',
+                    value='drop_comps',
+                    options=missing_opts,
+                    style = {'width': '150px'},
+
+                ),
+            ]),
+        ], style={'max-width': '200px'})
+
         control_panel = dbc.CardGroup(
             [
                 fdr_selectr,
+                stat_source_selectr,
                 control_order_by,
                 control_colour_by,
-                stat_source_selectr
+                clustergram_missing
+
             ],
             style={'max-width':'1100px'}
         )
@@ -417,7 +533,7 @@ def initiate(app, data_set, public=True) -> Div:
                 raise PreventUpdate
 
             LOG.debug(f'{inspect.currentframe().f_code.co_name}\n'
-                      f"\tgenes={selected_genes}, fdr_thresh={fdr_thresh}\n",
+                      f"\tgenes={selected_genes}, fdr_thresh={fdr_thresh}\n"
                       f"\tfilters={filters}")
 
             data_tabs = data_set.get_score_fdr(score_type, score_type, )
@@ -449,12 +565,19 @@ def initiate(app, data_set, public=True) -> Div:
                     spawn_boxplot_graph()
                 ]
             ),
+            dcc.Tab(
+                label='Clustergram', value='msgv-clustergram-tab',
+                className='data-tab', selected_className='data-tab--selected',
+                children=[
+                    spawn_clustergram()
+                ]
+            )
 
         ]
     )
 
     table = spawn_datatable()
-    control_panel, box_colour_maps = get_selector_card_and_colour_maps()
+    control_panel, box_colour_maps = get_selector_card_and_box_colours()
 
     ### FINAL LAYOUT
     msgv_layout = Div([
