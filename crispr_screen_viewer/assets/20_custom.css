@@ -163,3 +163,10 @@ other setting when conditions are true.*/
     display: flex;
     flex-direction: row;
 }
+
+.no-data-paragraph {
+    padding: 40px;
+    background-color: lightsalmon;
+    width: 400px;
+    font-size: larger;
+}
