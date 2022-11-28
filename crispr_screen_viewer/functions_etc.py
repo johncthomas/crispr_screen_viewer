@@ -1,6 +1,6 @@
 import inspect
 import typing
-from statsmodels.stats.multitest import multipletests
+#from statsmodels.stats.multitest import multipletests
 import pandas as pd
 import numpy as np
 import os
@@ -409,3 +409,54 @@ def getfuncstr():
         return inspect.currentframe().f_back.f_code.co_name
     except Exception as e:
         return f'{__name__}.getfuncstr() failed with error:\n\t{e}'
+
+
+def p_adjust_bh(p:Collection) -> np.ndarray:
+    """Benjamini-Hochberg p-value correction for multiple hypothesis testing."""
+
+    p = np.asfarray(p)
+    if any(np.isnan(p)):
+        import warnings
+        warnings.warn(f'p_adjust_bh(): NaNs in p-values! '
+                      f'Called by {inspect.currentframe().f_back.f_code.co_name}')
+    by_descend = p.argsort()[::-1]
+    by_orig = by_descend.argsort()
+    steps = float(len(p)) / np.arange(len(p), 0, -1)
+    q = np.minimum(1, np.minimum.accumulate(steps * p[by_descend]))
+    return q[by_orig]
+
+
+def bicolour_cmap(mn, mx, minmax_value=(-3, 3), clr_intensity=170):
+    """Return a plotly formatted list of colours that translates to a
+    colour map with 0=white, min(mn, -3)=red, max(mx, 3)=blue, so if
+    mn > 0 and mx > 0 returned colours will be light-blue -> darker-blue."""
+    colours = []
+    thresholds = list(minmax_value)
+    if mn < -3:
+        thresholds[0] = mn
+    if mx > 3:
+        thresholds[1] = mx
+
+    # ==clr_intensity at threshold, 255 in centre.
+    get_primary_int = lambda p: 255 - (p * (255 - clr_intensity))
+
+    for x in (mn, mx):
+        if x < 0:
+            prop = x / thresholds[0]
+            bg_int = int((1 - prop) * 255)
+            clr = f"rgb({get_primary_int(prop)}, {bg_int}, {bg_int})"
+        else:
+            prop = x / thresholds[1]
+            print(prop)
+            bg_int = int((1 - prop) * 255)
+            clr = f"rgb({bg_int}, {bg_int}, {get_primary_int(prop)})"
+        colours.append(clr)
+    if (mn < 0) and (mx > 0):
+        span = mx - mn
+        central = (0 - mn) / span
+        colours = [(0, colours[0]),
+                   (central, 'rgb(255, 255, 255)'),
+                   (1, colours[1])]
+    else:
+        colours = [(i, c) for i, c in enumerate(colours)]
+    return colours
