@@ -245,8 +245,10 @@ def tabulate_score(prefix, return_ps=False):
     for exp in ps.columns:
         sig_df.loc[:, (exp, 'p_neg')] = ps[exp]
         sig_df.loc[:, (exp, 'p_pos')] = 1-ps[exp]
-        sig_df.loc[:, (exp, 'fdr_neg')] = multipletests(ps[exp], method='fdr_bh')[1]
-        sig_df.loc[:, (exp, 'fdr_pos')] = multipletests(1 - ps[exp], method='fdr_bh')[1]
+        # sig_df.loc[:, (exp, 'fdr_neg')] = multipletests(ps[exp], method='fdr_bh')[1]
+        # sig_df.loc[:, (exp, 'fdr_pos')] = multipletests(1 - ps[exp], method='fdr_bh')[1]
+        sig_df.loc[:, (exp, 'fdr_neg')] = p_adjust_bh(ps[exp])
+        sig_df.loc[:, (exp, 'fdr_pos')] = p_adjust_bh(1-ps[exp])
         sig_df.loc[:, (exp, 'jacks_score')] = genes[exp]
         sig_df.loc[:, (exp, 'stdev')] = genesstd[exp]
         score_table = sig_df[exp].copy()
