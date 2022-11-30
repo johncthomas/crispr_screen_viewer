@@ -170,3 +170,10 @@ other setting when conditions are true.*/
     width: 400px;
     font-size: larger;
 }
+
+.missing-data-paragraph {
+    padding: 10px;
+    background-color: lightsalmon;
+    width: fit-content;
+    font-size: small;
+}

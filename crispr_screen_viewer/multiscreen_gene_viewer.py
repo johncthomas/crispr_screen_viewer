@@ -253,6 +253,9 @@ def initiate(app, data_set, public=True) -> Div:
             if selected_tab != 'msgv-clustergram-tab':
                 raise PreventUpdate
 
+            if not selected_genes:
+                return [html.P('Select genes above.', className='missing-data-paragraph')]
+
             LOG.debug(f"{getfuncstr()} updating.")
 
             comps = comps_dict['selected_comps']
@@ -329,7 +332,11 @@ def initiate(app, data_set, public=True) -> Div:
             output_div = [dcc.Graph(figure=mainfig)]
             if data_missing:
                 output_div.append(
-                    html.P(missing_text,  style={'whiteSpace': 'pre-wrap'})
+                    html.P(
+                        missing_text,
+                        style={'whiteSpace': 'pre-wrap', },
+                        className='missing-data-paragraph'
+                    )
                 )
 
             return output_div
