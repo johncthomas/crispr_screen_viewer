@@ -120,7 +120,7 @@ def get_stat_source_selector(id_prefix, label, cardheader='Select analysis algor
                     )
                 ]
             ),
-        ], style={'max-width': '170px'}
+        ], style={'width': '170px'}
     )
 
 # **DATATABLE**

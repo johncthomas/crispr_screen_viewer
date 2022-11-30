@@ -1,16 +1,19 @@
+#!/usr/bin/env python
+
 import itertools
 import inspect
 import typing
 
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
+import dash_bio
 from dash.exceptions import PreventUpdate
 Div = html.Div
 import plotly.graph_objs as go
 
 import pathlib, os, logging
 
-from typing import Collection, Union, Dict
+from typing import Collection,  Union, Dict
 
 from crispr_screen_viewer.shared_components import (
     create_datatable,
@@ -27,7 +30,9 @@ from crispr_screen_viewer.shared_components import (
 from crispr_screen_viewer.functions_etc import (
     get_metadata_table_columns,
     get_selector_table_filter_keys,
-    getfuncstr
+    getfuncstr,
+    index_of_true,
+    bicolour_cmap,
 )
 
 
@@ -35,20 +40,12 @@ border_style = {'border': '4px solid #3DD178',
                 'border-radius': '14px'}
 
 import dash_bootstrap_components as dbc
+import plotly.express as px
 
 PAGE_ID = 'msgv'
 
-# todo clustergram
-# Maybe give it it's own page,  use the selector-tables to select comps, and gene box
-# But for now it's going to be a tab inside of MSGV
 
-# todo the rendering of the graphs
-# 2 cols, one gene vs comp, other heatmap of pearsons between comps using the selected genes
-# Where some comps don't have some genes, we do one row of graphs excluding comps, one excluding genes
-
-# todo controls
-# The boxplot specific controls aren't needed and should probably be excluded
-# Lock selected graphs needs to be a thing
+# Maybe clustergram it's own page,  using the selector-tables to select comps, and gene box
 
 # todo Make MSGV work like the others with the comparison selection tables
 #   with select by FDR as an additional option.
@@ -60,7 +57,6 @@ PAGE_ID = 'msgv'
 #   put into a store, this store is the trigger for updating the tabs (tabs don't also
 #   don't update unless selected).
 
-# datatab on every page? yes
 
 
 def initiate(app, data_set, public=True) -> Div:
@@ -225,7 +221,8 @@ def initiate(app, data_set, public=True) -> Div:
         clustergram_id = 'msgv-clustergram-div'
         clustergram_div = Div(
             id=clustergram_id,
-            children=[html.P('No genes selected with FDR < Maximum FDR')]
+            children=[html.P('')],
+            style={'display':'flex'},
         )
 
         @app.callback(
@@ -243,6 +240,8 @@ def initiate(app, data_set, public=True) -> Div:
                 score_type,
                 comps_dict: Dict[str, typing.List[str]],
                 selected_tab,
+                missing_method,
+
                 selected_genes,
                 fdr_thresh,
         ):
@@ -302,7 +301,7 @@ def initiate(app, data_set, public=True) -> Div:
 
             mn, mx = filtered_scores.min().min(), filtered_scores.max().max()
             cmap_slice = bicolour_cmap(mn, mx, )
-
+            height, width = 600, 900
             if not heatmap_only:
                 mainfig = dash_bio.Clustergram(
                     data=filtered_scores.values,
@@ -313,8 +312,8 @@ def initiate(app, data_set, public=True) -> Div:
                         'row': 100,
                         'col': 100
                     },
-                    height=600,
-                    width=900,
+                    height=height,
+                    width=width,
                     color_map=cmap_slice,
                     center_values=False,
                     standardize=False,
@@ -322,11 +321,13 @@ def initiate(app, data_set, public=True) -> Div:
 
                 )
             else:
+                tab = filtered_scores
+                tab.columns = tab.columns.map(comp_label_dict)
                 mainfig = px.imshow(
-                    filtered_scores,
+                    tab,
                     color_continuous_scale=cmap_slice,
-                    height = 600,
-                    width = 900,
+                    height = height,
+                    width = width,
                 )
 
             output_div = [dcc.Graph(figure=mainfig)]
@@ -381,25 +382,27 @@ def initiate(app, data_set, public=True) -> Div:
             selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
 
             selected_stats = selected_stats.applymap(lambda n: f"{n:.3}")
-            selected_stats.insert(0, 'Boxplot number', list(range(len(ordered_comps))))
+            selected_stats.insert(0, 'Boxplot number',
+                                  list(range(1, len(ordered_comps)+1)))
             cols_oi = get_metadata_table_columns(public, PAGE_ID)['comp']
 
             selected_metadata = data_set.comparisons.loc[selected_stats.index, cols_oi]
 
             data_table_data = pd.concat([selected_stats, selected_metadata], axis=1)
             LOG.debug(f"{getfuncstr()} datatable data head:\n{str(data_table_data.head())}")
+
             return create_datatable(data_table_data)
 
         return table
-
-
 
 
     # select genes by name, and comparisons FDR in selected samples
     gene_selector = Div(
         children=[
             html.P('Select genes:', style=big_text_style),
-            dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes', value=[],
+
+            dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes',
+                         value=[],
                          options=get_gene_dropdown_lab_val(data_set, data_set.genes),
                          multi=True),
         ],
@@ -427,8 +430,8 @@ def initiate(app, data_set, public=True) -> Div:
 
     ### CONTROL PANEL for the plot
 
-    def get_selector_card_and_colour_maps():
-        stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Significance source:')
+    def get_selector_card_and_box_colours():
+        stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Analysis:')
 
         fdr_selectr = dbc.Card([
             dbc.CardHeader('Maximum FDR:'),
@@ -436,21 +439,24 @@ def initiate(app, data_set, public=True) -> Div:
             dbc.CardBody([
                 dcc.Input(id='msgv-fdr-threshold', type='number', min=0, max=2, step=0.01, value=0.1),
             ])
-        ], style={'max-width': '170px'})
+        ], style={'width': '170px'})
 
-
-
-        control_order_by = dbc.Card([
-            dbc.CardHeader('Order by:'),
-            dbc.CardBody([
-                #html.Label('Order by:', htmlFor='msgv-order-by'),
-                dcc.Dropdown(id='msgv-order-by', value=order_by_categories[0],
+        control_order_by = dbc.Card(
+            id = 'msgv-order-by-card',
+            children=[
+                dbc.CardHeader('Order by:'),
+                dbc.CardBody([
+                    #html.Label('Order by:', htmlFor='msgv-order-by'),
+                    dcc.Dropdown(id='msgv-order-by', value=order_by_categories[0],
                              options=get_lab_val(order_by_categories),style={'width':'150px'}),
-            ]),
-        ], style={'max-width': '200px'})
+                ]),
+            ],
+            style={'width': '250px'})
+            #class_name="card col-md-2")
 
-        control_colour_by = dbc.Card([
-            dbc.CardHeader('Colour by:'),
+        control_colour_by = dbc.Card(
+            id='msgv-color-by-card',
+            children=[dbc.CardHeader('Colour by:'),
             dbc.CardBody([
                 dcc.Dropdown(
                     id='msgv-color-by', value='Treatment',
@@ -458,7 +464,7 @@ def initiate(app, data_set, public=True) -> Div:
                  style = {'width': '150px'}
                 ),
             ]),
-        ], style={'max-width': '200px'})
+        ], style={'width': '250px'})
 
 
         missing_opts = [
@@ -479,19 +485,40 @@ def initiate(app, data_set, public=True) -> Div:
 
                 ),
             ]),
-        ], style={'max-width': '200px'})
+        ], style={'width': '170px'})
 
         control_panel = dbc.CardGroup(
-            [
-                fdr_selectr,
-                stat_source_selectr,
-                control_order_by,
-                control_colour_by,
-                clustergram_missing
+                [
+                    fdr_selectr,
+                    stat_source_selectr,
+                    control_order_by,
+                    control_colour_by,
+                    clustergram_missing
+                ],
+                #class_name='card-group row',
+                style={'width':'fit-content'}
+            )
 
-            ],
-            style={'max-width':'1100px'}
+
+        @app.callback(
+            Output('msgv-order-by-card', 'style'),
+            Output('msgv-color-by-card', 'style'),
+            Output('msgv-cluster-missing-method-card', 'style'),
+
+
+            Input('msgv-tabs', 'value')
         )
+        def hide_irrelevant(selected_tab):
+            show = {'width':'250px'}
+            hide = {'display':'none'}
+            if selected_tab == 'msgv-boxplot-tab':
+                return (show, show, hide)
+            elif selected_tab == 'msgv-clustergram-tab':
+                return (hide, hide, show)
+
+            LOG.warn(f'MSGV: Unknown tab value {selected_tab}')
+            return (show, show, show)
+
 
         # get color map, asssiging colors to the most common values first, so that
         #   common things have different colours.
@@ -505,7 +532,6 @@ def initiate(app, data_set, public=True) -> Div:
             box_colour_maps[color_by] = cm
 
         return control_panel, box_colour_maps
-
 
 
     def spawn_comp_store() -> dcc.Store:
@@ -526,7 +552,6 @@ def initiate(app, data_set, public=True) -> Div:
              Input('msgv-gene-selector', 'value'),
              Input('msgv-fdr-threshold', 'value'), ]
             + [Input(f'msgv-comp-filter-{cid}', 'value') for cid in filter_cols],
-
         )
         def filter_store_comps(
                 score_type,
@@ -558,7 +583,8 @@ def initiate(app, data_set, public=True) -> Div:
         return store
 
     # User selecting tabs changes tabs.value to individual tab value
-    # NOTE: changing any Tab(value="") will require updating callbacks
+    # NOTE: changing any Tab(value="") will require updating callbacks,
+    #   check for Input('msgv-tabs', 'value')
     tabs = dcc.Tabs(
         id=f"msgv-tabs",
         value=f"msgv-boxplot-tab",
