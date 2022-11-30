@@ -120,7 +120,7 @@ def initiate(app, data_set, public=True) -> Div:
 
             comps = comps_dict['selected_comps']
             LOG.debug(f"{getfuncstr()}: {comps}")
-            data_tabs = data_set.get_score_fdr(score_type, score_type, )
+            data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(score_type, score_type, )
             filtered_scores = data_tabs['score'].loc[selected_genes, comps]
 
             # *assemble the figure*
@@ -153,7 +153,7 @@ def initiate(app, data_set, public=True) -> Div:
             # x_tick_labels = pd.Series(x_tick_labels, index=ordered_comps)
 
             for gn in selected_genes:
-                fdrs = data_tabs['fdr'].loc[gn, ordered_comps]
+                fdrs:pd.Series = data_tabs['fdr'].loc[gn, ordered_comps]
                 mrkrs: pd.Series = fdrs <= fdr_thresh
                 mrkrs[mrkrs == True] = 'diamond'
                 mrkrs[mrkrs == False] = 'square'
