@@ -16,7 +16,6 @@ from dash.dependencies import Input, Output, State
 from typing import Collection, Union, Dict, List, Callable
 
 from crispr_screen_viewer.functions_etc import (
-    DataSet,
     datatable_column_dict,
     doi_to_link,
     get_cmdline_options,
@@ -46,7 +45,7 @@ from crispr_screen_viewer.selector_tables import (
     register_exptable_filters_comps
 )
 from crispr_screen_viewer.shared_components import spawn_filter_dropdowns
-
+from crispr_screen_viewer.dataset import DataSet
 Div = html.Div
 
 

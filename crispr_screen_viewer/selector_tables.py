@@ -29,7 +29,7 @@ from crispr_screen_viewer.shared_components import (
 Div = html.Div
 import pandas as pd
 
-from crispr_screen_viewer.functions_etc import (
+from crispr_screen_viewer.dataset import (
     DataSet,
     load_dataset
 )
