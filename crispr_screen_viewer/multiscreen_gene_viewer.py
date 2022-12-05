@@ -143,8 +143,6 @@ def initiate(app, data_set, public=True) -> Div:
                 ordered_comps = filtered_scores.columns.values
 
             # x tick labels
-
-
             if len(ordered_comps):
                 x_tick_labels = get_numbered_tick_labels(ordered_comps)
             else:
@@ -232,6 +230,8 @@ def initiate(app, data_set, public=True) -> Div:
             Input('comp-store', 'data'),
             Input('msgv-tabs', 'value'),
             Input('msgv-cluster-missing-method', 'value'),
+            Input('cluster-height', 'value'),
+            Input('cluster-width', 'value'),
 
             State('msgv-gene-selector', 'value'),
             State('msgv-fdr-threshold', 'value'),
@@ -241,9 +241,11 @@ def initiate(app, data_set, public=True) -> Div:
                 comps_dict: Dict[str, typing.List[str]],
                 selected_tab,
                 missing_method,
+                height, width,
 
                 selected_genes,
                 fdr_thresh,
+
         ):
 
             data_missing = False
@@ -301,7 +303,7 @@ def initiate(app, data_set, public=True) -> Div:
 
             mn, mx = filtered_scores.min().min(), filtered_scores.max().max()
             cmap_slice = bicolour_cmap(mn, mx, )
-            height, width = 600, 900
+
             if not heatmap_only:
                 mainfig = dash_bio.Clustergram(
                     data=filtered_scores.values,
@@ -487,13 +489,29 @@ def initiate(app, data_set, public=True) -> Div:
             ]),
         ], style={'width': '170px'})
 
+        clustergram_controls = dbc.Card(
+            id='msgv-cluster-controls-card',
+            children=[dbc.CardHeader('Adjust size:'),
+            dbc.CardBody([
+                dbc.InputGroup([
+                    dbc.InputGroupText('Height:'),
+                    dbc.Input(id='cluster-height', type='number', value=600),
+                ]),
+                dbc.InputGroup([
+                    dbc.InputGroupText('Width: '),
+                    dbc.Input(id='cluster-width', type='number', value=1200),
+                ]),
+            ]),
+        ], style={'width': '170px'})
+
         control_panel = dbc.CardGroup(
                 [
                     fdr_selectr,
                     stat_source_selectr,
                     control_order_by,
                     control_colour_by,
-                    clustergram_missing
+                    clustergram_missing,
+                    clustergram_controls,
                 ],
                 #class_name='card-group row',
                 style={'width':'fit-content'}
@@ -504,6 +522,7 @@ def initiate(app, data_set, public=True) -> Div:
             Output('msgv-order-by-card', 'style'),
             Output('msgv-color-by-card', 'style'),
             Output('msgv-cluster-missing-method-card', 'style'),
+            Output('msgv-cluster-controls-card', 'style'),
 
 
             Input('msgv-tabs', 'value')
@@ -512,9 +531,9 @@ def initiate(app, data_set, public=True) -> Div:
             show = {'width':'250px'}
             hide = {'display':'none'}
             if selected_tab == 'msgv-boxplot-tab':
-                return (show, show, hide)
+                return (show, show, hide, hide)
             elif selected_tab == 'msgv-clustergram-tab':
-                return (hide, hide, show)
+                return (hide, hide, show, show)
 
             LOG.warn(f'MSGV: Unknown tab value {selected_tab}')
             return (show, show, show)
