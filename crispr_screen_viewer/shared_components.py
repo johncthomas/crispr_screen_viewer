@@ -226,7 +226,6 @@ def spawn_gene_dropdown(app, id_prefix) -> Div:
         ]
     )
 
-
 def spawn_filter_dropdowns(
         id_prefix, table_str, filter_cols:List[str], comparisons, values:dict=None,
         card_header='Filter table rows by their contents.',
