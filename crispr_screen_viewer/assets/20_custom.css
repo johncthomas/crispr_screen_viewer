@@ -177,3 +177,11 @@ other setting when conditions are true.*/
     width: fit-content;
     font-size: small;
 }
+
+.big-text {
+    font-family: Arial, Helvetica, sans-serif;
+    font-size: 25px;
+    letter-spacing: -0.4px;
+    word-spacing: -0.4px;
+    font-weight: 700
+}
