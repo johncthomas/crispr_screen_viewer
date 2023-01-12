@@ -124,7 +124,24 @@ def spawn_comp_selector(comps) -> List[Div]:
     return output_selectors
 
 
-def spawn_scatter_plot(results, labelcol='GeneSymbol') -> dcc.Graph:
+def add_annotations(fig, x, y, labels, selected):
+    """call fig.add_annotations, and return the row mask.
+
+    x, y, labels should share index
+
+    rows annotated are labels.isin(selected)
+    """
+    m = labels.isin(selected)
+    new_annotations = get_annotation_dicts(
+        x[m], y[m], labels[m])
+    for anot in new_annotations:
+        fig.add_annotation(
+            **anot
+        )
+    return m
+
+def spawn_scatter(
+        results, labelcol='GeneSymbol',) -> dcc.Graph:
 
     @callback(
         Output('scatter-graph', 'figure'),
@@ -173,33 +190,22 @@ def spawn_scatter_plot(results, labelcol='GeneSymbol') -> dcc.Graph:
                 )
             )
         )
-
+        #todo data labels specificity not good
+        axistitle_fmt = lambda k: f"{k.replace('_vs_', ' vs ')} ({selected_stat})"
         fig.update_layout(
-            dict(xaxis_title=xk,
-                 yaxis_title=yk)
+            dict(xaxis_title=axistitle_fmt(xk),
+                 yaxis_title=axistitle_fmt(yk))
         )
 
         # *GENE DROPDOWN OPTIONS*
         # options for the gene dropdown. Rows will be selected by mask, not index
-        # if callback_context.triggered_id in (
-        #     'selected-genes',
-        #     'stat-selector',
-        # ):
-        #     opts = dash.no_update
-        # else:
         opts = [{'label':v, 'value':v} for v in sorted(tabs[0][labelcol].dropna().unique())]
 
         logger.debug(opts[:5])
 
         # *ANNOTATIONS*
         # rows for annotation selected by having `labelcol` row value in selected_genes
-        m = tabs[0][labelcol].isin(selected_genes)
-        new_annotations = get_annotation_dicts(
-            x[m], y[m], tabs[0][labelcol][m])
-        for anot in new_annotations:
-            fig.add_annotation(
-                **anot
-            )
+        m = add_annotations(fig, x, y, tabs[0][labelcol], selected_genes)
 
         # *DATATABLE DATA*
         # construct a new df and export records
@@ -227,10 +233,52 @@ def spawn_scatter_plot(results, labelcol='GeneSymbol') -> dcc.Graph:
     return graph
 
 
+def spawn_volcano(results, xy, dim=(600, 800), labelcol='GeneSymbol'):
+    graph = dcc.Graph(
+        id=f'{xy}-volcano',
+        config={
+            'editable':True,
+            'edits':{'annotationPosition':False},
+        },
+        figure=empty_figure(*dim)
+    )
+
+    @callback(
+        Output(f'{xy}-volcano', 'figure'),
+        Input(f'{xy}-selector', 'value'),
+        Input('prot-gene-dropdown', 'value'),
+    )
+    def update_volc(comp, selected_genes):
+        tab = results[comp]
+        lfc = tab['log2FC']
+        fdr = tab['adj.P.Val'].apply(lambda p: -np.log10(p))
+        fig = empty_figure(*dim)
+
+        #todo hovertext shows protein.
+        fig.add_trace(
+            go.Scattergl(
+                x=lfc, y=fdr,
+                text=tab[labelcol],
+                mode='markers',
+            )
+        )
+
+        add_annotations(fig, lfc, fdr, tab[labelcol], selected_genes)
+
+        fig.update_layout(
+            dict(xaxis_title='LFC',
+                 yaxis_title='-log10(FDR)',
+                 title=comp.replace('_vs_', ' vs '))
+        )
+
+        return fig
+
+    return graph
+
 
 def initiate(app, results:Dict[str, pd.DataFrame],):
 
-    scatter_plot = spawn_scatter_plot(results)
+    scatter_plot = spawn_scatter(results)
     comp_dropdowns = spawn_comp_selector(results.keys())
     gene_selector = spawn_gene_dropdown(app, 'prot')
 
@@ -244,14 +292,13 @@ def initiate(app, results:Dict[str, pd.DataFrame],):
         sort_action='native',
     )
 
-    stats={'LFC':'log2FC', 'FDR':'adj.P.Val'}
+    stats={'LFC':'log2FC', 'FDR':'log10FDR'}
     stat_selector = dcc.RadioItems(
         id='stat-selector',
         options=[{'label': k, 'value': v} for k, v in stats.items()],
         style={'display':'inline-block'},
         value=stats['FDR'],
     )
-
 
 
     controls_row = dbc.Row([
@@ -264,14 +311,18 @@ def initiate(app, results:Dict[str, pd.DataFrame],):
         ], style={'width': '100px'})
     ])
 
-    layout = Div([
+    volcanos = Div([
+        spawn_volcano(results, xy,) for xy in 'xy'
+    ], style={'display':'flex'})
 
+    layout = Div([
         controls_row,
         Div(gene_selector),
         Div([
             Div([scatter_plot], style={'display':'inline-block'}),
             Div([table], style={'padding-top':'75px'}),
-         ], style={'display':'flex'})
+         ], style={'display':'flex'}),
+        volcanos,
     ])
 
     # selections on the graph propogate to the dropdown
