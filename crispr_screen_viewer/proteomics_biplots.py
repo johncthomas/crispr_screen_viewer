@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-from loguru import logger
-import sys
-import copy
+
+import flask
 from typing import List, Dict, Tuple, Collection
+import typing
 
 import pandas as pd
 import numpy as np
@@ -15,7 +15,7 @@ import plotly.graph_objs as go
 
 import pathlib, os
 from dash.dependencies import Input, Output, State
-import typing
+
 
 from crispr_screen_viewer.functions_etc import (
     LOG,
@@ -24,21 +24,12 @@ from crispr_screen_viewer.functions_etc import (
 )
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
-    get_gene_dropdown_lab_val,
     get_annotation_dicts,
     register_gene_selection_processor,
     spawn_gene_dropdown,
-    spawn_filter_dropdowns,
-    select_color, view_color
+
 )
 
-from crispr_screen_viewer.selector_tables import (
-    spawn_selector_tables,
-    spawn_selector_tabs,
-    spawn_treatment_reselector,
-    get_selector_table_filter_keys,
-    register_exptable_filters_comps,
-)
 
 import dash_bootstrap_components as dbc
 
@@ -48,12 +39,12 @@ import dash_bootstrap_components as dbc
 # * Each table containing the results of the comparison analysis. LFC, adj-p, gene symbol.
 # because, later on, we'll want to have duplicate rows in the pure DE proteomics, we will not use meaningful indicies.
 
-logger.add(sys.stderr, level='DEBUG',
-               format='<level>{message}</level> | '
-                      '<level>{level: <8}</level> | '
-                      '<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan>  '
-                      '<green>({time:YYYY-MM-DD HH:mm:ss})</green>'
-           )
+# logger.add(sys.stderr, level='DEBUG',
+#                format='<level>{message}</level> | '
+#                       '<level>{level: <8}</level> | '
+#                       '<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan>  '
+#                       '<green>({time:YYYY-MM-DD HH:mm:ss})</green>'
+#            )
 
 def unify_indicies(tabx, taby):
     """return tables with aligned rows and reset Index."""
@@ -94,7 +85,8 @@ def load_data(dir):
     prevdir = os.getcwd()
     os.chdir(dir)
     for fn in os.listdir():
-        DATA[fn[:-4]] = pd.read_csv(fn, index_col=0)
+        if fn.endswith('.csv'):
+            DATA[fn[:-4]] = pd.read_csv(fn, index_col=0)
     os.chdir(prevdir)
     return DATA
 
@@ -115,7 +107,8 @@ def spawn_comp_selector(comps) -> List[Div]:
             placeholder=f"Select {label}",
             className='comp-selector',
             options=get_lab_val(comps),
-            value={'x':'MAEA_KO_vs_WT', 'y':'MAEA_KO_vs_MAEA_M396R'}[xy] #todo only for debug
+            #value={'x':'MAEA_KO_vs_WT', 'y':'MAEA_KO_vs_MAEA_M396R'}[xy] #for debug
+            value=None,
         )
         label = html.Label(f'{label}:',htmlFor=id,style= {'display':'block'})
         block = Div([label, xy_selector,])
@@ -154,8 +147,8 @@ def spawn_scatter(
     )
     def update_graph_table(xk, yk, selected_genes, selected_stat):
 
-        logger.debug(f"{xk} {yk}")
-        logger.debug(f"selected_genes: {selected_genes}")
+        LOG.debug(f"{xk} {yk}")
+        LOG.debug(f"selected_genes: {selected_genes}")
 
         if (xk is None) or (yk is None):
             raise PreventUpdate
@@ -201,7 +194,7 @@ def spawn_scatter(
         # options for the gene dropdown. Rows will be selected by mask, not index
         opts = [{'label':v, 'value':v} for v in sorted(tabs[0][labelcol].dropna().unique())]
 
-        logger.debug(opts[:5])
+        LOG.debug(opts[:5])
 
         # *ANNOTATIONS*
         # rows for annotation selected by having `labelcol` row value in selected_genes
@@ -276,7 +269,7 @@ def spawn_volcano(results, xy, dim=(600, 800), labelcol='GeneSymbol'):
     return graph
 
 
-def initiate(app, results:Dict[str, pd.DataFrame],):
+def initiate(app, results:Dict[str, pd.DataFrame], port):
 
     scatter_plot = spawn_scatter(results)
     comp_dropdowns = spawn_comp_selector(results.keys())
@@ -333,19 +326,38 @@ def initiate(app, results:Dict[str, pd.DataFrame],):
         Output('prot-gene-dropdown', 'value'),
     )
 
-
     app.layout = layout
-    app.run(debug=True, host='0.0.0.0', port=8050)
+    return app
 
 
 if __name__ == '__main__':
+    import sys
+    argv = sys.argv
+    if (len(argv) < 2) or (argv[1] in ('-h', '--help')):
+        print('proteomics_biplots.py DATA PORT\n\tDATA can be a path to a .pickle or dir with csv.')
+        exit(1)
 
-    #data = load_data('/Users/johnc.thomas/Dropbox/crispr/bits_and_peices/proteomics_MAEA/app_data/v1')
-    import pickle
-    with open(
-        '/Users/johnc.thomas/Dropbox/crispr/bits_and_peices/proteomics_MAEA/app_data/v1/results.1.pickle',
-        'rb'
-    ) as f:
-        data = pickle.load(f)
-    ap = dash.Dash('proteomics_bioplots', external_stylesheets=[dbc.themes.BOOTSTRAP])
-    initiate(ap, data)
+    if argv[1].endswith('.pickle'):
+        import pickle
+
+        with open(argv[1], 'rb') as f:
+            data = pickle.load(f)
+    elif os.path.isdir(argv[1]):
+        data = load_data(argv[1])
+    else:
+        print(f"{argv[1]} is not a .pickle or directory.")
+        exit(1)
+    try:
+        port = int(argv[2])
+    except:
+        print(f"{argv[2]} (port) needs to be a number.")
+        exit(1)
+
+    server = flask.Flask(__name__)
+
+    app = dash.Dash(
+        'proteomics_bioplots',
+        server=server,
+        external_stylesheets=[dbc.themes.BOOTSTRAP])
+    app = initiate(app, data, port)
+    app.run(host='0.0.0.0', port=port)
