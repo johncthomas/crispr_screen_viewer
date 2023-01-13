@@ -284,10 +284,11 @@ def register_comp_table_xy_row_selection(app, id_prefix):
         # Format of active_cell is {'row': 0, 'column': 0, 'column_id': str}
         rowi = active_cell['row']
         compid = viewport_data[rowi]['Comparison ID']
-        viewport_data[rowi][axiskey] = selectedradiobutton
+
+        # reset selected buttons
         for row in viewport_data:
-            if row['Comparison ID'] == prev_selected[axiskey]:
-                row[axiskey] = radiobutton
+            row[axiskey] = radiobutton
+        viewport_data[rowi][axiskey] = selectedradiobutton
 
         selected_comps[axiskey] = compid
         LOG.debug(f'comp_options={comp_options}')
