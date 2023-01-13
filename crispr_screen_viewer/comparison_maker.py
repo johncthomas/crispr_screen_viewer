@@ -302,7 +302,7 @@ def initiate(app, data_set:DataSet, public):
             )
 
         # **TABLE**
-        # update the table if the comps have changeded
+        # update the table if the comps have changed
         if any([trig['prop_id'] == 'selected-comps.data'
                 for trig in callback_context.triggered]):
 
