@@ -77,7 +77,7 @@ def initiate(app, data_set, public=True) -> Div:
         treats = data_set.comparisons.loc[comps, 'Treatment'].fillna('')
         return trace_numbers.values + '. ' + citations.values + ', ' + treats.values
 
-    def spawn_boxplot_graph():
+    def spawn_boxplot_graph() -> dcc.Graph:
 
         graph = dcc.Graph(
             id='msgv-gene-boxplots',
@@ -216,7 +216,7 @@ def initiate(app, data_set, public=True) -> Div:
                     )
 
             # labels
-            fig.update_layout(xaxis_title='Boxplot number',
+            fig.update_layout(xaxis_title='Plot number',
                               yaxis_title=data_set.score_labels[score_type], )
             sort_by_opts = get_lab_val(order_by_categories + selected_genes)
             return fig, sort_by_opts, list(ordered_comps)
@@ -650,7 +650,7 @@ def initiate(app, data_set, public=True) -> Div:
         className='selector-results-tabs',
         children=[
             dcc.Tab(
-                label='Boxplots',
+                label='Scores',
                 value=f'msgv-boxplot-tab',
                 className='data-tab', selected_className='data-tab--selected',
                 children=[
