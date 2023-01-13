@@ -62,12 +62,6 @@ PAGE_ID = 'msgv'
 def initiate(app, data_set, public=True) -> Div:
     """Register callbacks to app, generate layout"""
 
-    # if public:
-    #     source_display = 'none'
-    # else:
-    #     source_display = 'inline-block'
-
-    # this is also used for output of one function, so is defined once here
     order_by_categories = ['Mean score', 'Treatment', 'Citation']
     colourable_categories = ['Treatment', 'Cell line', 'Citation', 'Library', 'KO']
 
@@ -96,6 +90,8 @@ def initiate(app, data_set, public=True) -> Div:
             Output('msgv-order-by', 'options'),
             Output('ordered-comp-store', 'data'),
 
+            Input('msgv-show-boxplots-radio', 'value'),
+            Input('msgv-max-boxplots', 'value'),
             Input('msgv-stat-source-selector', 'value'),
             Input('comp-store', 'data'),
             Input('msgv-tabs', 'value'),
@@ -106,6 +102,8 @@ def initiate(app, data_set, public=True) -> Div:
             State('msgv-fdr-threshold', 'value'),
         )
         def update_boxplot_figure(
+                show_boxplots_option,
+                max_boxplots,
                 score_type,
                 comps_dict:Dict[str, typing.List[str]],
                 selected_tab,
@@ -115,11 +113,20 @@ def initiate(app, data_set, public=True) -> Div:
                 selected_genes,
                 fdr_thresh
         ):
+            comps = comps_dict['selected_comps']
+            LOG.debug(f"{getfuncstr()}: {comps}")
+
             if selected_tab != 'msgv-boxplot-tab':
                 raise PreventUpdate
 
-            comps = comps_dict['selected_comps']
-            LOG.debug(f"{getfuncstr()}: {comps}")
+            show_boxplots = True
+            if show_boxplots_option == 'never':
+                show_boxplots = False
+            elif show_boxplots_option == 'sometimes':
+                if len(comps) > max_boxplots:
+                    show_boxplots = False
+
+
             data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(score_type, score_type, )
             filtered_scores = data_tabs['score'].loc[selected_genes, comps]
 
@@ -172,39 +179,41 @@ def initiate(app, data_set, public=True) -> Div:
             # add the boxplot traces
             included = set()
             # add a boxplot trace for each comparison
-            for trace_i, comp in enumerate(ordered_comps):
-                # these values define the boxplot
-                ys = data_tabs['score'][comp]
-                fdr = data_tabs['fdr'][comp]
-                # This gives the X value for each y value used to create the boxplot, which
-                #   is apparently required? I guess this is approximating Tidy formated data?
-                boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
+            if show_boxplots:
+                for trace_i, comp in enumerate(ordered_comps):
+                    # these values define the boxplot
+                    ys = data_tabs['score'][comp]
+                    fdr = data_tabs['fdr'][comp]
+                    # This gives the X value for each y value used to create the boxplot, which
+                    #   is apparently required? I guess this is approximating Tidy formated data?
+                    boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
 
-                # Get the value by which the box will be coloured
-                colorable_value = data_set.comparisons.loc[comp, color_by]
+                    # Get the value by which the box will be coloured
+                    colorable_value = data_set.comparisons.loc[comp, color_by]
 
-                # key-word args for the box
-                boxkw = dict(
-                    x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
-                    legendgroup=colorable_value,
-                    customdata=fdr,
-                    text=ys.index,
-                    line=dict(color=box_colour_maps[color_by][colorable_value]),
 
-                    hovertemplate=(
-                            "<b>%{text}</b><br>" +
-                            "Score: %{y:.2f}<br>" +
-                            "FDR:   %{customdata:.2f}"
+                    # key-word args for the box
+                    boxkw = dict(
+                        x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
+                        legendgroup=colorable_value,
+                        customdata=fdr,
+                        text=ys.index,
+                        line=dict(color=box_colour_maps[color_by][colorable_value]),
+
+                        hovertemplate=(
+                                "<b>%{text}</b><br>" +
+                                "Score: %{y:.2f}<br>" +
+                                "FDR:   %{customdata:.2f}"
+                        )
                     )
-                )
-                # include each treatment/whatever in the legend only once.
-                if colorable_value in included:
-                    boxkw['showlegend'] = False
-                included.add(colorable_value)
+                    # include each treatment/whatever in the legend only once.
+                    if colorable_value in included:
+                        boxkw['showlegend'] = False
+                    included.add(colorable_value)
 
-                fig.add_trace(
-                    go.Box(**boxkw)
-                )
+                    fig.add_trace(
+                        go.Box(**boxkw)
+                    )
 
             # labels
             fig.update_layout(xaxis_title='Boxplot number',
@@ -434,8 +443,34 @@ def initiate(app, data_set, public=True) -> Div:
 
     ### CONTROL PANEL for the plot
 
-    def get_selector_card_and_box_colours():
+    def spawn_control_cardgroup() -> dbc.CardGroup:
         stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Analysis:')
+
+        # doing the full boxplots can be slow
+        default_max_boxplots = 20
+        show_boxplots_ctrl = dbc.Card(
+            id='msgv-show-boxplots-card',
+            children=[
+                dbc.CardHeader('Show boxplots:'),
+                dbc.CardBody([
+                    dcc.RadioItems(
+                        id='msgv-show-boxplots-radio',
+                        options=[
+                            {'label':'Always (may be very slow)', 'value':'always'},
+                            {'label':'Never', 'value':'never'},
+                            {'label': 'When no more than', 'value': 'sometimes'},
+                        ],
+                        value='sometimes',
+                    ),
+                    dcc.Input(
+                        id='msgv-max-boxplots',
+                        type='number',
+                        value=default_max_boxplots,
+                    )
+                ])
+            ]
+        )
+
 
         fdr_selectr = dbc.Card([
             dbc.CardHeader('Maximum FDR:'),
@@ -508,6 +543,7 @@ def initiate(app, data_set, public=True) -> Div:
 
         control_panel = dbc.CardGroup(
                 [
+                    show_boxplots_ctrl,
                     fdr_selectr,
                     stat_source_selectr,
                     control_order_by,
@@ -521,6 +557,7 @@ def initiate(app, data_set, public=True) -> Div:
 
 
         @app.callback(
+            Output('msgv-show-boxplots-card', 'style'),
             Output('msgv-order-by-card', 'style'),
             Output('msgv-color-by-card', 'style'),
             Output('msgv-cluster-missing-method-card', 'style'),
@@ -533,14 +570,17 @@ def initiate(app, data_set, public=True) -> Div:
             show = {'width':'250px'}
             hide = {'display':'none'}
             if selected_tab == 'msgv-boxplot-tab':
-                return (show, show, hide, hide)
+                return (show, show, show, hide, hide)
             elif selected_tab == 'msgv-clustergram-tab':
-                return (hide, hide, show, show)
+                return (hide, hide, hide, show, show)
 
             LOG.warn(f'MSGV: Unknown tab value {selected_tab}')
-            return (show, show, show)
+            return (show, show, show, show)
+
+        return control_panel
 
 
+    def get_colour_map():
         # get color map, asssiging colors to the most common values first, so that
         #   common things have different colours.
         def get_colour_map(list_of_things):
@@ -551,9 +591,7 @@ def initiate(app, data_set, public=True) -> Div:
             ordered_things = data_set.comparisons.loc[:, color_by].value_counts().index
             cm = get_colour_map(ordered_things)
             box_colour_maps[color_by] = cm
-
-        return control_panel, box_colour_maps
-
+        return box_colour_maps
 
     def spawn_comp_store() -> dcc.Store:
         """Spawn a dcc.Store that acts as a trigger for all output tabs.:
@@ -631,7 +669,8 @@ def initiate(app, data_set, public=True) -> Div:
     )
 
     table = spawn_datatable()
-    control_panel, box_colour_maps = get_selector_card_and_box_colours()
+    control_panel = spawn_control_cardgroup()
+    box_colour_maps = get_colour_map()
 
     ### FINAL LAYOUT
     msgv_layout = Div([
