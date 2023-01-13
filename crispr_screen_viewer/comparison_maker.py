@@ -72,8 +72,8 @@ def initiate(app, data_set:DataSet, public):
     scatter_chart = Div([dcc.Graph(
         id='graph',
         config={
-            'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d',
-                                       'autoScale2d', 'resetScale2d'],
+            # 'modeBarButtonsToRemove': ['zoom2d', 'pan2d', 'zoomIn2d', 'zoomOut2d',
+            #                            'autoScale2d', 'resetScale2d'],
             'editable':True,
             'edits':{'annotationPosition':False},
         },
