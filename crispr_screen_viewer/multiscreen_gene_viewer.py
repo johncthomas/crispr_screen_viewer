@@ -332,6 +332,8 @@ def initiate(app, data_set, public=True) -> Div:
                     width = width,
                 )
 
+
+
             output_div = [dcc.Graph(figure=mainfig)]
             if data_missing:
                 output_div.append(
@@ -491,7 +493,7 @@ def initiate(app, data_set, public=True) -> Div:
 
         clustergram_controls = dbc.Card(
             id='msgv-cluster-controls-card',
-            children=[dbc.CardHeader('Adjust size:'),
+            children=[dbc.CardHeader('Figure size:'),
             dbc.CardBody([
                 dbc.InputGroup([
                     dbc.InputGroupText('Height:'),
