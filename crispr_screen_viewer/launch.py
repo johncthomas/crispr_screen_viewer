@@ -70,8 +70,8 @@ def initiate_app(data_set:DataSet, public_version=False,):
     server = flask.Flask(__name__)
 
     app = dash.Dash(__name__,  server=server,
-                    url_base_pathname='/',
-                    external_stylesheets=[dbc.themes.BOOTSTRAP])
+                    url_base_pathname='/',)
+                    #external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     app.title = 'DDRcs - DDR CRISPR screens'
 
