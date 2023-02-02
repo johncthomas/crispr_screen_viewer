@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from argparse import ArgumentParser
+from urllib.parse import urlparse
 
 from crispr_screen_viewer import (
     multiscreen_gene_viewer,
@@ -54,23 +55,29 @@ def parse_clargs():
         help="Don't hide the data-source and analysis-type selectors."
              " In the future analysis-type might have its own option."
     )
-
+    launcher_parser.add_argument(
+        '--url-pathname', default="/ddrcs/",
+        help="URL base pathname. Needs to end in a /."
+    )
+    # (args returned by name below, update if changing/adding args)
 
     parser = ArgumentParser(parents=[launcher_parser],
-                            description="Dash app for exploring screen data.",
+                            description="Dash app for exploring CRISPR screen data.",
                             add_help=True,)
 
     args = parser.parse_args()
+    print(args)
 
     data_set = load_dataset(args.data_path)
 
-    return data_set, args.port, args.app_debug, args.debug_messages, args.public_version
+    return (data_set, args.port, args.app_debug, args.debug_messages,
+            args.public_version, args.url_pathname)
 
-def initiate_app(data_set:DataSet, public_version=False,):
+def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
     server = flask.Flask(__name__)
 
     app = dash.Dash(__name__,  server=server,
-                    url_base_pathname='/',)
+                    url_base_pathname=urlbase,)
                     #external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     app.title = 'DDRcs - DDR CRISPR screens'
@@ -128,14 +135,14 @@ def initiate_app(data_set:DataSet, public_version=False,):
 
     # header with links
     header = html.Header(className='myheader', children=[
-        html.A(href="/",
+        html.A(href=urlbase,
             children=html.Img(src="assets/images/DDRCS_LOGO_No_Background.png", alt="SPJ Logo",
                  width='190px')
         ),
         html.Nav(className='navbar', children=[
-            html.A(href='/gene-explorer', children="Query Genes"),
-            html.A(href='/screen-explorer', children="Explore Screens"),
-            html.A(href='/comparison-explorer', children="Compare treatments"),
+            html.A(href='gene-explorer', children="Query Genes"),
+            html.A(href='screen-explorer', children="Explore Screens"),
+            html.A(href='comparison-explorer', children="Compare treatments"),
             #html.A(href='/about', children="About"),
         ])
     ])
@@ -178,14 +185,19 @@ def initiate_app(data_set:DataSet, public_version=False,):
         [Input('url', 'pathname')],
     )
     def change_div(pathname):
-
-        if pathname == '/gene-explorer':
+        # I might add extra information to the end of this URL in the future
+        #   this gives us just the part we want
+        print(pathname)
+        pathname = urlparse(pathname).path
+        # remove the base pathname if there is one before doing the query
+        pathname = pathname.replace(urlbase, '')
+        if pathname == 'gene-explorer':
             return msgv_layout
-        elif pathname == '/screen-explorer':
+        elif pathname == 'screen-explorer':
             return se_layout
-        elif pathname == '/comparison-explorer':
+        elif pathname == 'comparison-explorer':
             return cm_layout
-        elif not pathname or pathname == '/':
+        elif (not pathname):
             return landing_page
         else:
             return html.P('404, page not found')
@@ -195,8 +207,10 @@ def initiate_app(data_set:DataSet, public_version=False,):
 
 
 if __name__ == '__main__':
-    data_set, port, dash_debug, debug_messages, public = args = parse_clargs()
+    args = parse_clargs()
     print('args:', args)
+    data_set, port, dash_debug, debug_messages, public, url_pathname = args
+
     import logging
     if debug_messages:
         print('Debug messages on')
@@ -204,7 +218,7 @@ if __name__ == '__main__':
         werklog.setLevel(logging.ERROR)
         LOG.setLevel('DEBUG')
 
-    app = initiate_app(data_set, public)
+    app = initiate_app(data_set, public, url_pathname)
     app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
 
 
