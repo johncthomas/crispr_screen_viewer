@@ -378,10 +378,14 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         results_data = results_tab.reset_index().to_dict('records')
 
         columns = [datatable_column_dict(x) for x in results_data[0].keys()]
-        treatment_label = get_treatment_label(comparisons.loc[selected_comp], ans_lab)
+        treatment_label = get_treatment_label(
+            comparisons.loc[selected_comp],
+            ans_lab,
+            inline_style=False,
+        )
 
         treatment_para = [html.H3(f"{treatment_label[0]}"),
-                          html.H4(f"{treatment_label[1]}")]
+                          html.P(f"{treatment_label[1]}")]
 
         return (columns, results_data, treatment_para, )
 
