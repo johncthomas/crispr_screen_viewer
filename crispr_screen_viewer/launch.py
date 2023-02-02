@@ -160,15 +160,16 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
         Div(
             className='center-flex',
             children=[
-                html.A( rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
-                   children=[html.Img(src="assets/images/univ_cam_logo.jpg",)]
-                ),
-                html.A(rel='noopener nofollow', target='_blank', href='https://www.gurdon.cam.ac.uk/', children=[
-                    html.Img(src="assets/images/gurdon_logo.jpg", )
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.cruk.cam.ac.uk/', children=[
+                    html.Img(src="assets/images/cruk_cambridge_i_pos_cmyk.jpg", )
                 ]),
                 html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
                     html.Img(src="assets/images/new_lab_logo.png", )
-                ])
+                ]),
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
+                    children=[
+                           html.Img(src="assets/images/univ_cam_logo.jpg", )
+                    ]),
             ]
         )
     ])
