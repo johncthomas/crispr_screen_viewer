@@ -119,6 +119,11 @@ other setting when conditions are true.*/
     justify-content: center;
 }
 
+.spacey-flex {
+    display: flex;
+    justify-content: space-around;
+}
+
 .inputPanel {
 }
 
