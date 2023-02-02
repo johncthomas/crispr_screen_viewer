@@ -70,6 +70,8 @@ class DataSet:
             comparisons = comparisons.drop('Available analyses', axis=1)
         except KeyError:
             pass
+
+        # fill in blank treatments
         comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'No treatment'
         # these cols could be blank and aren't essential to have values
         for col in  ['Cell line', 'Library', 'Source']:
