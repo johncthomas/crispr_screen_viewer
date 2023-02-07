@@ -56,7 +56,7 @@ def parse_clargs():
              " In the future analysis-type might have its own option."
     )
     launcher_parser.add_argument(
-        '--url-pathname', default="/ddrcs/",
+        '--url-pathname', default="/",
         help="URL base pathname. Needs to end in a /."
     )
     # (args returned by name below, update if changing/adding args)
