@@ -90,7 +90,7 @@ def initiate(app, data_set, public=True) -> Div:
             Output('msgv-order-by', 'options'),
             Output('ordered-comp-store', 'data'),
 
-            Input('msgv-show-boxplots-radio', 'value'),
+            Input('msgv-show-outliers-radio', 'value'),
             Input('msgv-max-boxplots', 'value'),
             Input('msgv-stat-source-selector', 'value'),
             Input('comp-store', 'data'),
@@ -102,7 +102,7 @@ def initiate(app, data_set, public=True) -> Div:
             State('msgv-fdr-threshold', 'value'),
         )
         def update_boxplot_figure(
-                show_boxplots_option,
+                show_outliers_option,
                 max_boxplots,
                 score_type,
                 comps_dict:Dict[str, typing.List[str]],
@@ -119,12 +119,12 @@ def initiate(app, data_set, public=True) -> Div:
             if selected_tab != 'msgv-boxplot-tab':
                 raise PreventUpdate
 
-            show_boxplots = True
-            if show_boxplots_option == 'never':
-                show_boxplots = False
-            elif show_boxplots_option == 'sometimes':
+            show_outliers = True
+            if show_outliers_option == 'never':
+                show_outliers = False
+            elif show_outliers_option == 'sometimes':
                 if len(comps) > max_boxplots:
-                    show_boxplots = False
+                    show_outliers = False
 
 
             data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(score_type, score_type, )
@@ -156,7 +156,8 @@ def initiate(app, data_set, public=True) -> Div:
                 x_tick_labels = get_numbered_tick_labels(ordered_comps, just_numbers=True)
 
             # x_tick_labels = pd.Series(x_tick_labels, index=ordered_comps)
-
+            # note: looping and adding traces was required, using the plotly express functions
+            #   resulted in non-overlapping X positions for the gene scatters and boxplots.
             for gn in selected_genes:
                 fdrs:pd.Series = data_tabs['fdr'].loc[gn, ordered_comps]
                 mrkrs: pd.Series = fdrs <= fdr_thresh
@@ -178,42 +179,47 @@ def initiate(app, data_set, public=True) -> Div:
 
             # add the boxplot traces
             included = set()
-            # add a boxplot trace for each comparison
-            if show_boxplots:
-                for trace_i, comp in enumerate(ordered_comps):
-                    # these values define the boxplot
-                    ys = data_tabs['score'][comp]
-                    fdr = data_tabs['fdr'][comp]
-                    # This gives the X value for each y value used to create the boxplot, which
-                    #   is apparently required? I guess this is approximating Tidy formated data?
-                    boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
-
-                    # Get the value by which the box will be coloured
-                    colorable_value = data_set.comparisons.loc[comp, color_by]
+            # Add a boxplot trace for each comparison
+            for trace_i, comp in enumerate(ordered_comps):
+                # these values define the boxplot
+                ys = data_tabs['score'][comp]
+                fdr = data_tabs['fdr'][comp]
 
 
-                    # key-word args for the box
-                    boxkw = dict(
-                        x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
-                        legendgroup=colorable_value,
-                        customdata=fdr,
-                        text=ys.index,
-                        line=dict(color=box_colour_maps[color_by][colorable_value]),
+                # This gives the X value for each y value used to create the boxplot, which
+                #   is apparently required? I guess this is approximating Tidy formated data?
+                boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
 
-                        hovertemplate=(
-                                "<b>%{text}</b><br>" +
-                                "Score: %{y:.2f}<br>" +
-                                "FDR:   %{customdata:.2f}"
-                        )
+                # Get the value by which the box will be coloured
+                colorable_value = data_set.comparisons.loc[comp, color_by]
+
+
+                # key-word args for the box
+                boxkw = dict(
+                    x=boxlabels, y=ys, name=colorable_value, boxpoints='outliers',
+                    legendgroup=colorable_value,
+                    customdata=fdr,
+                    text=ys.index,
+                    line=dict(color=box_colour_maps[color_by][colorable_value]),
+
+                    hovertemplate=(
+                            "<b>%{text}</b><br>" +
+                            "Score: %{y:.2f}<br>" +
+                            "FDR:   %{customdata:.2f}"
                     )
-                    # include each treatment/whatever in the legend only once.
-                    if colorable_value in included:
-                        boxkw['showlegend'] = False
-                    included.add(colorable_value)
+                )
 
-                    fig.add_trace(
-                        go.Box(**boxkw)
-                    )
+                if not show_outliers:
+                    boxkw['boxpoints'] = False
+
+                # include each treatment/whatever in the legend only once.
+                if colorable_value in included:
+                    boxkw['showlegend'] = False
+                included.add(colorable_value)
+
+                fig.add_trace(
+                    go.Box(**boxkw)
+                )
 
             # labels
             fig.update_layout(xaxis_title='Plot number',
@@ -444,21 +450,21 @@ def initiate(app, data_set, public=True) -> Div:
     ### CONTROL PANEL for the plot
 
     def spawn_control_cardgroup() -> dbc.CardGroup:
-        stat_source_selectr = get_stat_source_selector('msgv', 'Analysis:', 'Analysis:')
+        stat_source_selectr = get_stat_source_selector('msgv', 'Analysis method:')
 
         # doing the full boxplots can be slow
         default_max_boxplots = 20
-        show_boxplots_ctrl = dbc.Card(
+        show_outliers_ctrl = dbc.Card(
             id='msgv-show-boxplots-card',
             children=[
-                dbc.CardHeader('Show boxplots:'),
+                dbc.CardHeader('Show outliers:'),
                 dbc.CardBody([
                     dcc.RadioItems(
-                        id='msgv-show-boxplots-radio',
+                        id='msgv-show-outliers-radio',
                         options=[
                             {'label':'Always (may be very slow)', 'value':'always'},
                             {'label':'Never', 'value':'never'},
-                            {'label': 'When no more than', 'value': 'sometimes'},
+                            {'label': 'When boxplots fewer than', 'value': 'sometimes'},
                         ],
                         value='sometimes',
                     ),
@@ -486,8 +492,12 @@ def initiate(app, data_set, public=True) -> Div:
                 dbc.CardHeader('Order by:'),
                 dbc.CardBody([
                     #html.Label('Order by:', htmlFor='msgv-order-by'),
-                    dcc.Dropdown(id='msgv-order-by', value=order_by_categories[0],
-                             options=get_lab_val(order_by_categories),style={'width':'150px'}),
+                    dcc.Dropdown(
+                        id='msgv-order-by',
+                        clearable=False,
+                        value=order_by_categories[0],
+                        options=get_lab_val(order_by_categories),
+                        style={'width':'150px'}),
                 ]),
             ],
             style={'width': '250px'})
@@ -500,7 +510,8 @@ def initiate(app, data_set, public=True) -> Div:
                 dcc.Dropdown(
                     id='msgv-color-by', value='Treatment',
                     options=get_lab_val(colourable_categories),
-                 style = {'width': '150px'}
+                    clearable=False,
+                    style = {'width': '150px'}
                 ),
             ]),
         ], style={'width': '250px'})
@@ -543,13 +554,13 @@ def initiate(app, data_set, public=True) -> Div:
 
         control_panel = dbc.CardGroup(
                 [
-                    show_boxplots_ctrl,
                     fdr_selectr,
                     stat_source_selectr,
                     control_order_by,
                     control_colour_by,
                     clustergram_missing,
                     clustergram_controls,
+                    show_outliers_ctrl,
                 ],
                 #class_name='card-group row',
                 style={'width':'fit-content'}
