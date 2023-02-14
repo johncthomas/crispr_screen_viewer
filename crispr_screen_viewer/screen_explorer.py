@@ -252,7 +252,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
                 Div([tabs,], style={'display':'inline-block',}),
                 Div([
                     spawn_treatment_reselector(PAGE_ID, is_xy=False),
-                    get_stat_source_selector(PAGE_ID, 'Analysis:'),
+                    get_stat_source_selector(PAGE_ID, 'Analysis method:'),
                 ], id=f'{PAGE_ID}-results-control-panel')
             ],  className='tab-content-box'),
 

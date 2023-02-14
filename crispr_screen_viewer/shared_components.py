@@ -104,7 +104,7 @@ options_analyses = [
 ]
 
 
-def get_stat_source_selector(id_prefix, label, cardheader='Select analysis algorithm') -> dbc.Card:
+def get_stat_source_selector(id_prefix, cardheader='Select analysis algorithm') -> dbc.Card:
     """List of single Div with dcc.RadioItems with id
     '{id_prefix}-stat-source-selector'. Options from `options_analyses`"""
 
