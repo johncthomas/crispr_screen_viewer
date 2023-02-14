@@ -269,8 +269,10 @@ def register_comp_table_xy_row_selection(app, id_prefix):
         if any([trig['prop_id'] == 'cm-comp-table-data.data'
                 for trig in callback_context.triggered]):
             LOG.debug('\tTriggered by filters, just updating table data')
-
-            return dash.no_update, dash.no_update, table_data, dash.no_update, dash.no_update
+            if table_data is None: # this happens on first load
+                raise PreventUpdate
+            else:
+                return dash.no_update, dash.no_update, table_data, dash.no_update, dash.no_update
 
 
         if (not active_cell) or (active_cell['column'] > 1):
