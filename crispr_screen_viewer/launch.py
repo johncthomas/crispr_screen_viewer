@@ -77,7 +77,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
     server = flask.Flask(__name__)
 
     app = dash.Dash(__name__,  server=server,
-                    url_base_pathname=urlbase,)
+                    url_base_pathname=urlbase, )
                     #external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     app.title = 'DDRcs - DDR CRISPR screens'
@@ -135,7 +135,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
 
     # header with links
     header = html.Header(className='myheader', children=[
-        html.A(href=urlbase,
+        html.A(href='home',
             children=html.Img(src="assets/images/DDRCS_LOGO_No_Background.png", alt="SPJ Logo",
                  width='190px')
         ),
@@ -198,10 +198,10 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
             return se_layout
         elif pathname == 'comparison-explorer':
             return cm_layout
-        elif (not pathname):
+        elif pathname == 'home':
             return landing_page
         else:
-            return html.P('404, page not found')
+            return landing_page
 
     return app
 
