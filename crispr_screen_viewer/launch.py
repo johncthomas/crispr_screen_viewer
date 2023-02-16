@@ -73,85 +73,81 @@ def parse_clargs():
     return (data_set, args.port, args.app_debug, args.debug_messages,
             args.public_version, args.url_pathname)
 
-def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
-    server = flask.Flask(__name__)
 
-    app = dash.Dash(__name__,  server=server,
-                    url_base_pathname=urlbase, )
-                    #external_stylesheets=[dbc.themes.BOOTSTRAP])
+def get_landing_page_layout():
+    landing_page = Div(style={"background-color": our_colour}, children=[
+        Div(style={'margin': 'auto', 'width': '980px', 'height': '450px'},
+            children=[
+                html.H1(
+                    'DDRcs – DDR CRISPR screen data explorer',
+                    className='home-text',
+                ),
+                html.Br(),
+                html.P(
+                    "A web portal for the exploration of DNA damage reponse (DDR) related CRISPR screens. "
 
-    app.title = 'DDRcs - DDR CRISPR screens'
+                    "DDRcs allows researchers to see results for a few selected genes across all the screens "
+                    "in the database, explore all the results of a specific screen, and directly compare treatments "
+                    "to find differential effects.",
+                    className='home-text',
+                ),
+                html.Br(),
+                # documentation link
+                Div(className='centre',
+                    children=[
+                        dbc.Button(
+                            "View documentation",
+                            href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
+                            color="light", className="lg-1", size='lg', target="_blank")
+                    ]
+                    ),
+                html.Br(),
+                Div(
+                    [
+                        html.P('Please send any comments, feedback, or issues to:', className='home-text'),
+                        html.A(
+                            html.P("jct61@cam.ac.uk", className='home-text', ), href="mailto:jct61@cam.ac.uk", ),
+                    ],
+                    # Can't figure out how to put these on the same line :(
+                    style={'display': 'inline'},
 
-
-
-    # register the callbacks and get the page layouts
-    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public=public_version)
-    se_layout = screen_explorer.initiate(app, data_set, public=public_version)
-    cm_layout = comparison_maker.initiate(app, data_set, public=public_version)
-
-
-
-    landing_page = Div(style={"background-color":our_colour}, children=[
-        Div(style={'margin':'auto', 'width':'980px', 'height':'450px'}, children=[
-            html.H1(
-                'DDRcs – DDR CRISPR screen data explorer',
-                className='home-text',
+                ),
+                html.H2(
+                    "About the analyses",
+                    className='home-text',
+                ),
+                html.P(
+                    "Screen results presented here come from publically available, or personally provided, "
+                    "count data analysed using DrugZ and MAGeCK. A pseudocount of 5 was added to all counts "
+                    "prior to analysis, otherwise they were not adjusted. "
+                    "Where the experimental design used biological clones, paired analysis "
+                    "modes were used when appropriate. In the future, results from other analysis methods "
+                    "will be included, and preprocessing of the data will be investigated.",
+                    className='home-text',
+                )
+            ]
             ),
-            html.Br(),
-            html.P(
-                "A web portal for the exploration of DNA damage reponse (DDR) related CRISPR screens. "
-                "DDRcs allows researchers to see results for a few selected genes across all the screens "
-                "in the database, explore all the results of a specific screen, and directly compare treatments "
-                "to find differential effects.",
-                className='home-text',
-            ),
-            html.Br(),
-            # documentation link
-            Div(className='centre',
-                children=[
-                    dbc.Button(
-                        "View documentation",
-                        href='https://docs.google.com/document/d/1RnDvb7NFjlNH52lqPAI5QSRFPWl-xSA58p2XmMM_P9I/edit?usp=sharing',
-                        color="light", className="lg-1", size='lg', target="_blank")
-                ]
-            ),
-            html.H2(
-                "About the analyses",
-                className='home-text',
-            ),
-            html.P(
-                "Screen results presented here come from publically available, or personally provided, "
-                "count data analysed using DrugZ and MAGeCK. A pseudocount of 5 was added to all counts "
-                "prior to analysis, otherwise they were not adjusted. "
-                "Where the experimental design used biological clones, paired analysis "
-                "modes were used when appropriate. In the future, results from other analysis methods "
-                "will be included, and preprocessing of the data will be investigated.",
-                className='home-text',
-            )
-
-        ]),
     ])
+    return landing_page
 
 
-    # header with links
-    header = html.Header(className='myheader', children=[
+def get_header():
+    return html.Header(className='myheader', children=[
         html.A(href='home',
-            children=html.Img(src="assets/images/DDRCS_LOGO_No_Background.png", alt="SPJ Logo",
-                 width='190px')
-        ),
+               children=html.Img(src="assets/images/DDRCS_LOGO_No_Background.png", alt="SPJ Logo",
+                                 width='190px')
+               ),
         html.Nav(className='navbar', children=[
             html.A(href='gene-explorer', children="Query Genes"),
             html.A(href='screen-explorer', children="Explore Screens"),
             html.A(href='comparison-explorer', children="Compare treatments"),
-            #html.A(href='/about', children="About"),
+            # html.A(href='/about', children="About"),
         ])
     ])
 
-    # main div that gets updated with content
-    contents = Div([], id='graph-div', className='graphbox')
 
-    # logos and external links
-    footer = Div(className='myfooter', children=[
+def get_footer():
+    return Div(className='myfooter', children=[
         Div(
             html.P("Developed by John C. Thomas. Data processing by John C. Thomas, Vipul Gupta & Simon Lam."),
             className='center-flex',
@@ -173,6 +169,32 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
             ]
         )
     ])
+
+
+def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
+    server = flask.Flask(__name__)
+
+    app = dash.Dash(__name__,  server=server,
+                    url_base_pathname=urlbase, )
+                    #external_stylesheets=[dbc.themes.BOOTSTRAP])
+
+    app.title = 'DDRcs - DDR CRISPR screens'
+
+    # main div that gets updated with content
+    contents = Div([], id='graph-div', className='graphbox')
+
+    # register the callbacks and get the page layouts
+    msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public=public_version)
+    se_layout = screen_explorer.initiate(app, data_set, public=public_version)
+    cm_layout = comparison_maker.initiate(app, data_set, public=public_version)
+
+    landing_page = get_landing_page_layout()
+
+    # header with links
+    header = get_header()
+
+    # logos and external links
+    footer = get_footer()
 
     app.layout = Div([
         dcc.Location(id='url', refresh=False),
@@ -204,7 +226,6 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
             return landing_page
 
     return app
-
 
 
 if __name__ == '__main__':
