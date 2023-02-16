@@ -74,7 +74,7 @@ def parse_clargs():
             args.public_version, args.url_pathname)
 
 
-def get_landing_page_layout():
+def get_home_page_text():
     landing_page = Div(style={"background-color": our_colour}, children=[
         Div(style={'margin': 'auto', 'width': '980px', 'height': '450px'},
             children=[
@@ -154,6 +154,14 @@ def get_footer():
         ),
 
         Div(
+            html.A("https://github.com/johncthomas/crispr_screen_viewer",
+                   href="https://github.com/johncthomas/crispr_screen_viewer"),
+            className='center-flex',
+        ),
+
+        html.Br(),
+
+        Div(
             className='spacey-flex',
             children=[
                 html.A(rel='noopener nofollow', target='_blank', href='https://www.cruk.cam.ac.uk/', children=[
@@ -167,7 +175,8 @@ def get_footer():
                            html.Img(src="assets/images/univ_cam_logo.jpg", )
                     ]),
             ]
-        )
+        ),
+
     ])
 
 
@@ -188,7 +197,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
     se_layout = screen_explorer.initiate(app, data_set, public=public_version)
     cm_layout = comparison_maker.initiate(app, data_set, public=public_version)
 
-    landing_page = get_landing_page_layout()
+    landing_page = get_home_page_text()
 
     # header with links
     header = get_header()
