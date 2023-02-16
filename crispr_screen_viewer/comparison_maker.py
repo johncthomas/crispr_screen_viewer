@@ -223,6 +223,8 @@ def initiate(app, data_set:DataSet, public):
 
         # **FIGURE**
         # get a title
+        # todo rationalise this whole process of generating chart and table titles.
+        #    Treatment strings should match across everything.
         treatlines = []
         # write a gramatical line for each treatment
         for k in (xk, yk):
@@ -243,17 +245,28 @@ def initiate(app, data_set:DataSet, public):
 
         if xymet[0] == xymet[1]:
 
-            xy_metadeets = f'{xymet[0]}<br>{html_small_span(f"(IDs: {xk} & {yk})")}<br>'
+            xy_metadeets = f'{xymet[0]}', f'{html_small_span(f"(IDs: {xk} & {yk})")}'
         else:
 
             xy_metadeets = (
 
-                f'X: {xymet[0]}  {html_small_span(f"(ID: {xk})")}<br>'
-                f'Y: {xymet[1]}  {html_small_span(f"(ID: {yk})")}<br>'
+                f'X: {xymet[0]}  {html_small_span(f"(ID: {xk})")}',
+                f'Y: {xymet[1]}  {html_small_span(f"(ID: {yk})")}'
             )
-        title = (f"{treatlines[0]} Vs {treatlines[1]}<br>"+xy_metadeets
-                )
-        LOG.debug(title)
+
+
+        title_vs = f"{treatlines[0]} Vs {treatlines[1]}"
+        chart_title = '<br>'.join([title_vs, xy_metadeets[0], xy_metadeets[1]])+'<br>'
+        table_title = [
+            # this is a dumb bad hack but I'm tired
+            html.H3(title_vs.replace('<b>', '').replace('</b>', '')),
+
+            f'X: {xymet[0]}  (ID: {xk})',
+            html.Br(),
+            f'Y: {xymet[1]}  (ID: {yk})',
+
+        ]
+        #LOG.debug(title)
 
         # axis labels
         # xy_labs = [f"{comparisons.loc[k, 'Ctrl samp']} ➤ {comparisons.loc[k, 'Treat samp']}"
@@ -271,7 +284,8 @@ def initiate(app, data_set:DataSet, public):
                         "<b>%{text}</b><br>" +
                         "∆normZ: %{customdata:.2f}<br>" +
                         f"{xy_labs[0]}: "+"%{x:.2f}<br>" +
-                        f"{xy_labs[1]}: "+"%{y:.2f}<br>"
+                        f"{xy_labs[1]}: "+"%{y:.2f}<br>" +
+                        "<extra></extra>"
                 )
             ),
             layout={'clickmode':'event+select',
@@ -289,7 +303,7 @@ def initiate(app, data_set:DataSet, public):
         fig.update_yaxes(range=[xymin, xymax])
 
         fig.update_layout(
-            title=title,
+            title=chart_title,
             xaxis_title=xy_labs[0],
             yaxis_title=xy_labs[1],
         )
@@ -325,7 +339,7 @@ def initiate(app, data_set:DataSet, public):
                 row_selectable='multi',
                 export_format='csv',
             )
-            table_output = [delta_table]
+            table_output = table_title+[delta_table]
         else:
             table_output = dash.no_update
 
