@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import logging
 import copy
 import pandas as pd
@@ -54,13 +56,6 @@ idprfx_res_table = 'gene-results-table'
 # String used to distinguish reused components across pages. Component IDs used by dash
 #   preceeded by this string
 PAGE_ID = 'se'
-
-
-
-
-
-
-
 
 def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
     """Return layout containing the plotly Graph object and stat/gene
@@ -126,9 +121,12 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
                 mode='markers',
                 customdata=fdr,
                 text=genes,
-                hovertemplate= ("<b>%{text}</b><br>" +
-                                "LFC: %{x:.2f}<br>" +
-                                "FDR: %{customdata:.2e}"),
+                hovertemplate= (
+                        "<b>%{text}</b><br>" +
+                        "LFC: %{x:.2f}<br>" +
+                        "FDR: %{customdata:.2e}" +
+                        "<extra></extra>"
+                    ),
                 ),
             layout={'clickmode':'event+select',
                     'dragmode':'select'},
@@ -246,8 +244,8 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
     se_layout = Div([
         Div([
-            html.H1("Screens explorer"),
-            html.P("Select data using the blue tabs, and view results in the green tabs."),
+            html.H1("Explore screen results"),
+            html.P("View results from a single treatment. Select data using the blue tabs, and view results in the green tabs."),
             Div([
                 # inline block so the results control panel goes to the side of it
                 Div([tabs,], style={'display':'inline-block',}),
@@ -379,14 +377,12 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         results_data = results_tab.reset_index().to_dict('records')
 
         columns = [datatable_column_dict(x) for x in results_data[0].keys()]
-        treatment_label = get_treatment_label(
-            comparisons.loc[selected_comp],
-            ans_lab,
-            inline_style=False,
-        )
 
-        treatment_para = [html.H3(f"{treatment_label[0]}"),
-                          html.P(f"{treatment_label[1]}")]
+
+        treatment_para = get_table_title_text(
+            comparisons.loc[selected_comp],
+            ans_lab
+        )
 
         return (columns, results_data, treatment_para, )
 

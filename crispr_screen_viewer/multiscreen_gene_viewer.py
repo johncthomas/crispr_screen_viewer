@@ -396,7 +396,7 @@ def initiate(app, data_set, public=True) -> Div:
 
             selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, ordered_comps]
             filtered_scores = filtered_scores.reindex(columns=ordered_comps)
-            filtered_scores.index = filtered_scores.index.map(lambda x: x + ' (Effect size)')
+            filtered_scores.index = filtered_scores.index.map(lambda x: x + ' (score)')
             selected_fdr.index = selected_fdr.index.map(lambda x: x + ' (FDR)')
             selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
 
@@ -439,8 +439,8 @@ def initiate(app, data_set, public=True) -> Div:
     )
 
     text_header = Div([
-        html.H1("Multi-Screen Gene Viewer"),
-        html.P("Select your gene(s) of interest. Comparisons that show significant results "
+        html.H1("Gene phenotypes across multiple screens"),
+        html.P("Select your gene(s) of interest in the box below. Comparisons that show significant results "
                "(below adjustable FDR) for at least one selected gene are shown below. "
                "Box plots give the overall distribution of scores, and markers show specific genes. "
                "Diamonds indicate significant genes, and squares non-significant genes."),
