@@ -46,31 +46,7 @@ big_text_style = {
     'word-spacing': '-0.4px',
     'font-weight': '700'}
 
-def get_treatment_label(row:dict, analysis_label='', inline_style=True) -> Tuple[str, str]:
-    """Pass comparison row (either from data_set.comparisons.loc[compid] or
-    from dashtable data), return a pair of strings.
 
-    First string comparison specific, second line library, experiment ID."""
-    if '-KO' not in row['Treatment']:
-        if row['KO'] == 'WT':
-            ko = ''
-        else:
-            ko = f" {row['KO']}-KO"
-    else:
-        ko = ''
-
-    if analysis_label:
-        analysis_label = f"{analysis_label}, "
-
-    if inline_style:
-        idstr = f'<span style="font-size: small;">(ID: {row["Comparison ID"]})</span>'
-    else:
-        idstr = f'(ID: {row["Comparison ID"]})'
-
-    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Timepoint']})",
-             f"{row['Library']} library {idstr}")
-
-    return title
 
 def get_annotation_dicts(xs,ys,txts, annote_kw=None) -> List[dict]:
     """dicts defining annotations with x/y/text values as given.

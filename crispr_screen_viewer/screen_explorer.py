@@ -21,13 +21,14 @@ from crispr_screen_viewer.functions_etc import (
     get_cmdline_options,
     get_selector_table_filter_keys,
     cell_number_style,
-    cell_text_style
+    cell_text_style,
+    get_table_title_text
 )
 
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
     get_gene_dropdown_lab_val,
-    get_treatment_label,
+
     get_annotation_dicts,
     big_text_style,
     LOG,

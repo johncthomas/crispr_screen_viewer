@@ -10,6 +10,7 @@ from scipy import odr
 from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection
 import logging, pickle
+from dash import html
 parse_expid = lambda comp: comp.split('.')[0]
 
 logging.basicConfig()
@@ -462,3 +463,39 @@ def bicolour_cmap(mn, mx, minmax_value=(-3, 3), clr_intensity=170):
     else:
         colours = [(i, c) for i, c in enumerate(colours)]
     return colours
+
+def get_treatment_label(row:dict, analysis_label='', inline_style=True) -> typing.Tuple[str, str]:
+    """Pass comparison row (either from data_set.comparisons.loc[compid] or
+    from dashtable data), return a pair of strings.
+
+    First string comparison specific, second line library, experiment ID."""
+    if '-KO' not in row['Treatment']:
+        if row['KO'] == 'WT':
+            ko = ''
+        else:
+            ko = f" {row['KO']}-KO"
+    else:
+        ko = ''
+
+    if analysis_label:
+        analysis_label = f"{analysis_label}, "
+
+    if inline_style:
+        idstr = f'<span style="font-size: small;">(ID: {row["Comparison ID"]})</span>'
+    else:
+        idstr = f'(ID: {row["Comparison ID"]})'
+
+    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Timepoint']})",
+             f"{row['Library']} library {idstr}")
+
+    return title
+
+def get_table_title_text(comp_row, analysis_lab):
+    treatment_label = get_treatment_label(
+        comp_row,
+        analysis_lab,
+        inline_style=False,
+    )
+
+    return [html.H3(f"{treatment_label[0]}"),
+            html.P(f"{treatment_label[1]}")]
