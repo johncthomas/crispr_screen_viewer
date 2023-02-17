@@ -76,7 +76,7 @@ def parse_clargs():
 
 def get_home_page_text():
     landing_page = Div(style={"background-color": our_colour}, children=[
-        Div(style={'margin': 'auto', 'width': '980px', 'height': '450px'},
+        Div(style={'margin': 'auto', 'width': '980px', },
             children=[
                 html.H1(
                     'DDRcs – DDR CRISPR screen data explorer',
@@ -104,12 +104,13 @@ def get_home_page_text():
                 html.Br(),
                 Div(
                     [
-                        html.P('Please send any comments, feedback, or issues to:', className='home-text'),
+                        html.P('Please send any comments, feedback, or issues to',
+                               className='home-text', style={'margin-right': '5px'}),
                         html.A(
                             html.P("jct61@cam.ac.uk", className='home-text', ), href="mailto:jct61@cam.ac.uk", ),
                     ],
                     # Can't figure out how to put these on the same line :(
-                    style={'display': 'inline'},
+                    className='center-flex',
 
                 ),
                 html.H2(
@@ -124,7 +125,8 @@ def get_home_page_text():
                     "modes were used when appropriate. In the future, results from other analysis methods "
                     "will be included, and preprocessing of the data will be investigated.",
                     className='home-text',
-                )
+                ),
+                html.Br(),
             ]
             ),
     ])
