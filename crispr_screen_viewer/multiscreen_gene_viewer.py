@@ -439,7 +439,7 @@ def initiate(app, data_set, public=True) -> Div:
     )
 
     text_header = Div([
-        html.H1("Gene phenotypes across multiple screens"),
+        html.H1("Explore gene results"),
         html.P("Select your gene(s) of interest in the box below. Comparisons that show significant results "
                "(below adjustable FDR) for at least one selected gene are shown below. "
                "Box plots give the overall distribution of scores, and markers show specific genes. "
