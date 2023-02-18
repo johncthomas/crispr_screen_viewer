@@ -19,23 +19,16 @@ from typing import Collection, Union, Dict, List, Callable
 
 from crispr_screen_viewer.functions_etc import (
     datatable_column_dict,
-    doi_to_link,
     get_cmdline_options,
-    get_selector_table_filter_keys,
-    cell_number_style,
-    cell_text_style,
-    get_table_title_text
+    get_table_title_text,
+    get_treatment_label
 )
 
 from crispr_screen_viewer.shared_components import (
-    get_lab_val,
     get_gene_dropdown_lab_val,
-
     get_annotation_dicts,
-    big_text_style,
     LOG,
     get_stat_source_selector,
-    timepoint_labels,
     register_gene_selection_processor,
     spawn_gene_dropdown,
 )
@@ -45,7 +38,6 @@ from crispr_screen_viewer.selector_tables import (
     spawn_selector_tabs,
     spawn_treatment_reselector,
     get_selector_table_filter_keys,
-    register_exptable_filters_comps
 )
 from crispr_screen_viewer.shared_components import spawn_filter_dropdowns
 from crispr_screen_viewer.dataset import DataSet
