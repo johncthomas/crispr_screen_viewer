@@ -365,6 +365,7 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
 
 def get_cmdline_options() -> typing.Tuple[str, str, bool]:
     """[script.py] SOURCE PORT [DEBUG]"""
+    print('[script.py] SOURCE PORT [DEBUG]')
     import sys
     args = sys.argv
     if (len(args) == 1) or (args[1] in ('-h', '--help')):
