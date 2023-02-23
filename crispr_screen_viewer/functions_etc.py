@@ -394,7 +394,7 @@ def launch_page(source:Union[pathlib.Path, str],
 
     if debug:
         LOG.setLevel(logging.DEBUG)
-
+    LOG.debug(source)
     source_directory = pathlib.Path(source)
     data_set = DataSet(source_directory)
     app.layout = initiate(app, data_set, public=True)
