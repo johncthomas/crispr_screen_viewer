@@ -26,6 +26,7 @@ class DataSet:
         get_results: get dict of score and fdr for specified analysis types and
             datasets."""
     def __init__(self, source_directory, print_validations=True):
+        LOG.debug(source_directory)
         source_directory = Path(source_directory)
         # for future ref
         self.source_directory = source_directory
@@ -115,10 +116,18 @@ class DataSet:
 
         # DF of previous symbols and IDs for currently used.
         try:
-            self.previous_and_id = pd.read_csv(
+            pidf = pd.read_csv(
                 os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
             )
-            self.previous_and_id.fillna('', inplace=True)
+            # switching to using the default names in hgnc_complete_text.txt
+            #   so here's another inconsistancy fix...
+            # (let's hope HUGO never changes the table format hah)
+            cmap = {k:k for k in pidf.columns}
+            cmap['HGNC_ID'] = 'hgnc_id'
+            cmap['Previous_symbol'] = 'prev_symbol'
+            pidf.columns = pidf.columns.map(cmap)
+
+            self.previous_and_id = pidf.fillna('')
 
         except FileNotFoundError:
             LOG.warning("file 'previous_and_id.csv' is missing.")
@@ -229,13 +238,13 @@ class DataSet:
         except:
             return gn
 
-        if not row.HGNC_ID:
+        if not row.hgnc_id:
             return gn
 
-        s = f"{row.Symbol}  ({row.HGNC_ID}"
+        s = f"{gn}  ({row.hgnc_id}"
         s_end = ')'
-        if row.Previous_symbol:
-            s_end = f"; {row.Previous_symbol})"
+        if row.prev_symbol:
+            s_end = f"; {row.prev_symbol})"
 
         return s + s_end
 
