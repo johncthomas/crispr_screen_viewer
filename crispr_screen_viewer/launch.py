@@ -107,7 +107,7 @@ def get_home_page_text():
                         html.P('Please send any comments, feedback, or issues to',
                                className='home-text', style={'margin-right': '5px'}),
                         html.A(
-                            html.P("jct61@cam.ac.uk", className='home-text', ), href="mailto:jct61@cam.ac.uk", ),
+                            html.P("john.thomas@cruk.cam.ac.uk", className='home-text', ), href="mailto:john.thomas@cruk.cam.ac.uk", ),
                     ],
                     # Can't figure out how to put these on the same line :(
                     className='center-flex',
@@ -118,7 +118,7 @@ def get_home_page_text():
                     className='home-text',
                 ),
                 html.P(
-                    "Screen results presented here come from publically available, or personally provided, "
+                    "Screen results presented here come from publicly available, or personally provided, "
                     "count data analysed using DrugZ and MAGeCK. A pseudocount of 5 was added to all counts "
                     "prior to analysis, otherwise they were not adjusted. "
                     "Where the experimental design used biological clones, paired analysis "
