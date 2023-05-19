@@ -5,7 +5,8 @@ from urllib.parse import urlparse
 from crispr_screen_viewer import (
     multiscreen_gene_viewer,
     screen_explorer,
-    comparison_maker
+    comparison_maker,
+    legal
 )
 
 from crispr_screen_viewer.dataset import (
@@ -107,7 +108,8 @@ def get_home_page_text():
                         html.P('Please send any comments, feedback, or issues to',
                                className='home-text', style={'margin-right': '5px'}),
                         html.A(
-                            html.P("john.thomas@cruk.cam.ac.uk", className='home-text', ), href="mailto:john.thomas@cruk.cam.ac.uk", ),
+                            html.P("sl681@cam.ac.uk", className='home-text', ), href="mailto:sl681@cam.ac.uk", ),
+                        html.P('.'),
                     ],
                     # Can't figure out how to put these on the same line :(
                     className='center-flex',
@@ -143,6 +145,7 @@ def get_header():
             html.A(href='gene-explorer', children="Query Genes"),
             html.A(href='screen-explorer', children="Explore Screens"),
             html.A(href='comparison-explorer', children="Compare treatments"),
+            html.A(href='legal', children="Legal notices"),
             # html.A(href='/about', children="About"),
         ])
     ])
@@ -151,7 +154,7 @@ def get_header():
 def get_footer():
     return Div(className='myfooter', children=[
         Div(
-            html.P("Developed by John C. Thomas. Data processing by John C. Thomas, Vipul Gupta & Simon Lam."),
+            html.P("Developed by John C. Thomas & Simon Lam. Data processing by John C. Thomas, Vipul Gupta, Simon Lam, & Tuan-Anh Tran."),
             className='center-flex',
         ),
 
@@ -166,16 +169,16 @@ def get_footer():
         Div(
             className='spacey-flex',
             children=[
-                html.A(rel='noopener nofollow', target='_blank', href='https://www.cruk.cam.ac.uk/', children=[
-                    html.Img(src="assets/images/cruk_cambridge_i_pos_cmyk.jpg", )
-                ]),
-                html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
-                    html.Img(src="assets/images/new_lab_logo.png", )
-                ]),
                 html.A(rel='noopener nofollow', target='_blank', href='https://www.cam.ac.uk/',
                     children=[
                            html.Img(src="assets/images/univ_cam_logo.jpg", )
                     ]),
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.stevejacksonlab.org/', children=[
+                    html.Img(src="assets/images/new_lab_logo.png", )
+                ]),
+                html.A(rel='noopener nofollow', target='_blank', href='https://www.cruk.cam.ac.uk/', children=[
+                    html.Img(src="assets/images/cruk_cambridge_i_pos_cmyk.jpg", )
+                ]),
             ]
         ),
 
@@ -198,6 +201,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
     msgv_layout = multiscreen_gene_viewer.initiate(app, data_set, public=public_version)
     se_layout = screen_explorer.initiate(app, data_set, public=public_version)
     cm_layout = comparison_maker.initiate(app, data_set, public=public_version)
+    legal_layout = legal.initiate()
 
     landing_page = get_home_page_text()
 
@@ -231,6 +235,8 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
             return se_layout
         elif pathname == 'comparison-explorer':
             return cm_layout
+        elif pathname == 'legal':
+            return legal_layout
         elif pathname == 'home':
             return landing_page
         else:
