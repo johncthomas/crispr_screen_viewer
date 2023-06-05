@@ -103,18 +103,15 @@ def get_home_page_text():
                     ]
                     ),
                 html.Br(),
-                Div(
+                html.P(
                     [
-                        html.P('Please send any comments, feedback, or issues to',
-                               className='home-text', style={'margin-right': '5px'}),
-                        html.A(
-                            html.P("sl681@cam.ac.uk", className='home-text', ), href="mailto:sl681@cam.ac.uk", ),
-                        html.P('.'),
+                        "Please send any comments, feedback, or issues to ",
+                        html.A("sl681@cam.ac.uk", className='home-text', href="mailto:sl681@cam.ac.uk"),
+                        "."
                     ],
-                    # Can't figure out how to put these on the same line :(
-                    className='center-flex',
-
+                    className='home-text'
                 ),
+                html.Br(),
                 html.H2(
                     "About the analyses",
                     className='home-text',
@@ -126,6 +123,23 @@ def get_home_page_text():
                     "Where the experimental design used biological clones, paired analysis "
                     "modes were used when appropriate. In the future, results from other analysis methods "
                     "will be included, and preprocessing of the data will be investigated.",
+                    className='home-text',
+                ),
+                html.Br(),
+                html.H2(
+                    "Citation",
+                    className='home-text'
+                ),
+                html.P(
+                    [
+                        "If you use DDRcs in your work, please cite: Awwad, S.W., Serrano-Benitez, A., Thomas, J.C. et al. Revolutionizing DNA repair research and cancer therapy with CRISPR–Cas screens. ",
+                        html.I("Nat Rev Mol Cell Biol"),
+                        " (2023). ",
+                        html.A(
+                            "https://doi.org/10.1038/s41580-022-00571-x", className='home-text', href="https://doi.org/10.1038/s41580-022-00571-x"
+                        ),
+                        (".")
+                    ],
                     className='home-text',
                 ),
                 html.Br(),
