@@ -361,7 +361,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             },
             index=index
         )
-        no_stats = results_tab[[score_lab, 'FDR']].isna().any(1)
+        no_stats = results_tab[[score_lab, 'FDR']].isna().any(axis=1)
         results_tab = results_tab.loc[~no_stats]
         results_tab.index.name = 'Gene'
 
