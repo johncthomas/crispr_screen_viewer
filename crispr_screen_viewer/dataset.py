@@ -1,6 +1,6 @@
 from pathlib import Path
 import pandas as pd
-import os, pickle
+import os, pickle, typing
 from typing import Dict, Collection
 from crispr_screen_viewer.functions_etc import (
     timepoint_labels,
@@ -259,3 +259,64 @@ def load_dataset(paff):
         data_set = DataSet(Path(paff))
 
     return data_set
+
+
+class DataSetSQL:
+    pass
+
+import dataclasses
+@dataclasses.dataclass
+class AnalysisType:
+    id: int
+    name: str
+    shortname: str
+    label: str
+
+
+class _AnalysesTypes:
+    """Container class with available analyses. Access analyses with
+    name or id. """
+    def __init__(self, analyses_types:list[AnalysisType]):
+
+        self.by_str = {v.name: v for v in analyses_types}
+        self.by_id = {v.id:v for v in analyses_types}
+        self.list = analyses_types
+
+        rev_enumerator = sorted(enumerate(analyses_types), key=lambda x: x[0], reverse=True)
+
+        self.binary_values = {s.name: 2 ** i for i, s in rev_enumerator}
+
+    def encode_bitmask(self, analyses_names: list[str]):
+        return sum([self.binary_values[an] for an in analyses_names])
+
+    def decode_bitmask(self, val:int) -> set[str]:
+        present = set()
+        for s, i in self.binary_values.items():
+            if val >= i:
+                present.add(s)
+                val -= i
+        return present
+
+    def str_to_id(self, name):
+        return self.by_str[name].id
+
+    def __getitem__(self, item:typing.Union[str, int]) -> AnalysisType:
+        if isinstance(item, str):
+            return self.by_str[item]
+        elif isinstance(item, int):
+            return self.by_id[item]
+        else:
+            raise ValueError(f"Access analyses by str name or int id not {type(item)}")
+
+    def __iter__(self):
+        return iter(self.list)
+
+AnalysesTypes = _AnalysesTypes([
+    AnalysisType(
+        id=1, name='mageck', shortname='mag', label='MAGeCK'
+    ),
+    AnalysisType(
+        id=2, name='drugz', shortname='drz', label='DrugZ'
+    )
+])
+

@@ -1,3 +1,4 @@
+import copy
 import inspect
 import typing
 #from statsmodels.stats.multitest import multipletests
@@ -500,3 +501,59 @@ def get_table_title_text(comp_row, analysis_lab):
 
     return [html.H3(f"{treatment_label[0]}"),
             html.P(f"{treatment_label[1]}")]
+
+
+def reciprocate_dict(d:dict) -> None:
+    """For every key:value, create value:key mapping.
+
+    Checks for conflicts. Mutates in place."""
+    # values that are also keys would result in overwriting a key
+    #  but {'x':'x'} and {'x':'y', 'y':'x'} are fine.
+    v_in_d = [
+        v for v in d.values()
+            if (v in d.keys())
+            and (d[v] != v)
+            and (d[v] != d[d[v]])
+    ]
+    if v_in_d:
+        raise RuntimeError(
+            f"Can't reciprocate dict as values {v_in_d} "
+            f"present in both keys and values of dict."
+        )
+
+    for k, v in list(d.items()):
+        d[v] = k
+
+
+def df_rename_columns(df:pd.DataFrame, newcols=dict, inplace=False, verbose=False) -> pd.Index:
+    """Return index with renamed columns. Columns missing from newcols will be
+    unchanged (this is the main difference to using df.columns.map(newcols).
+
+    Args:
+        df: DataFrame with columns we want to change
+        newcols: Mapping of current column names to new ones. Only those we
+            want to change need be included.
+        inplace: df.columns updated in place
+        verbose: If true, changed cols are printed. Silent if nothing changes.
+
+    Column labels not found as keys in newcols will be retained.
+
+    """
+    old_cols = df.columns
+
+    mapper = {k: k for k in df.columns}
+    mapper.update(newcols)
+
+    nucols = df.columns.map(mapper)
+    if verbose:
+        if not (nucols==old_cols).all():
+            logging.info("Columns were changed (starting with orginal): "
+                         f"{old_cols.symmetric_difference(nucols, sort=False)}")
+        else:
+            logging.info('No columns changed')
+
+    if not inplace:
+        return nucols
+
+    df.columns = nucols
+    return nucols
