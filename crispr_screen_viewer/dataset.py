@@ -320,3 +320,49 @@ AnalysesTypes = _AnalysesTypes([
     )
 ])
 
+
+
+def sample_dataset(inpath,
+                    outpath,
+                    n_exps=10,
+                    max_comps=20,
+                    n_genes=1000):
+    short_data = {}
+
+    p = Path(inpath)
+
+    data: dict[str, pd.DataFrame] = {fn.replace('.csv', ''): pd.read_csv(p / fn, index_col=0) for fn in os.listdir(p)}
+
+    stat_tbl_keys = ['mag_pos_p',
+                     'mag_neg_p',
+                     'mag_fdr',
+                     'mag_score',
+                     'drz_pos_p',
+                     'drz_neg_p',
+                     'drz_fdr',
+                     'drz_score']
+
+    # shorten the data
+    seed = 810613
+
+    exp_ids = data['experiments_metadata'].sample(n_exps, replace=False, random_state=seed).index
+    comps = data['comparisons_metadata'].loc[data['comparisons_metadata']['Experiment ID'].isin(exp_ids)]
+    comps = comps.sample(max_comps, replace=False, random_state=seed)
+    exps = data['experiments_metadata'].loc[comps['Experiment ID'].unique()]
+
+    short_data['experiments_metadata'] = exps
+    short_data['comparisons_metadata'] = comps
+
+    for k in stat_tbl_keys:
+        tbl = data[k]
+        tbl = tbl.loc[:, comps.index]
+        tbl = tbl.loc[~tbl.isna().all(1)]
+        tbl = tbl.head(n_genes)
+        short_data[k] = tbl
+
+    print(tbl.shape)
+    os.makedirs(outpath, exist_ok=True)
+    for p, d in short_data.items():
+        d.to_csv(outpath+'/'+p)
+
+    return short_data
