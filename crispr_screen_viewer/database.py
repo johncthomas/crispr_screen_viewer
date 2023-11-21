@@ -13,13 +13,9 @@ from sqlalchemy import (
 from sqlalchemy import orm
 from sqlalchemy.orm import Session, mapped_column, Mapped
 
-from crispr_screen_viewer import functions_etc
 
-import pandas as pd
 
-from crispr_screen_viewer.dataset import AnalysesTypes
-
-#__all__ = "GeneTable", "ExperimentTable", 'ComparisonTable', 'StatTable', 'CompAnalysis', 'AnalysisTypes'
+__all__ = "GeneTable", "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base"
 
 # function for creating columns
 mcol = mapped_column
@@ -50,8 +46,8 @@ class Base(orm.DeclarativeBase):
 class GeneTable(Base):
     __tablename__ = "gene"
 
-    id: MInt = mcol(primary_key=True)
-    name: MStr
+    #id: MInt = mcol(primary_key=True)
+    name: MStr = mcol(primary_key=True)
     ensembl: MStrN
     ncbi: MStrN
     hgnc: MStrN
@@ -61,8 +57,8 @@ class GeneTable(Base):
 class ExperimentTable(Base):
     __tablename__ = 'experiment'
 
-    id: MInt = mcol(primary_key=True)
-    stringid: MStr = mcol(unique=True)
+    #id: MInt = mcol(primary_key=True)
+    stringid: MStr = mcol(primary_key=True)
     date: orm.Mapped[Optional[datetime]]
     library: MStr
     doi: MStrN
@@ -78,9 +74,9 @@ class ExperimentTable(Base):
 class ComparisonTable(Base):
     __tablename__ = 'comparison'
 
-    id: MInt = mcol(primary_key=True)
-    stringid: MStr = mcol(unique=True)
-    experiment: MStr = ForeignKey('experiment.id')
+    #id: MInt = mcol(primary_key=True)
+    stringid: MStr = mcol(primary_key=True)
+    experiment: MStr = ForeignKey(ExperimentTable.stringid)
     treatment_label: MStr
     timepoint: MStr
     cell: MStr
@@ -105,10 +101,10 @@ class StatTable(Base):
 
     # composite foreign primary keys, defined in table_args
     #  so if they change name, __table_args__ needs to change
-    comparison_id: MInt = orm.mapped_column(ForeignKey(ComparisonTable.id), primary_key=True)
+    comparison_id: MInt = orm.mapped_column(ForeignKey(ComparisonTable.stringid), primary_key=True)
     #gene_id: MInt = orm.mapped_column(ForeignKey(GeneTable.id), primary_key=True)
     gene_id: MStr = mapped_column(primary_key=True)
-    analysis_type_id: MInt = orm.mapped_column( primary_key=True)
+    analysis_type_id: MInt = orm.mapped_column(primary_key=True)
 
     score: MFloatN
     fdr: MFloatN
@@ -127,25 +123,6 @@ class StatTable(Base):
 #     analysis: MInt = mapped_column(
 #         primary_key=True
 #     )
-
-
-def comps_with_analysis_type(
-        ans_name_id: typing.Union[str, int],
-        engine: Engine
-) -> list[int]:
-    name = AnalysesTypes[ans_name_id].name
-
-    b = AnalysesTypes.binary_values[name]
-
-    with Session(engine) as S:
-        comps = S.execute(
-            select(ComparisonTable.id)
-            .where(
-                ComparisonTable.analyses_bitmask.bitwise_and(b) == b
-            )
-        ).all()
-
-    return [c[0] for c in comps]
 
 
 

@@ -45,18 +45,9 @@ import plotly.express as px
 PAGE_ID = 'msgv'
 
 
-# Maybe clustergram it's own page,  using the selector-tables to select comps, and gene box
-
-# todo Make MSGV work like the others with the comparison selection tables
-#   with select by FDR as an additional option.
-# Obviously this is a bigger deal and further down the pipe
-
-# Crucially, lots of callbacks sharing inputs is *fine*. You just can't have multiple
-#   callbacks that share outputs.
 # So the structure here is selected data (comps and genes, tables?) are selected and
 #   put into a store, this store is the trigger for updating the tabs (tabs don't also
 #   don't update unless selected).
-
 
 
 def initiate(app, data_set, public=True) -> Div:
@@ -222,8 +213,9 @@ def initiate(app, data_set, public=True) -> Div:
                 )
 
             # labels
+            from crispr_screen_viewer.dataset import ANALYSESTYPES
             fig.update_layout(xaxis_title='Plot number',
-                              yaxis_title=data_set.score_labels[score_type], )
+                              yaxis_title=ANALYSESTYPES[score_type].score_label, )
             sort_by_opts = get_lab_val(order_by_categories + selected_genes)
             return fig, sort_by_opts, list(ordered_comps)
 
@@ -400,7 +392,7 @@ def initiate(app, data_set, public=True) -> Div:
             selected_fdr.index = selected_fdr.index.map(lambda x: x + ' (FDR)')
             selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
 
-            selected_stats = selected_stats.applymap(lambda n: f"{n:.3}")
+            selected_stats = selected_stats.map(lambda n: f"{n:.3}")
             selected_stats.insert(0, 'Boxplot number',
                                   list(range(1, len(ordered_comps)+1)))
             cols_oi = get_metadata_table_columns(public, PAGE_ID)['comp']

@@ -146,6 +146,7 @@ def get_formatted_col(hdr):
             # 'format': Format(precision=2, scheme=Scheme.decimal)
         }
 
+
 def tabulate_mageck(prefix):
     """
     :param prefix: Input file prefix, including path

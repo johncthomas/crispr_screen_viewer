@@ -1,13 +1,28 @@
 from pathlib import Path
 import pandas as pd
 import os, pickle, typing
-from typing import Dict, Collection
+from typing import Dict, Collection, TypedDict
+from types import MappingProxyType # a kind of frozen dict, though it's slow.
+
+import sqlalchemy
+from sqlalchemy import (
+    ForeignKey, ForeignKeyConstraint, select, insert, Engine
+)
+from sqlalchemy import orm
+from sqlalchemy.orm import Session, mapped_column, Mapped
+
 from crispr_screen_viewer.functions_etc import (
     timepoint_labels,
     doi_to_link,
     index_of_true,
     LOG,
 )
+
+from crispr_screen_viewer.database import *
+
+class ScoreFDR(TypedDict):
+    score:pd.DataFrame
+    fdr:pd.DataFrame
 
 class DataSet:
     """Class for holding, retrieving screen data and metadata.
@@ -25,24 +40,27 @@ class DataSet:
     Methods:
         get_results: get dict of score and fdr for specified analysis types and
             datasets."""
-    def __init__(self, source_directory, print_validations=True):
+    def __init__(self, source_directory, db_engine:Engine=None, print_validations=True):
         LOG.debug(source_directory)
         source_directory = Path(source_directory)
         # for future ref
         self.source_directory = source_directory
 
-        # shorthand internal name: label name
-        avail_analyses = []
-        for ans in ('drz', 'mag'):
-             if os.path.isfile(source_directory/f"{ans}_fdr.csv"):
-                 avail_analyses.append(ans)
+        self._use_db = False
+        self.engine = None
+        if db_engine is not None:
+            self._use_db = True
+            self.engine = db_engine
 
+        # shorthand internal name: label name
+        avail_analyses:list[str] = []
+        for ans in ANALYSESTYPES:
+             if os.path.isfile(source_directory/f"{ans.shortname}_fdr.csv"):
+                 avail_analyses.append(ans.name)
         self.available_analyses = avail_analyses
-        self.analysis_labels = {'drz':'DrugZ', 'mag':'MAGeCK'}
-        self.score_labels = {'mag':'Log2(FC)', 'drz':'NormZ'}
 
         # put the data tables in {analysis_type:{score/fdr:pd.DataFrame}} format dictionary
-        exp_data = {ans:{stt:pd.read_csv(source_directory/f"{ans}_{stt}.csv", index_col=0)
+        exp_data = {ans:{stt:pd.read_csv(source_directory/f"{ANALYSESTYPES[ans].shortname}_{stt}.csv", index_col=0)
                          for stt in ('score', 'fdr')}
                     for ans in self.available_analyses}
 
@@ -54,9 +72,12 @@ class DataSet:
         self.genes = genes
 
         # reindex with the union of genes
-        self.exp_data = {ans:{stt:exp_data[ans][stt].reindex(genes)
-                            for stt in ('score', 'fdr')}
-                       for ans in self.available_analyses}
+        if not self._use_db:
+            self.exp_data = {ans:{stt:exp_data[ans][stt].reindex(genes)
+                                for stt in ('score', 'fdr')}
+                           for ans in self.available_analyses}
+        else:
+            self.exp_data = None
 
         comparisons = pd.read_csv(source_directory/'comparisons_metadata.csv', )
         # this is sometimes put in wrong...
@@ -136,7 +157,7 @@ class DataSet:
 
         self.previous_and_id.fillna('', inplace=True)
 
-        if print_validations:
+        if print_validations and (not self._use_db):
             self.validate_comparisons()
             self.validate_previous_and_id()
 
@@ -192,25 +213,95 @@ class DataSet:
             print(m.sum(), 'of', len(m), f'gene symbols have record in previous_and_id.csv, in file {ans}_score.csv')
 
 
-    def get_score_fdr(self, score_anls:str, fdr_anls:str=None,
-                      data_sources:Collection= 'all') -> Dict[str, pd.DataFrame]:
+    def get_score_fdr(
+            self,
+            score_anls:str,
+            fdr_anls:str=None,
+            comparisons:Collection[str]='ALL',
+            genes:Collection[str]='ALL',
+            #data_sources:Collection= 'NOT IMPLEMENTED'
+    ) -> Dict[str, pd.DataFrame]:
         """Get score and FDR tables for the analysis types & data sets.
         Tables give the per gene values for included comparisons.
 
         Arguments:
             score_anls: The analysis type from which to get the score values
                 per gene
-            fdr_anls: Optional. As score_anslys
-            data_sources: Data sources (i.e. SPJ, or other peoples papers) to
-                include in the returned DFs. Any comparison that comes from a
-                dataset that does not have both fdr/score analysis types
-                available will not be present in the table.
+            fdr_anls: Optional. Default = score_anls
+            comparisons: list of comparisons to include
+            genes: list of genes to include
 
         Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
+        args =  score_anls, fdr_anls, comparisons, genes
+        LOG.debug(f"getting score fdr, n genes={len(genes)}, n comps={len(comparisons)}, fdr={fdr_anls}, score={score_anls}")
+        print(genes, comparisons)
+        if not self._use_db:
+            return self._score_fdr_from_self(*args)
+        else:
+            return self._score_fdr_from_db(*args)
 
+    def _score_fdr_from_db(
+            self,
+            score_anls: str,
+            fdr_anls: str = None,
+            comparisons: Collection[str] = 'ALL',
+            genes: Collection[str] = 'ALL',
 
-        # todo surely we don't need to do this every time?
-        #   write tables for each score/stat, store in a dict
+    ) -> Dict[str, pd.DataFrame]:
+
+        def run_query(analysis_type:str) -> list:
+            ans_id = ANALYSESTYPES.str_to_id(analysis_type)
+            with (Session(self.engine) as session):
+                query = session.query(
+                    StatTable.gene_id, StatTable.comparison_id,
+                    StatTable.score, StatTable.fdr
+                ).where(
+                    StatTable.analysis_type_id == ans_id
+                )
+
+                if genes != 'ALL':
+                    query = query.where(
+                        StatTable.gene_id.in_(genes)
+                    )
+
+                if comparisons != 'ALL':
+                    query = query.where(
+                        StatTable.comparison_id.in_(comparisons)
+                    )
+
+                results = query.all()
+
+            return results
+
+        def pivot_results(results, stat:str):
+            data = [(r.gene_id, r.comparison_id, getattr(r, stat)) for r in results]
+
+            # Convert to DataFrame
+            df = pd.DataFrame(data, columns=['gene_id', 'comparison_id', 'score'])
+
+            # Pivot the DataFrame to get genes as index and comparisons as columns
+            pivot_df = df.pivot(index='gene_id', columns='comparison_id', values='score')
+
+            return pivot_df
+
+        query_res = run_query(score_anls)
+        scores = pivot_results(query_res, 'score')
+
+        if fdr_anls is None:
+            fdrs = pivot_results(query_res, 'fdr')
+        else:
+            query_res = run_query(fdr_anls)
+            fdrs = pivot_results(query_res, 'fdr')
+
+        return ScoreFDR(score=scores, fdr=fdrs)
+
+    def _score_fdr_from_self(
+            self,
+            score_anls: str,
+            fdr_anls: str = None,
+            comparisons: Collection[str] = 'ALL',
+            genes: Collection[str] = 'ALL',
+    ) -> ScoreFDR:
 
         # if only one type supplied, copy it across
         if fdr_anls is None:
@@ -218,17 +309,11 @@ class DataSet:
 
         score_fdr = {stt:self.exp_data[ans][stt] for ans, stt in ((score_anls, 'score'), (fdr_anls, 'fdr'))}
 
-        if data_sources == 'all':
-            return score_fdr
-
-        # Filter returned comparisons (columns) by inclusion in data sources and having
-        #   results for both analysis types
-        comps_mask = self.comparisons.Source.isin(data_sources)
-        # for analysis_type in (score_anls, fdr_anls):
-        #     m = self.comparisons['Available analyses'].apply(lambda available: analysis_type in available)
-        #     comps_mask = comps_mask & m
-        comparisons = index_of_true(comps_mask)
-        score_fdr = {k:tab.reindex(columns=comparisons) for k, tab in score_fdr.items()}
+        if comparisons == 'ALL':
+            comparisons = score_fdr['score'].columns
+        if genes == 'ALL':
+            genes = score_fdr['score'].index
+        score_fdr = ScoreFDR(**{k:tab.reindex(index=genes, columns=comparisons) for k, tab in score_fdr.items()})
 
         return score_fdr
 
@@ -248,7 +333,7 @@ class DataSet:
 
         return s + s_end
 
-def load_dataset(paff):
+def load_dataset(paff, db_engine:Engine=None):
     """If paff is a dir, the dataset is constructed from the files
     within, otherwise it is assumed to be a pickle."""
     if os.path.isfile(paff):
@@ -256,31 +341,31 @@ def load_dataset(paff):
         with open(paff, 'rb') as f:
             data_set = pickle.load(f)
     else:
-        data_set = DataSet(Path(paff))
+        data_set = DataSet(Path(paff), db_engine=db_engine)
 
     return data_set
 
-
-class DataSetSQL:
-    pass
-
 import dataclasses
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
 class AnalysisType:
     id: int
     name: str
     shortname: str
     label: str
+    score_label: str
 
 
 class _AnalysesTypes:
     """Container class with available analyses. Access analyses with
-    name or id. """
-    def __init__(self, analyses_types:list[AnalysisType]):
+    name or ID (starts at 1), or iterate through.  """
+    def __init__(self, analyses_types:Collection[AnalysisType], default_type='drugz'):
 
-        self.by_str = {v.name: v for v in analyses_types}
-        self.by_id = {v.id:v for v in analyses_types}
-        self.list = analyses_types
+        by_str = {v.name: v for v in analyses_types}
+        by_str.update({v.shortname:v for v in analyses_types})
+        self.by_str = MappingProxyType(by_str)
+        self.by_id = MappingProxyType({v.id:v for v in analyses_types})
+        self.list = tuple(analyses_types)
+        self.default = self[default_type]
 
         rev_enumerator = sorted(enumerate(analyses_types), key=lambda x: x[0], reverse=True)
 
@@ -311,15 +396,32 @@ class _AnalysesTypes:
     def __iter__(self):
         return iter(self.list)
 
-AnalysesTypes = _AnalysesTypes([
+ANALYSESTYPES = _AnalysesTypes([
     AnalysisType(
-        id=1, name='mageck', shortname='mag', label='MAGeCK'
+        id=1, name='mageck', shortname='mag', label='MAGeCK', score_label='Log2(FC)'
     ),
     AnalysisType(
-        id=2, name='drugz', shortname='drz', label='DrugZ'
+        id=2, name='drugz', shortname='drz', label='DrugZ',  score_label='NormZ'
     )
 ])
 
+def comps_with_analysis_type(
+        ans_name_id: typing.Union[str, int],
+        engine: Engine
+) -> list[int]:
+    name = ANALYSESTYPES[ans_name_id].name
+
+    b = ANALYSESTYPES.binary_values[name]
+
+    with Session(engine) as S:
+        comps = S.execute(
+            select(ComparisonTable.stringid)
+            .where(
+                ComparisonTable.analyses_bitmask.bitwise_and(b) == b
+            )
+        ).all()
+
+    return [c[0] for c in comps]
 
 
 def sample_dataset(inpath,

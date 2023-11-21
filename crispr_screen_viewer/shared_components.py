@@ -2,15 +2,14 @@ from dash.dependencies import Input, Output, State
 import logging
 from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
-from crispr_screen_viewer.functions_etc import datatable_column_dict
+
 from dash import dcc, html, callback_context
 from crispr_screen_viewer.functions_etc import (
-    cell_text_style,
-    cell_number_style,
     LOG,
-    timepoint_labels,
     style_gene_selector_div,
+    datatable_column_dict
 )
+from crispr_screen_viewer.dataset import ANALYSESTYPES
 from dash.exceptions import PreventUpdate
 Div = html.Div
 import pandas as pd
@@ -74,11 +73,6 @@ def get_annotation_dicts(xs,ys,txts, annote_kw=None) -> List[dict]:
     return annotations
 
 
-options_analyses = [
-    {'label':'DrugZ', 'value':'drz'},
-    {'label':'MAGeCK', 'value':'mag'}
-]
-
 
 def get_stat_source_selector(id_prefix, cardheader='Select analysis algorithm') -> dbc.Card:
     """List of single Div with dcc.RadioItems with id
@@ -95,8 +89,8 @@ def get_stat_source_selector(id_prefix, cardheader='Select analysis algorithm') 
                 children=[
                     dcc.RadioItems(
                         id=sigsourceid,
-                        options=options_analyses,
-                        value='drz',
+                        options=[{'label':ans.label, 'value':ans.name} for ans in ANALYSESTYPES],
+                        value=ANALYSESTYPES.default.name,
                     )
                 ]
             ),

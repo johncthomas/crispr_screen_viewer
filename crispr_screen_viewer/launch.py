@@ -2,6 +2,8 @@
 from argparse import ArgumentParser
 from urllib.parse import urlparse
 
+import sqlalchemy
+
 from crispr_screen_viewer import (
     multiscreen_gene_viewer,
     screen_explorer,
@@ -47,7 +49,7 @@ def parse_clargs():
              ' callback graph and JS debug messages.'
     )
     launcher_parser.add_argument(
-        '--debug-messages', action='store_true',
+        '--debug-messages', action='store_true', default=True,
         help='Set log level to debug – print messages describing the internal state of the app. '
              'Also hide Werkzeug messages'
     )
@@ -60,7 +62,18 @@ def parse_clargs():
         '--url-pathname', default="/",
         help="URL base pathname. Needs to end in a /."
     )
-    # (args returned by name below, update if changing/adding args)
+    launcher_parser.add_argument(
+        '-u', '--database-url',
+        help='A SQL database URL, as understood by SQL Alchemy. '
+             '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
+             '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
+        default=None,
+    )
+    # launcher_parser.add_argument(
+    #     '--db-type',
+    #     help='sqlight'
+    # )
+    # (args referenced by name below, update if changing/adding args)
 
     parser = ArgumentParser(parents=[launcher_parser],
                             description="Dash app for exploring CRISPR screen data.",
@@ -69,7 +82,12 @@ def parse_clargs():
     args = parser.parse_args()
     print(args)
 
-    data_set = load_dataset(args.data_path)
+    if args.database_url is not None:
+        db_engine = sqlalchemy.create_engine(args.database_url, echo=args.debug_messages)
+    else:
+        db_engine = None
+
+    data_set = load_dataset(args.data_path, db_engine=db_engine)
 
     return (data_set, args.port, args.app_debug, args.debug_messages,
             args.public_version, args.url_pathname)

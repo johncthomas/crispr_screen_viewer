@@ -40,7 +40,7 @@ from crispr_screen_viewer.selector_tables import (
     get_selector_table_filter_keys,
 )
 from crispr_screen_viewer.shared_components import spawn_filter_dropdowns
-from crispr_screen_viewer.dataset import DataSet
+from crispr_screen_viewer.dataset import DataSet, ANALYSESTYPES
 Div = html.Div
 
 
@@ -104,7 +104,8 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
         x, fdr, genes = [xy_genes[k] for k in ('score', 'fdr', 'genes')]
         # dcc.Store converts this to a list...
         x, fdr = [pd.Series(xy, index=genes) for xy in (x,fdr)]
-        y = fdr.apply(lambda _x: -np.log10(_x))
+
+        y = fdr.apply(lambda p: -np.log10(p))
 
         fig = go.Figure(
             data=go.Scattergl(
@@ -298,8 +299,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             raise PreventUpdate
 
         # get x, y and genes values
-        # todo LFC as it's own table!
-        score_fdr = data_set.get_score_fdr('mag', sig_source)
+        score_fdr = data_set.get_score_fdr('mageck', sig_source)
         score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
 
         # some genes may get filtered out
@@ -337,19 +337,19 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         if selected_tab != idprfx_res_table+'-tab':
             raise PreventUpdate
 
-        # labels for the analysis type
-        ans_lab = data_set.analysis_labels[stat_source]
-        score_lab = data_set.score_labels[stat_source]
-
         # data for the table
         dat = data_set.get_score_fdr(stat_source, stat_source)
-        lfc = data_set.get_score_fdr('mag', 'mag')['score'][selected_comp]
+        lfc = data_set.get_score_fdr('mageck')['score'][selected_comp]
         score = dat['score'][selected_comp]
         fdr = dat['fdr'][selected_comp]
 
         # index is genes
         index = lfc.index.union(score.index).union(fdr.index)
         is_selected = index.map(lambda g: ['❌','Selected'][g in selected_genes])
+
+        # labels for the analysis type
+        ans_lab = ANALYSESTYPES[stat_source].label
+        score_lab = ANALYSESTYPES[stat_source].label
 
         # Build the table
         results_tab = pd.DataFrame(
