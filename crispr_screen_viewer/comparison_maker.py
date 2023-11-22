@@ -166,7 +166,7 @@ def initiate(app, data_set:DataSet, public):
     # when an exp and timepoint is selected, update the X/Y options
     def get_xyscores_genes(xk, yk, selected_analysis_type='drz'):
         """return score series from Dataset with unified indexes"""
-        score_fdr = data_set.get_score_fdr(selected_analysis_type)
+        score_fdr = data_set.get_score_fdr(selected_analysis_type, False, comparisons=[xk, yk])
 
         x, y = [score_fdr['score'][k].dropna() for k in (xk, yk)]
         shared_genes = x.index.intersection(y.index)

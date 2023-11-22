@@ -299,7 +299,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             raise PreventUpdate
 
         # get x, y and genes values
-        score_fdr = data_set.get_score_fdr('mageck', sig_source)
+        score_fdr = data_set.get_score_fdr('mageck', sig_source, comparisons=[compid])
         score, fdr = [score_fdr[k][compid].dropna() for k in ('score', 'fdr')]
 
         # some genes may get filtered out
@@ -338,10 +338,10 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             raise PreventUpdate
 
         # data for the table
-        dat = data_set.get_score_fdr(stat_source, stat_source)
-        lfc = data_set.get_score_fdr('mageck')['score'][selected_comp]
-        score = dat['score'][selected_comp]
-        fdr = dat['fdr'][selected_comp]
+        dat = data_set.get_score_fdr(stat_source, stat_source, comparisons=selected_comp)
+        lfc = data_set.get_score_fdr('mageck', False, comparisons=selected_comp)['score']
+        score = dat['score']
+        fdr = dat['fdr']
 
         # index is genes
         index = lfc.index.union(score.index).union(fdr.index)

@@ -9,7 +9,7 @@ from pathlib import Path
 from scipy.stats import norm
 from scipy import odr
 from scipy.stats import linregress
-from typing import Union, List, Dict, Iterable, Collection
+from typing import Union, List, Dict, Iterable, Collection, Sequence
 import logging, pickle
 from dash import html
 parse_expid = lambda comp: comp.split('.')[0]
@@ -558,3 +558,9 @@ def df_rename_columns(df:pd.DataFrame, newcols=dict, inplace=False, verbose=Fals
 
     df.columns = nucols
     return nucols
+
+def get_ith_from_all(arr:Sequence[Sequence], index=0):
+    """
+    Literally: [a[index] for a in arr]
+    """
+    return [a[index] for a in arr]

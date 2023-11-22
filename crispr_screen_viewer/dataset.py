@@ -16,6 +16,7 @@ from crispr_screen_viewer.functions_etc import (
     doi_to_link,
     index_of_true,
     LOG,
+    get_ith_from_all,
 )
 
 from crispr_screen_viewer.database import *
@@ -213,6 +214,24 @@ class DataSet:
             print(m.sum(), 'of', len(m), f'gene symbols have record in previous_and_id.csv, in file {ans}_score.csv')
 
 
+    def comparisons_with_hit(
+            self, fdr_max: float,
+            genes:Collection[str],
+            comparisons:Collection[str],
+            analysis_type: str
+    ) -> list[str]:
+        ans_id = ANALYSESTYPES.str_to_id(analysis_type)
+        with (Session(self.engine) as session):
+            comp_ids = session.query(StatTable.comparison_id).where(
+                StatTable.fdr < fdr_max,
+                StatTable.gene_id.in_(genes),
+                StatTable.comparison_id.in_(comparisons),
+                StatTable.analysis_type_id == ans_id,
+            ).distinct().all()
+
+        return get_ith_from_all(comp_ids, 0)
+
+
     def get_score_fdr(
             self,
             score_anls:str,
@@ -225,9 +244,8 @@ class DataSet:
         Tables give the per gene values for included comparisons.
 
         Arguments:
-            score_anls: The analysis type from which to get the score values
-                per gene
-            fdr_anls: Optional. Default = score_anls
+            score_anls: The analysis type from which to get the score values per gene
+            fdr_anls: Optional. Default = score_anls. If set to False, get_score_fdr['fdr'] is None.
             comparisons: list of comparisons to include
             genes: list of genes to include
 
@@ -235,45 +253,39 @@ class DataSet:
         args =  score_anls, fdr_anls, comparisons, genes
         LOG.debug(f"getting score fdr, n genes={len(genes)}, n comps={len(comparisons)}, fdr={fdr_anls}, score={score_anls}")
         print(genes, comparisons)
-        if not self._use_db:
-            return self._score_fdr_from_self(*args)
-        else:
-            return self._score_fdr_from_db(*args)
 
-    def _score_fdr_from_db(
-            self,
-            score_anls: str,
-            fdr_anls: str = None,
-            comparisons: Collection[str] = 'ALL',
-            genes: Collection[str] = 'ALL',
-
-    ) -> Dict[str, pd.DataFrame]:
-
-        def run_query(analysis_type:str) -> list:
+        def run_query(analysis_type: str) -> list:
             ans_id = ANALYSESTYPES.str_to_id(analysis_type)
             with (Session(self.engine) as session):
+                constraints = [StatTable.analysis_type_id == ans_id]
+                if comparisons != 'ALL':
+                    constraints.append(
+                        StatTable.comparison_id.in_(comparisons)
+                    )
+
+                if genes != 'ALL':
+                    constraints.append(
+                        StatTable.gene_id.in_(genes)
+                    )
+
+                # if fdr_max is not None:
+                #     constraints.append(
+                #         StatTable.fdr < fdr_max
+                #     )
+
                 query = session.query(
                     StatTable.gene_id, StatTable.comparison_id,
                     StatTable.score, StatTable.fdr
                 ).where(
-                    StatTable.analysis_type_id == ans_id
+                    *constraints
                 )
-
-                if genes != 'ALL':
-                    query = query.where(
-                        StatTable.gene_id.in_(genes)
-                    )
-
-                if comparisons != 'ALL':
-                    query = query.where(
-                        StatTable.comparison_id.in_(comparisons)
-                    )
 
                 results = query.all()
 
             return results
 
-        def pivot_results(results, stat:str):
+        def pivot_results(results, stat: str):
+
             data = [(r.gene_id, r.comparison_id, getattr(r, stat)) for r in results]
 
             # Convert to DataFrame
@@ -287,6 +299,9 @@ class DataSet:
         query_res = run_query(score_anls)
         scores = pivot_results(query_res, 'score')
 
+        if fdr_anls is False:
+            return ScoreFDR(score=scores, fdr=None)
+
         if fdr_anls is None:
             fdrs = pivot_results(query_res, 'fdr')
         else:
@@ -295,27 +310,6 @@ class DataSet:
 
         return ScoreFDR(score=scores, fdr=fdrs)
 
-    def _score_fdr_from_self(
-            self,
-            score_anls: str,
-            fdr_anls: str = None,
-            comparisons: Collection[str] = 'ALL',
-            genes: Collection[str] = 'ALL',
-    ) -> ScoreFDR:
-
-        # if only one type supplied, copy it across
-        if fdr_anls is None:
-            fdr_anls = score_anls
-
-        score_fdr = {stt:self.exp_data[ans][stt] for ans, stt in ((score_anls, 'score'), (fdr_anls, 'fdr'))}
-
-        if comparisons == 'ALL':
-            comparisons = score_fdr['score'].columns
-        if genes == 'ALL':
-            genes = score_fdr['score'].index
-        score_fdr = ScoreFDR(**{k:tab.reindex(index=genes, columns=comparisons) for k, tab in score_fdr.items()})
-
-        return score_fdr
 
     def dropdown_gene_label(self, gn):
         try:

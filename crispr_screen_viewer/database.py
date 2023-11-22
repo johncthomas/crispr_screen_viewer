@@ -113,16 +113,7 @@ class StatTable(Base):
     neg_p: MFloatN
 
 
-# class CompAnalysis(Base):
-#     __tablename__ = 'comp_analysis'
-#
-#     comparison: MInt = mapped_column(
-#         ForeignKey(ComparisonTable.id),
-#         primary_key=True
-#     )
-#     analysis: MInt = mapped_column(
-#         primary_key=True
-#     )
+
 
 
 

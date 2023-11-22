@@ -33,7 +33,10 @@ from crispr_screen_viewer.functions_etc import (
     getfuncstr,
     index_of_true,
     bicolour_cmap,
+
 )
+
+from crispr_screen_viewer.dataset import DataSet
 
 
 border_style = {'border': '4px solid #3DD178',
@@ -50,7 +53,7 @@ PAGE_ID = 'msgv'
 #   don't update unless selected).
 
 
-def initiate(app, data_set, public=True) -> Div:
+def initiate(app, data_set:DataSet, public=True) -> Div:
     """Register callbacks to app, generate layout"""
 
     order_by_categories = ['Mean score', 'Treatment', 'Citation']
@@ -118,8 +121,11 @@ def initiate(app, data_set, public=True) -> Div:
                     show_outliers = False
 
 
-            data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(score_type, score_type, )
-            filtered_scores = data_tabs['score'].loc[selected_genes, comps]
+            data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(
+                score_type,
+                comparisons=comps,
+            )
+            filtered_scores = data_tabs['score'].loc[selected_genes]
 
             # *assemble the figure*
             fig = go.Figure()
@@ -268,8 +274,12 @@ def initiate(app, data_set, public=True) -> Div:
 
             comps = comps_dict['selected_comps']
             LOG.debug(f"{getfuncstr()}: {comps}")
-            data_tabs = data_set.get_score_fdr(score_type, score_type, )
-            filtered_scores:pd.DataFrame = data_tabs['score'].loc[selected_genes, comps]
+
+            filtered_scores = data_set.get_score_fdr(
+                score_type,
+                genes=selected_genes,
+                comparisons=comps
+            )['score']
 
             comp_label_dict = {c:l for c, l in
                 zip(
@@ -373,24 +383,27 @@ def initiate(app, data_set, public=True) -> Div:
             State('msgv-tabs', 'value'),
         )
         def update_datatable(score_type, ordered_comps, selected_genes, selected_tab):
-
-            LOG.debug(f"{getfuncstr()}:\n\tordered_comps={ordered_comps}")
-
-            data_tabs = data_set.get_score_fdr(score_type, score_type, )
-            filtered_scores = data_tabs['score'].loc[selected_genes, ordered_comps]
-
             # DataTable structure:
             # First column trace numbers,
             #   then score/FDR for each gene selected,
             #   then the metadata.
 
-            # Create the stat columns
+            LOG.debug(f"{getfuncstr()}:\n\tordered_comps={ordered_comps}")
 
-            selected_fdr = data_tabs['fdr'].loc[filtered_scores.index, ordered_comps]
-            filtered_scores = filtered_scores.reindex(columns=ordered_comps)
+            data_tabs = data_set.get_score_fdr(
+                score_type,
+                score_type,
+                genes=selected_genes,
+                comparisons=ordered_comps
+            )
+
+            filtered_scores = data_tabs['score'].reindex(columns=ordered_comps)
+            filtered_fdr = data_tabs['fdr'].reindex(columns=ordered_comps)
+
+            # Create the stat columns
             filtered_scores.index = filtered_scores.index.map(lambda x: x + ' (score)')
-            selected_fdr.index = selected_fdr.index.map(lambda x: x + ' (FDR)')
-            selected_stats = pd.concat([filtered_scores, selected_fdr], sort=False).T
+            filtered_fdr.index = filtered_fdr.index.map(lambda x: x + ' (FDR)')
+            selected_stats = pd.concat([filtered_scores, filtered_fdr], sort=False).T
 
             selected_stats = selected_stats.map(lambda n: f"{n:.3}")
             selected_stats.insert(0, 'Boxplot number',
@@ -630,16 +643,17 @@ def initiate(app, data_set, public=True) -> Div:
                       f"\tgenes={selected_genes}, fdr_thresh={fdr_thresh}\n"
                       f"\tfilters={filters}")
 
-            data_tabs = data_set.get_score_fdr(score_type, score_type, )
-
             filter_mask = pd.Series(True, index=data_set.comparisons.index)
             for filter_id, values in zip(filter_cols, filters):
                 if values:
                     filter_mask = filter_mask & data_set.comparisons[filter_id].isin(values)
 
-            fdr_mask = (data_tabs['fdr'].loc[selected_genes] <= fdr_thresh).any()
-            comp_mask = (fdr_mask & filter_mask)
-            comps = comp_mask[comp_mask].index
+            included_comparisons = filter_mask.index[filter_mask]
+
+            comps = data_set.comparisons_with_hit(
+                fdr_thresh, selected_genes, included_comparisons, score_type
+            )
+
             return {'selected_comps': comps}
 
         return store
