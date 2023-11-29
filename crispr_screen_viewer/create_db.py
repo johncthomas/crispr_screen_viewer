@@ -274,8 +274,8 @@ def run_cli():
     create_database(**_data, db_url=args['database-url'])
 
 if __name__ == '__main__':
-    __create_test_db()
-    #run_cli()
+    #__create_test_db()
+    run_cli()
 
 
 
