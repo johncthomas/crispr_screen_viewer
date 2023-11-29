@@ -196,7 +196,6 @@ def create_database(
 
     engine = create_engine_with_schema(
         db_url,
-        echo=True
     )
 
     # needs to be inserted first to generate IDs
