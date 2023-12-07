@@ -195,8 +195,7 @@ def create_database(
     exp = format_experiments_df(experiments_metadata)
 
     engine = create_engine_with_schema(
-        db_url,
-        echo=True
+        db_url
     )
 
     # needs to be inserted first to generate IDs
@@ -274,8 +273,8 @@ def run_cli():
     create_database(**_data, db_url=args['database-url'])
 
 if __name__ == '__main__':
-    __create_test_db()
-    #run_cli()
+    #__create_test_db()
+    run_cli()
 
 
 

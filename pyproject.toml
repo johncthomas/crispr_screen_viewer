@@ -1,0 +1,18 @@
+[build-system]
+requires = ["hatchling", 'dash', 'numpy','scipy', 'pandas', 'flask', 'plotly',
+        'dash-core-components', 'dash-bootstrap-components', 'dash-bio',
+        'sqlalchemy']
+build-backend = "hatchling.build"
+
+[project]
+name = "crispr_screen_viewer"
+version = "0.9.0"
+authors = [
+  { name='John C. Thomas', email="jcthomas000@gmail.com" },
+]
+description = "View and query the results of CRISPR screens."
+#readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Programming Language :: Python :: 3",
+]
