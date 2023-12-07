@@ -276,8 +276,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
 
     return app
 
-
-if __name__ == '__main__':
+def from_cli():
     args = parse_clargs()
     print('args:', args)
     data_set, port, dash_debug, debug_messages, public, url_pathname = args
@@ -291,6 +290,9 @@ if __name__ == '__main__':
 
     app = initiate_app(data_set, public, url_pathname)
     app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
+
+if __name__ == '__main__':
+    from_cli()
 
 
 

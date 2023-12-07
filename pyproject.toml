@@ -16,3 +16,6 @@ requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
+
+[project.scripts]
+launch-crsv = "crispr_screen_viewer:launch.from_cli"
