@@ -1,0 +1,21 @@
+Comparison ID,Ctrl samp,Treat samp,Treatment,Dose,Growth inhibition %,Days grown,Cell line,KO,Notes,Experiment ID,Library,Timepoint,Control group,Available analyses
+SchleicherMoldovan2020.NT1-VE822,NT1,VE822,ATRi (VE822),1.5 μM,90,19,HeLa,WT,,SchleicherMoldovan2020,Brunello,endpoints,endpoints,drugz|mageck
+DeWeirdtDoench2020_secondary.pDNA_pDNA-Control_S63845,pDNA_pDNA,Control_S63845,No treatment,MCL1i (S63845),,21,A375,WT,,DeWeirdtDoench2020_secondary,DeWeirdtDoench2020_secondary,fromstart,fromstart,drugz|mageck
+VermaGreenberg2021.CAPAN1_T7_UT-CAPAN1_T7_OLA,CAPAN1_T7_UT,CAPAN1_T7_OLA,Olaparib,10 nM,LD20,14,CAPAN-1,WT,,VermaGreenberg2021,VermaGreenberg2021,endpoints,endpoints,drugz|mageck
+BenslimaneHarrington2020_jurkat.DMSO_D12-Resveratrol_D12,DMSO_D12,Resveratrol_D12,Resveratrol,25 μM,IC30,16,Jurkat,WT,,BenslimaneHarrington2020_jurkat,TKOv3,endpoints,endpoints,drugz|mageck
+SuChen2020.HEK293A_WT_DMSO_1-HEK293A_WT_Camp_1,HEK293A_WT_DMSO_1,HEK293A_WT_Camp_1,Camptothecin,,,24,HEK293A,WT,1,SuChen2020,DDR_MKOv4,endpoints,endpoints,drugz|mageck
+VermaGreenberg2021.SUM149PT_T7_UT-SUM149PT_T7_OLA,SUM149PT_T7_UT,SUM149PT_T7_OLA,Olaparib,10 nM,LD20,14,SUM149PT,WT,,VermaGreenberg2021,VermaGreenberg2021,endpoints,endpoints,drugz|mageck
+SuChen2020.HCT116_WT_T0_2-HCT116_WT_Olap_2,HCT116_WT_T0_2,HCT116_WT_Olap_2,Olaparib,,,24,HCT116,WT,2,SuChen2020,DDR_MKOv4,fromstart,fromstart,drugz|mageck
+SuChen2020.HEK293A_WT_DMSO_1-HEK293A_WT_MitoC_1,HEK293A_WT_DMSO_1,HEK293A_WT_MitoC_1,Mitomycin C,,,24,HEK293A,WT,1,SuChen2020,DDR_MKOv4,endpoints,endpoints,drugz|mageck
+WeegenLuijsterburg2021.wt_illudins-elof1_illudins,wt_illudins,elof1_illudins,ELOF1-KO (with Illudin S),5 nM,,16,RPE-1,ELOF1,,WeegenLuijsterburg2021,TKOv3,endpoints,endpoints,drugz|mageck
+DeWeirdtDoench2020_secondary.pDNA_pDNA-MCL1KO_anchor_Dropout,pDNA_pDNA,MCL1KO_anchor_Dropout,MCL1-KO,,,21,A375,MCL1,,DeWeirdtDoench2020_secondary,DeWeirdtDoench2020_secondary,fromstart,fromstart,drugz|mageck
+SuChen2020.HEK293A_WT_DMSO_1-HEK293A_WT_HU_1,HEK293A_WT_DMSO_1,HEK293A_WT_HU_1,Hydroxyurea,,,24,HEK293A,WT,1,SuChen2020,DDR_MKOv4,endpoints,endpoints,drugz|mageck
+WeegenLuijsterburg2021.elof1_init-elof1_nt_both,elof1_init,elof1_nt_both,ELOF1-KO,,,16,RPE-1,ELOF1,,WeegenLuijsterburg2021,TKOv3,fromstart,fromstart,drugz|mageck
+SuChen2020.HEK293A_WT_T0_1-HEK293A_WT_Camp_1,HEK293A_WT_T0_1,HEK293A_WT_Camp_1,Camptothecin,,,24,HEK293A,WT,1,SuChen2020,DDR_MKOv4,fromstart,fromstart,drugz|mageck
+SuChen2020.HCT116_WT_DMSO_2-HCT116_WT_Olap_2,HCT116_WT_DMSO_2,HCT116_WT_Olap_2,Olaparib,,,24,HCT116,WT,2,SuChen2020,DDR_MKOv4,endpoints,endpoints,drugz|mageck
+SuChen2020.HCT116_TP53ko_T0_2-HCT116_TP53ko_DMSO_2,HCT116_TP53ko_T0_2,HCT116_TP53ko_DMSO_2,No treatment,,,24,HCT116,TP53,2,SuChen2020,DDR_MKOv4,fromstart,fromstart,drugz|mageck
+DeWeirdtDoench2020_secondary.Control_Dropout-Control_S63845,Control_Dropout,Control_S63845,No treatment,MCL1i (S63845),,21,A375,WT,,DeWeirdtDoench2020_secondary,DeWeirdtDoench2020_secondary,endpoints,endpoints,drugz|mageck
+SuChen2020.HEK293A_WT_T0_1-HEK293A_WT_CHK1i_1,HEK293A_WT_T0_1,HEK293A_WT_CHK1i_1,CHK1i (LY2606368),,,24,HEK293A,WT,1,SuChen2020,DDR_MKOv4,fromstart,fromstart,drugz|mageck
+GalloDurocher2022_TKOv2.WT_T18-CCNE1_T18,WT_T18,CCNE1_T18,CCNE1-high|TP53-KO,,,21,RPE1,CCNE1-high|TP53,,GalloDurocher2022_TKOv2,TKOv2,endpoints,endpoints,drugz|mageck
+DeWeirdtDoench2020_secondary.Control_Dropout-MCL1KO_anchor_Dropout,Control_Dropout,MCL1KO_anchor_Dropout,MCL1-KO,,,21,A375,MCL1,,DeWeirdtDoench2020_secondary,DeWeirdtDoench2020_secondary,endpoints,endpoints,drugz|mageck
+GalloDurocher2022_TKOv2.WT_T0-WT_T18,WT_T0,WT_T18,No treatment,,,21,RPE1,WT,,GalloDurocher2022_TKOv2,TKOv2,fromstart,fromstart,drugz|mageck
