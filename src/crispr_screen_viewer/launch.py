@@ -26,73 +26,6 @@ import dash_bootstrap_components as dbc
 
 our_colour = '#3db9c2'
 
-
-def parse_clargs():
-    """Load dataset from command line options, return (dataset, port, debug)"""
-    launcher_parser = ArgumentParser(add_help=False)
-
-    launcher_parser.add_argument(
-        '-p', '--port', metavar='PORT',
-        help='Port used to serve the app',
-        required=True,
-    )
-
-    launcher_parser.add_argument(
-        '-d', '--data-path',
-        dest='data_path',
-        help="Name of the directory or pickle file that contains the screens' data.",
-        required=True,
-    )
-    launcher_parser.add_argument(
-        '--app-debug', action='store_true',
-        help='Launch Dash app in debug mode, tends to break things, but allows you to look at the'
-             ' callback graph and JS debug messages.'
-    )
-    launcher_parser.add_argument(
-        '--debug-messages', action='store_true', default=True,
-        help='Set log level to debug – print messages describing the internal state of the app. '
-             'Also hide Werkzeug messages'
-    )
-    launcher_parser.add_argument(
-        '--public-version', action='store_true',
-        help="Don't hide the data-source and analysis-type selectors."
-             " In the future analysis-type might have its own option."
-    )
-    launcher_parser.add_argument(
-        '--url-pathname', default="/",
-        help="URL base pathname. Needs to end in a /."
-    )
-    launcher_parser.add_argument(
-        '-u', '--database-url',
-        help='A SQL database URL, as understood by SQL Alchemy. '
-             '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
-             '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
-        default=None,
-    )
-    # launcher_parser.add_argument(
-    #     '--db-type',
-    #     help='sqlight'
-    # )
-    # (args referenced by name below, update if changing/adding args)
-
-    parser = ArgumentParser(parents=[launcher_parser],
-                            description="Dash app for exploring CRISPR screen data.",
-                            add_help=True,)
-
-    args = parser.parse_args()
-    print(args)
-
-    if args.database_url is not None:
-        db_engine = sqlalchemy.create_engine(args.database_url, echo=args.debug_messages)
-    else:
-        db_engine = None
-
-    data_set = load_dataset(args.data_path, db_engine=db_engine)
-
-    return (data_set, args.port, args.app_debug, args.debug_messages,
-            args.public_version, args.url_pathname)
-
-
 def get_home_page_text():
     landing_page = Div(style={"background-color": our_colour}, children=[
         Div(style={'margin': 'auto', 'width': '980px', },
@@ -217,14 +150,10 @@ def get_footer():
     ])
 
 
-def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
-    server = flask.Flask(__name__)
-
-    app = dash.Dash(__name__,  server=server,
-                    url_base_pathname=urlbase, )
-                    #external_stylesheets=[dbc.themes.BOOTSTRAP])
-
-    app.title = 'DDRcs - DDR CRISPR screens'
+def create_layout(app, data_set:DataSet, public_version=False, url_base='/') \
+        -> None:
+    """Get and apply layout for all pages of the app, register page changing
+    callback."""
 
     # main div that gets updated with content
     contents = Div([], id='graph-div', className='graphbox')
@@ -260,7 +189,7 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
         print(pathname)
         pathname = urlparse(pathname).path
         # remove the base pathname if there is one before doing the query
-        pathname = pathname.replace(urlbase, '')
+        pathname = pathname.replace(url_base, '')
         if pathname == 'gene-explorer':
             return msgv_layout
         elif pathname == 'screen-explorer':
@@ -274,12 +203,84 @@ def initiate_app(data_set:DataSet, public_version=False, urlbase='/'):
         else:
             return landing_page
 
-    return app
 
 def from_cli():
-    args = parse_clargs()
-    print('args:', args)
-    data_set, port, dash_debug, debug_messages, public, url_pathname = args
+    """Load dataset from command line options, return (dataset, port, debug)"""
+    launcher_parser = ArgumentParser(add_help=False)
+
+    launcher_parser.add_argument(
+        '-p', '--port', metavar='PORT',
+        help='Port used to serve the app',
+        required=True,
+    )
+
+    launcher_parser.add_argument(
+        '-d', '--data-path',
+        dest='data_path',
+        help="Name of the directory or pickle file that contains the screens' data.",
+        required=True,
+    )
+    launcher_parser.add_argument(
+        '--app-debug', action='store_true',
+        help='Launch Dash app in debug mode, tends to break things, but allows you to look at the'
+             ' callback graph and JS debug messages.'
+    )
+    launcher_parser.add_argument(
+        '--debug-messages', action='store_true', default=True,
+        help='Set log level to debug – print messages describing the internal state of the app. '
+             'Also hide Werkzeug messages'
+    )
+    launcher_parser.add_argument(
+        '--public-version', action='store_true',
+        help="Don't hide the data-source and analysis-type selectors."
+             " In the future analysis-type might have its own option."
+    )
+    launcher_parser.add_argument(
+        '--url-pathname', default="/",
+        help="URL base pathname. Needs to end in a /."
+    )
+    launcher_parser.add_argument(
+        '-u', '--database-url',
+        help='A SQL database URL, as understood by SQL Alchemy. '
+             '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
+             '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
+        default=None, required=True
+    )
+
+    parser = ArgumentParser(parents=[launcher_parser],
+                            description="Dash app for exploring CRISPR screen data.",
+                            add_help=True,)
+
+    args = parser.parse_args()
+
+    app = init_app(
+        data_path=args.data_path,
+        database_url=args.database_url,
+        debug_messages=args.debug_messages,
+        public_version=args.public_version,
+        url_base=args.url_pathname
+    )
+
+    app.run_server(debug=args.app_debug, host='0.0.0.0', port=args.port)
+
+
+def init_app(
+        data_path:str=None, database_url=None,
+        debug_messages=False,
+        public_version=None, url_base='/',
+        app_title='CRISPR screen viewer'
+):
+    from importlib import resources
+    if data_path is None:
+        data_path = resources.files("crispr_screen_viewer").joinpath("data").__str__()
+        database_url = f"sqlite:///{data_path}/database.db"
+
+    if database_url is not None:
+        db_engine = sqlalchemy.create_engine(database_url, echo=debug_messages)
+    else:
+        db_engine = None
+
+    data_set = load_dataset(data_path, db_engine=db_engine)
 
     import logging
     if debug_messages:
@@ -288,8 +289,22 @@ def from_cli():
         werklog.setLevel(logging.ERROR)
         LOG.setLevel('DEBUG')
 
-    app = initiate_app(data_set, public, url_pathname)
-    app.run_server(debug=dash_debug, host='0.0.0.0', port=port)
+    server = flask.Flask(__name__)
+
+    app = dash.Dash(__name__,  server=server,
+                    url_base_pathname=url_base, )
+
+    create_layout(app, data_set, public_version=public_version, url_base=url_base)
+
+    app.title = app_title
+
+    return app
+
+def get_running_server(**kwargs):
+    """Calls init_app and returns the app.server object.
+
+    This function exists to be a handle for Gunicorn."""
+    return init_app(**kwargs).server
 
 if __name__ == '__main__':
     from_cli()
