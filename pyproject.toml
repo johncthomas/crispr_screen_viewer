@@ -1,8 +1,6 @@
 [build-system]
-requires = ["hatchling", 'dash', 'numpy','scipy', 'pandas', 'flask', 'plotly',
-        'dash-core-components', 'dash-bootstrap-components', 'dash-bio',
-        'sqlalchemy']
-build-backend = "hatchling.build"
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "crispr_screen_viewer"
@@ -13,9 +11,18 @@ authors = [
 description = "View and query the results of CRISPR screens."
 #readme = "README.md"
 requires-python = ">=3.10"
+dependencies = ['dash', 'numpy','scipy', 'pandas', 'flask', 'plotly',
+        'dash-core-components', 'dash-bootstrap-components', 'dash-bio',
+        'sqlalchemy']
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
 
 [project.scripts]
 launch-crsv = "crispr_screen_viewer:launch.from_cli"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+crispr_screen_viewer = ["data/*", "assets/*"]

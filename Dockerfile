@@ -3,10 +3,11 @@
 # Comments are provided throughout this file to help you get started.
 # If you need more help, visit the Dockerfile reference guide at
 # https://docs.docker.com/engine/reference/builder/
-
-ARG PYTHON_VERSION=3.12.0
+ARG PYTHON_VERSION=3.12
 
 FROM python:${PYTHON_VERSION}-slim as base
+
+EXPOSE 8050
 
 # Prevents Python from writing pyc files.
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -29,19 +30,22 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# Download dependencies as a separate step to take advantage of Docker's caching.
-# Leverage a cache mount to /root/.cache/pip to speed up subsequent builds.
-RUN --mount=type=cache,target=/root/.cache/pip
 
-# Switch to the non-privileged user to run the application.
-USER appuser
+# mount caches
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+    --mount=target=/var/cache/apt,type=cache,sharing=locked \
+    rm -f /etc/apt/apt.conf.d/docker-clean
 
-# Copy the source code into the container.
+
+RUN apt-get update && \
+    apt-get -y install gcc g++ && \
+    rm -rf /var/lib/apt/lists/*
+
 COPY . .
 
-RUN python -m pip install gunicorn
-RUN python -m pip install .
+RUN pip install /app
 
 
 
-
+USER appuser
