@@ -141,14 +141,6 @@ class DataSet:
             pidf = pd.read_csv(
                 os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
             )
-            # switching to using the default names in hgnc_complete_text.txt
-            #   so here's another inconsistancy fix...
-            # (let's hope HUGO never changes the table format hah)
-            cmap = {k:k for k in pidf.columns}
-            cmap['HGNC_ID'] = 'hgnc_id'
-            cmap['Previous_symbol'] = 'prev_symbol'
-            pidf.columns = pidf.columns.map(cmap)
-
             self.previous_and_id = pidf.fillna('')
 
         except FileNotFoundError:
@@ -220,6 +212,7 @@ class DataSet:
             comparisons:Collection[str],
             analysis_type: str
     ) -> list[str]:
+        """List of all comparisons with FDR<fdr_max in given genes."""
         ans_id = ANALYSESTYPES.str_to_id(analysis_type)
         with (Session(self.engine) as session):
             comp_ids = session.query(StatTable.comparison_id).where(
@@ -250,7 +243,6 @@ class DataSet:
             genes: list of genes to include
 
         Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
-        args =  score_anls, fdr_anls, comparisons, genes
         LOG.debug(f"getting score fdr, n genes={len(genes)}, n comps={len(comparisons)}, fdr={fdr_anls}, score={score_anls}")
         print(genes, comparisons)
 
@@ -311,7 +303,8 @@ class DataSet:
         return ScoreFDR(score=scores, fdr=fdrs)
 
 
-    def dropdown_gene_label(self, gn):
+    def dropdown_gene_label(self, gn:str) -> str:
+        """Gene symbol plus HGNC ID and previous symbols, if available."""
         try:
             row = self.previous_and_id.loc[gn]
         except:
@@ -350,6 +343,7 @@ class AnalysisType:
 
 
 class _AnalysesTypes:
+    # underscore name as singletom ANALYSESTYPES should be used
     """Container class with available analyses. Access analyses with
     name or ID (starts at 1), or iterate through.  """
     def __init__(self, analyses_types:Collection[AnalysisType], default_type='drugz'):
@@ -423,6 +417,7 @@ def sample_dataset(inpath,
                     n_exps=10,
                     max_comps=20,
                     n_genes=1000):
+    """Create a smaller dataset sampled from a larger one"""
     short_data = {}
 
     p = Path(inpath)
