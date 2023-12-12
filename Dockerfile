@@ -16,8 +16,6 @@ ENV PYTHONDONTWRITEBYTECODE=1
 # the application crashes without emitting any logs due to buffering.
 ENV PYTHONUNBUFFERED=1
 
-WORKDIR /app
-
 # Create a non-privileged user that the app will run under.
 # See https://docs.docker.com/go/dockerfile-user-best-practices/
 ARG UID=10001
@@ -30,22 +28,26 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-
-# mount caches
-RUN --mount=type=cache,target=/root/.cache/pip \
-    --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
+# install gcc and g++
+RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean
-
-
 RUN apt-get update && \
     apt-get -y install gcc g++ && \
     rm -rf /var/lib/apt/lists/*
 
+# install pip requirements
+RUN --mount=type=cache,target=/root/.cache/pip \
+    --mount=type=bind,source=requirements.txt,target=requirements.txt \
+    python -m pip install -r requirements.txt
+
+RUN python -m pip install gunicorn
+
+ARG DIR=/app
+WORKDIR ${DIR}
+
+ENV PATH="$PATH:${DIR}/src/crispr_screen_viewer"
+
 COPY . .
 
-RUN pip install /app
-
-
-
-USER appuser
+RUN python -m pip install ${DIR}

@@ -300,8 +300,9 @@ def init_app(
 
     return app
 
-def get_running_server(**kwargs):
-    """Calls init_app and returns the app.server object.
+def get_server(**kwargs):
+    """Calls init_app and returns the app.server object, without calling
+    app.run_server
 
     This function exists to be a handle for Gunicorn."""
     return init_app(**kwargs).server

@@ -1,0 +1,10 @@
+dash
+numpy
+scipy
+pandas
+flask
+plotly
+dash-core-components
+dash-bootstrap-components
+dash-bio
+sqlalchemy
