@@ -101,10 +101,11 @@ class StatTable(Base):
 
     # composite foreign primary keys, defined in table_args
     #  so if they change name, __table_args__ needs to change
-    comparison_id: MInt = orm.mapped_column(ForeignKey(ComparisonTable.stringid), primary_key=True)
+    comparison_id: MInt = mcol(ForeignKey(ComparisonTable.stringid), primary_key=True)
+    experiment_id: MStr = mcol(ForeignKey(ExperimentTable.stringid))
     #gene_id: MInt = orm.mapped_column(ForeignKey(GeneTable.id), primary_key=True)
-    gene_id: MStr = mapped_column(primary_key=True)
-    analysis_type_id: MInt = orm.mapped_column(primary_key=True)
+    gene_id: MStr = mcol(primary_key=True)
+    analysis_type_id: MInt = mcol(primary_key=True)
 
     score: MFloatN
     fdr: MFloatN

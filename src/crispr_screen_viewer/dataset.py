@@ -343,9 +343,10 @@ class AnalysisType:
 
 
 class _AnalysesTypes:
-    # underscore name as singletom ANALYSESTYPES should be used
     """Container class with available analyses. Access analyses with
-    name or ID (starts at 1), or iterate through.  """
+    name or ID (starts at 1), or iterate through.
+
+    Use the singleton ANALYSESTYPES"""
     def __init__(self, analyses_types:Collection[AnalysisType], default_type='drugz'):
 
         by_str = {v.name: v for v in analyses_types}
@@ -397,6 +398,11 @@ def comps_with_analysis_type(
         ans_name_id: typing.Union[str, int],
         engine: Engine
 ) -> list[int]:
+    """List comparison numeric IDs that have results for given analysis type.
+
+    Args:
+        ans_name_id: string or numeric ID of analysis type
+        engine: SQLAlchemy engine."""
     name = ANALYSESTYPES[ans_name_id].name
 
     b = ANALYSESTYPES.binary_values[name]

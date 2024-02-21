@@ -526,37 +526,37 @@ def reciprocate_dict(d:dict) -> None:
         d[v] = k
 
 
-def df_rename_columns(df:pd.DataFrame, newcols=dict, inplace=False, verbose=False) -> pd.Index:
+def df_rename_columns(df:pd.DataFrame, newcols=dict, inplace=False, axis='columns') -> pd.Index:
     """Return index with renamed columns. Columns missing from newcols will be
-    unchanged (this is the main difference to using df.columns.map(newcols).
+    unchanged -- this is the main difference to using df.columns.map(newcols).
 
     Args:
         df: DataFrame with columns we want to change
         newcols: Mapping of current column names to new ones. Only those we
             want to change need be included.
-        inplace: df.columns updated in place
-        verbose: If true, changed cols are printed. Silent if nothing changes.
+        inplace: df.columns updated in place. Still returns the new Index.
+        axis: "columns"|0 or "index"|1
 
     Column labels not found as keys in newcols will be retained.
 
     """
-    old_cols = df.columns
 
-    mapper = {k: k for k in df.columns}
+    if axis in ('columns', 0):
+        axis = 'columns'
+    elif axis in ('index', 1):
+        axis = 'index'
+    else:
+        raise ValueError('axis needs to be "columns"|0 or "index"|1')
+
+    mapper = {k: k for k in getattr(df, axis)}
     mapper.update(newcols)
 
-    nucols = df.columns.map(mapper)
-    if verbose:
-        if not (nucols==old_cols).all():
-            logging.info("Columns were changed (starting with orginal): "
-                         f"{old_cols.symmetric_difference(nucols, sort=False)}")
-        else:
-            logging.info('No columns changed')
+    nucols = getattr(df, axis).map(mapper)
 
     if not inplace:
         return nucols
 
-    df.columns = nucols
+    setattr(df, axis, nucols)
     return nucols
 
 def get_ith_from_all(arr:Sequence[Sequence], index=0):
