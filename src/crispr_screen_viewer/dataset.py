@@ -41,13 +41,12 @@ class DataSet:
     Methods:
         get_results: get dict of score and fdr for specified analysis types and
             datasets."""
-    def __init__(self, source_directory, db_engine:Engine=None, print_validations=True):
+    def __init__(self, db_engine:Engine, print_validations=True):
         LOG.debug(source_directory)
         source_directory = Path(source_directory)
         # for future ref
         self.source_directory = source_directory
 
-        self._use_db = False
         self.engine = None
         if db_engine is not None:
             self._use_db = True
@@ -403,17 +402,25 @@ def comps_with_analysis_type(
     Args:
         ans_name_id: string or numeric ID of analysis type
         engine: SQLAlchemy engine."""
-    name = ANALYSESTYPES[ans_name_id].name
-
-    b = ANALYSESTYPES.binary_values[name]
 
     with Session(engine) as S:
         comps = S.execute(
-            select(ComparisonTable.stringid)
+            select(StatTable.comparison_id)
             .where(
-                ComparisonTable.analyses_bitmask.bitwise_and(b) == b
+                StatTable.analysis_type_id == ANALYSESTYPES[ans_name_id].id
             )
         ).all()
+
+    #
+    # b = ANALYSESTYPES.binary_values[name]
+    #
+    # with Session(engine) as S:
+    #     comps = S.execute(
+    #         select(ComparisonTable.stringid)
+    #         .where(
+    #             ComparisonTable.analyses_bitmask.bitwise_and(b) == b
+    #         )
+    #     ).all()
 
     return [c[0] for c in comps]
 

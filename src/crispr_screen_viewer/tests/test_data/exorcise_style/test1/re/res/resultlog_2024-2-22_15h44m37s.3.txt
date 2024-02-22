@@ -1,0 +1,57 @@
+output_dir = /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res
+	file_prefix = result
+	sample_reps = {'CTRL': ['ctrlrep1', 'ctrlrep2'], 'KO': ['ko1', 'ko2'], 'KO_TREAT': ['kotreat1', 'kotreat2'], 'Plasmid': ['plasmid'], 'TREAT': ['treat1', 'treat2']}
+	control_groups = {'fromstart': {'Plasmid': ['CTRL', 'TREAT', 'KO', 'KO_TREAT']}, 'endpoints_paired': {'CTRL': ['TREAT'], 'KO': ['KO_TREAT']}, 'endpoints_unpaired': {'CTRL': ['KO'], 'TREAT': ['KO_TREAT']}}
+	analyses = [{'method': 'drugz', 'groups': ['fromstart'], 'kwargs': {'unpaired': True}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'does this'}, {'method': 'mageck', 'groups': ['fromstart'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'does this'}, {'method': 'drugz', 'groups': ['endpoints_paired'], 'kwargs': {}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'do anything'}, {'method': 'mageck', 'groups': ['endpoints_paired'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10, 'paired': ''}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'do anything'}, {'method': 'drugz', 'groups': ['endpoints_unpaired'], 'kwargs': {'unpaired': True}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'anymore'}, {'method': 'mageck', 'groups': ['endpoints_unpaired'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'anymore'}]
+	counts_file = None
+	methods_kwargs = None
+	dont_log = False
+	compjoiner = -
+	notes = 
+	skip_method = []
+	dry_run = False
+Full output directory = /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res
+Running batch drugz
+	group: fromstart
+	with options: {'method': 'drugz', 'groups': ['fromstart'], 'kwargs': {'unpaired': True}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'does this'}
+	With kwargs: {'unpaired': True}
+Finished drugZ
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+Running batch mageck
+	group: fromstart
+	with options: {'method': 'mageck', 'groups': ['fromstart'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'does this'}
+	With kwargs: {'remove-zero': 'both', 'remove-zero-threshold': 10}
+Running MAGeCK version 0.5.9.4
+
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.mageck_table.csv
+Running batch drugz
+	group: endpoints_paired
+	with options: {'method': 'drugz', 'groups': ['endpoints_paired'], 'kwargs': {}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'do anything'}
+	With kwargs: {}
+Finished drugZ
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.mageck_table.csv
+Running batch mageck
+	group: endpoints_paired
+	with options: {'method': 'mageck', 'groups': ['endpoints_paired'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10, 'paired': ''}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'do anything'}
+	With kwargs: {'remove-zero': 'both', 'remove-zero-threshold': 10, 'paired': ''}
+Running MAGeCK version 0.5.9.4
+
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.mageck_table.csv
+Running batch drugz
+	group: endpoints_unpaired
+	with options: {'method': 'drugz', 'groups': ['endpoints_unpaired'], 'kwargs': {'unpaired': True}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'anymore'}
+	With kwargs: {'unpaired': True}
+Finished drugZ
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.mageck_table.csv
+Running batch mageck
+	group: endpoints_unpaired
+	with options: {'method': 'mageck', 'groups': ['endpoints_unpaired'], 'kwargs': {'remove-zero': 'both', 'remove-zero-threshold': 10}, 'pseudocount': 5, 'counts_file': '/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/test1.counts.tsv', 'name': 'anymore'}
+	With kwargs: {'remove-zero': 'both', 'remove-zero-threshold': 10}
+Running MAGeCK version 0.5.9.4
+
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.drugz_table.csv
+writing table: /Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/test_data/exorcise_style/test1/re/test1/res/tables/result.mageck_table.csv
