@@ -80,14 +80,17 @@ class ComparisonTable(Base):
     treatment_label: MStr
     timepoint: MStr
     cell: MStr
-    ctrl: MStr
-    treat: MStr
+    control_sample: MStr
+    test_sample: MStr
     ko: MStr
+    control_treatment: MStrN
+    control_ko: MStrN
     dose: MStrN
     gi: MStrN
     days_grown: MIntN
     library: MStr
-    analyses_bitmask: MInt
+    notes:MStrN
+
 
 
 class StatTable(Base):
