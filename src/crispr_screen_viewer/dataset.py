@@ -197,24 +197,28 @@ class DataSet:
             self,
             score_anls:str,
             fdr_anls:str=None,
-            comparisons:Collection[str]='ALL',
-            genes:Collection[str]='ALL',
+            comparisons:Collection[str]|True=True,
+            genes:Collection[str]|True=True,
             fdr_max:float|None=None,
-            timepoints:str|Collection[str]='endpoints',
+
             #data_sources:Collection= 'NOT IMPLEMENTED'
-    ) -> Dict[str, pd.DataFrame]:
+    ) -> ScoreFDR:
         """Get score and FDR tables for the analysis types & data sets.
-        Tables give the per gene values for included comparisons.
+        Tables are Genes × comparisons.
+
+        To filter by timepoint etc, pass a list of valid comparisons.
 
         Arguments:
-            score_anls: The analysis type from which to get the score values per gene
+            score_anls: The analysis type from which to get the score values per gene.
             fdr_anls: Optional. Default = score_anls. If set to False, get_score_fdr['fdr'] is None.
-            comparisons: list of comparisons to include
-            genes: list of genes to include
+            comparisons: list of comparisons to include. Default is all comparisons.
+            genes: list of genes to include. Default is all genes.
+            fdr_max: Don't return genes that don't have ata least one gene with FDR<fdr_max.
+                If set, table will include all requested genes as rows, even if it doesn't exist in
+                returned comparisons (so they'll all be NaN).
+                """
 
-        Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
-        if type(timepoints) is str:
-            timepoints = (timepoints,)
+
         logger.debug(f"{score_anls=}, {fdr_anls=}, {comparisons=}, {genes=}")
 
         def run_query(analysis_type: str, ) -> list:
@@ -222,12 +226,12 @@ class DataSet:
             ans_id = ANALYSESTYPES.str_to_id(analysis_type)
             with (Session(self.engine) as session):
                 constraints = [StatTable.analysis_type_id == ans_id]
-                if comparisons != 'ALL':
+                if comparisons is not True:
                     constraints.append(
                         StatTable.comparison_id.in_(comparisons)
                     )
 
-                if genes != 'ALL':
+                if genes is not True:
                     constraints.append(
                         StatTable.gene_id.in_(genes)
                     )
@@ -244,16 +248,16 @@ class DataSet:
                     *constraints
                 )
 
-                if timepoints:
-                    query = query.filter(
-                        StatTable.comparison_id.in_(
-                            session.query(
-                                ComparisonTable.stringid
-                            ).where(
-                                ComparisonTable.timepoint.in_(timepoints)
-                            )
-                        )
-                    )
+                # if timepoints:
+                #     query = query.filter(
+                #         StatTable.comparison_id.in_(
+                #             session.query(
+                #                 ComparisonTable.stringid
+                #             ).where(
+                #                 ComparisonTable.timepoint.in_(timepoints)
+                #             )
+                #         )
+                #     )
 
                 results = query.all()
 
@@ -283,7 +287,7 @@ class DataSet:
             query_res = run_query(fdr_anls)
             fdrs = pivot_results(query_res, 'fdr')
 
-        if genes is not 'ALL':
+        if genes is not True:
             scores = scores.reindex(index=genes)
             fdrs = fdrs.reindex(index=genes)
 

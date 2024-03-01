@@ -5,6 +5,7 @@ import inspect
 import typing
 from typing import Collection,  Union, Dict
 
+import numpy as np
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
 import dash_bio
@@ -79,10 +80,12 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         )
 
         @app.callback(
+
             Output('msgv-gene-boxplots', 'figure'),
             Output('msgv-order-by', 'options'),
             Output('ordered-comp-store', 'data'),
 
+            Input('msgv-fdr-threshold', 'value'),
             Input('msgv-show-outliers-radio', 'value'),
             Input('msgv-max-boxplots', 'value'),
             Input('msgv-stat-source-selector', 'value'),
@@ -90,78 +93,81 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             Input('msgv-tabs', 'value'),
             Input('msgv-order-by', 'value'),
             Input('msgv-color-by', 'value'),
-
-            State('msgv-gene-selector', 'value'),
-            State('msgv-fdr-threshold', 'value'),
+            Input('msgv-gene-selector', 'value'),
         )
         def update_boxplot_figure(
+                fdr_threshold,
                 show_outliers_option,
                 max_boxplots,
                 score_type,
-                comps_dict:Dict[str, typing.List[str]],
+                filtered_comps:str,
                 selected_tab,
                 order_by,
                 color_by,
-
                 selected_genes,
-                fdr_thresh
         ):
-            comps = comps_dict['selected_comps']
+            if (selected_tab != 'msgv-boxplot-tab') or (not selected_genes):
+                logger.debug("Not updating")
+                raise PreventUpdate
+
+
+
             logger.debug(
-                f"{show_outliers_option=}, {max_boxplots=}, {score_type=}, {comps=}, {selected_tab=}, {order_by=}, {color_by=}, { selected_genes=}, {fdr_thresh=}"
+                f"{show_outliers_option=}, {max_boxplots=}, {score_type=}, {filtered_comps=}, {selected_tab=}, {order_by=}, {color_by=}, { selected_genes=}, {fdr_threshold=}"
             )
 
 
+            # *assemble the figure*
+            fig = go.Figure()
 
-            if selected_tab != 'msgv-boxplot-tab':
-                raise PreventUpdate
+            hit_table = data_set.get_score_fdr(
+                score_type,
+                comparisons=filtered_comps,
+                genes=selected_genes,
+                fdr_max=fdr_threshold,
+            )
+
+            hit_table_scores = hit_table['score']
+
+            comps_with_hits = hit_table_scores.columns
+
+            all_genes_score_fdr = data_set.get_score_fdr(
+                score_type,
+                comparisons=comps_with_hits,
+            )
+
+            # todo make no-hits-message always in the middle of the figure
+            if (len(comps_with_hits) == 0) and selected_genes:
+                fig.add_annotation(x=1.5, y=2.5,
+                                   text=f"None of the selected genes have FDR <= {fdr_threshold}",
+                                   showarrow=False, )
 
             show_outliers = True
             if show_outliers_option == 'never':
                 show_outliers = False
             elif show_outliers_option == 'sometimes':
-                if len(comps) > max_boxplots:
+                if len(comps_with_hits) > max_boxplots:
                     show_outliers = False
 
-            # *assemble the figure*
-            fig = go.Figure()
 
-
-
-
-            if (len(comps) == 0) and selected_genes:
-                fig.add_annotation(x=1.5, y=2.5,
-                                   text=f"None of the selected genes have FDR <= {fdr_thresh}",
-                                   showarrow=False, )
 
             # data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(
             #     score_type,
             #     comparisons=comps,
             # )
             # filtered_scores = data_tabs['score'].reindex(index=selected_genes)
-            genes_score_fdr = data_set.get_score_fdr(
-                score_type,
-                genes=selected_genes
-            )
 
-            filtered_scores = genes_score_fdr['score']
-            filtered_fdr = genes_score_fdr['fdr']
-
-            all_genes_score_fdr = data_set.get_score_fdr(
-                score_type,
-                comparisons=comps,
-            )
 
             # determine order of plots
             if order_by in selected_genes:
-                ordered_comps = filtered_scores.loc[order_by].sort_values().index.values
+                ordered_comps = hit_table_scores.loc[order_by].sort_values().index.values
             elif order_by == 'Mean score':
-                ordered_comps = filtered_scores.mean().sort_values().index.values
+                ordered_comps = hit_table_scores.mean().sort_values().index.values
             elif order_by in order_by_categories[1:]:
                 # subset the metadata to included comps and then sort by the order_by
-                ordered_comps = data_set.comparisons.loc[filtered_scores.columns, order_by].sort_values().index
+                ordered_comps = data_set.comparisons.loc[hit_table_scores.columns, order_by].sort_values().index
             else:  # this shouldn't happen, though maybe I should have a "whatever" order option
-                ordered_comps = filtered_scores.columns.values
+                ordered_comps = hit_table_scores.columns.values
 
             # x tick labels
             if len(ordered_comps):
@@ -175,18 +181,19 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
 
             for gn in selected_genes:
                 if gn not in all_genes_score_fdr['fdr'].index:
+                    logger.debug(f"Skipping gene {gn}")
                     continue
                 fdrs:pd.Series = all_genes_score_fdr['fdr'].loc[gn, ordered_comps]
-                mrkrs: pd.Series = fdrs <= fdr_thresh
-                mrkrs[mrkrs == True] = 'diamond'
-                mrkrs[mrkrs == False] = 'square'
+                mrkrs = ['diamond' if (f<fdr_threshold) else 'square' for f in fdrs]
+
 
                 fig.add_trace(
                     go.Scatter(
                         x=x_tick_labels,
-                        y=filtered_scores.loc[gn, ordered_comps],
-                        mode='markers', name=gn,
-                        marker_symbol=mrkrs.values,
+                        y=all_genes_score_fdr['score'].loc[gn, ordered_comps],
+                        mode='markers',
+                        name=gn,
+                        marker_symbol=mrkrs,
                         marker={'size': 15, 'line': {'width': 2, 'color': 'DarkSlateGrey'}},
                         customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}' if not pd.isna(n) else ''),
                         hovertemplate=f"{gn}" + "<br>Score: %{y}<br>FDR: %{customdata}<extra></extra>"
@@ -259,6 +266,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         @app.callback(
             Output(clustergram_id, 'children'),
 
+            Input('msgv-fdr-threshold', 'value'),
             Input('msgv-stat-source-selector', 'value'),
             Input('comp-store', 'data'),
             Input('msgv-tabs', 'value'),
@@ -266,13 +274,14 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             Input('cluster-height', 'value'),
             Input('cluster-width', 'value'),
 
-            State('msgv-gene-selector', 'value'),
-            State('msgv-fdr-threshold', 'value'),
+            Input('msgv-gene-selector', 'value'),
+            Input('msgv-fdr-threshold', 'value'),
         )
         def update_clustergrams(
-                score_type,
-                comps_dict: Dict[str, typing.List[str]],
-                selected_tab,
+                fdr_threshold:float,
+                score_type:str,
+                comps:list[str],
+                selected_tab:str,
                 missing_method,
                 height, width,
 
@@ -285,6 +294,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             heatmap_only = False
 
             if selected_tab != 'msgv-clustergram-tab':
+                logger.debug('not updating.')
                 raise PreventUpdate
 
             if not selected_genes:
@@ -292,13 +302,11 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
 
             logger.debug(f"{getfuncstr()} updating.")
 
-            comps = comps_dict['selected_comps']
-            logger.debug(f"{getfuncstr()}: {comps}")
-
             filtered_scores = data_set.get_score_fdr(
                 score_type,
                 genes=selected_genes,
-                comparisons=comps
+                comparisons=comps,
+                fdr_max=fdr_threshold,
             )['score']
 
             comp_label_dict = {c:l for c, l in
@@ -312,7 +320,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             if filtered_scores.isna().any().any():
                 data_missing = True
                 missing_comps = index_of_true(filtered_scores.isna().any())
-                missing_genes = index_of_true(filtered_scores.isna().any(1))
+                missing_genes = index_of_true(filtered_scores.isna().any(axis=1))
                 # to be returned in the Div
                 misslabs = '\n    '.join([comp_label_dict[c] for c in missing_comps])
                 missing_text = f"Sample(s) has missing genes:\n  {misslabs}"
@@ -629,6 +637,9 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             box_colour_maps[color_by] = cm
         return box_colour_maps
 
+
+
+
     def spawn_comp_store() -> dcc.Store:
         """Spawn a dcc.Store that acts as a trigger for all output tabs.:
             id='comp-store'
@@ -643,25 +654,15 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         )
         @app.callback(
             Output('comp-store', 'data'),
-            [Input('msgv-stat-source-selector', 'value'),
-             Input('msgv-gene-selector', 'value'),
-             Input('msgv-fdr-threshold', 'value'), ]
-            + [Input(f'msgv-comp-filter-{cid}', 'value') for cid in filter_cols],
+            [Input(f'msgv-comp-filter-{cid}', 'value') for cid in filter_cols],
         )
         def filter_store_comps(
-                score_type,
-                selected_genes,
-                fdr_thresh,
                 *filters
         ):
-            """Identify comparisons retained by filters, and containing significant
-            genes."""
-            if not selected_genes:
-                raise PreventUpdate
+            """Filters comparisons by values in the dropdowns, i.e.
+            ['Treatment', 'Cell line', 'KO', 'Timepoint',
+                'Library', 'Citation',]"""
 
-            logger.debug(f'{inspect.currentframe().f_code.co_name}\n'
-                      f"\tgenes={selected_genes}, fdr_thresh={fdr_thresh}\n"
-                      f"\tfilters={filters}")
 
             # apply filters from the app
             filter_mask = pd.Series(True, index=data_set.comparisons.index)
@@ -671,11 +672,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
 
             included_comparisons = filter_mask.index[filter_mask]
 
-            comps = data_set.comparisons_with_hit(
-                fdr_thresh, selected_genes, included_comparisons, score_type
-            )
 
-            return {'selected_comps': comps}
+            return included_comparisons
 
         return store
 
