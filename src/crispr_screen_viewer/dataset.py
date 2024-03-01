@@ -15,15 +15,23 @@ from crispr_screen_viewer.functions_etc import (
     timepoint_labels,
     doi_to_link,
     index_of_true,
-    LOG,
     get_ith_from_all,
 )
 
 from crispr_screen_viewer.database import *
 
+from loguru import logger
+
 class ScoreFDR(TypedDict):
     score:pd.DataFrame
     fdr:pd.DataFrame
+
+#todo: Values to be changed on the fly...
+#   Null treatment "No Treatment"
+#   Null 'Cell line', 'Library', 'Source' to "Unspecified"
+#   Timepoint labels
+#   doi to http
+#
 
 class DataSet:
     """Class for holding, retrieving screen data and metadata.
@@ -41,50 +49,29 @@ class DataSet:
     Methods:
         get_results: get dict of score and fdr for specified analysis types and
             datasets."""
-    def __init__(self, db_engine:Engine, print_validations=True):
-        LOG.debug(source_directory)
-        source_directory = Path(source_directory)
-        # for future ref
-        self.source_directory = source_directory
+    def __init__(
+            self, db_engine:Engine,
+             comparisons_path: str | Path,
+            experiments_path:str|Path,
+    ):
 
-        self.engine = None
-        if db_engine is not None:
-            self._use_db = True
-            self.engine = db_engine
+        self.engine = db_engine
 
-        # shorthand internal name: label name
-        avail_analyses:list[str] = []
-        for ans in ANALYSESTYPES:
-             if os.path.isfile(source_directory/f"{ans.shortname}_fdr.csv"):
-                 avail_analyses.append(ans.name)
-        self.available_analyses = avail_analyses
+        self.exp_data = None
 
-        # put the data tables in {analysis_type:{score/fdr:pd.DataFrame}} format dictionary
-        exp_data = {ans:{stt:pd.read_csv(source_directory/f"{ANALYSESTYPES[ans].shortname}_{stt}.csv", index_col=0)
-                         for stt in ('score', 'fdr')}
-                    for ans in self.available_analyses}
+        with Session(db_engine) as S:
+            res_genes = S.query(StatTable.gene_id).distinct().all()
+            self.genes = list(sorted(set([r[0] for r in res_genes])))
+            res_ans = S.query(StatTable.analysis_type_id).distinct().all()
+            self.available_analyses = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
 
-        # unify the indexes
-        genes = pd.Index([])
-        # use an index from a table from each analysis
-        for analysis in self.available_analyses:
-            genes = genes.union(exp_data[analysis]['fdr'].index)
-        self.genes = genes
-
-        # reindex with the union of genes
-        if not self._use_db:
-            self.exp_data = {ans:{stt:exp_data[ans][stt].reindex(genes)
-                                for stt in ('score', 'fdr')}
-                           for ans in self.available_analyses}
-        else:
-            self.exp_data = None
-
-        comparisons = pd.read_csv(source_directory/'comparisons_metadata.csv', )
+        # todo all this processing should be in update_database and applied to the SQL table
+        comparisons = pd.read_csv(comparisons_path )
         # this is sometimes put in wrong...
         m = comparisons['Timepoint'] == 'endpoint'
         comparisons.loc[m, 'Timepoint'] = 'endpoints'
-        comparisons.loc[m, 'Control group'] = comparisons.loc[m, 'Control group'] \
-            .apply(lambda x: x.replace('endpoint', 'endpoints'))
+        # comparisons.loc[m, 'Control group'] = comparisons.loc[m, 'Control group'] \
+        #     .apply(lambda x: x.replace('endpoint', 'endpoints'))
 
         comparisons = comparisons.set_index('Comparison ID', drop=False)
         #comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
@@ -109,7 +96,7 @@ class DataSet:
         self.data_sources = comparisons.Source.fillna('Unspecified').unique()
         # main metadata tables
         self.comparisons = comparisons
-        self.experiments_metadata = pd.read_csv(f'{source_directory}/experiments_metadata.csv', )
+        self.experiments_metadata = pd.read_csv(experiments_path )
         # rename "Experiment name" to "Experiment ID" for consistency
         colmap = {k:k for k in self.experiments_metadata}
         colmap['Experiment name'] = 'Experiment ID'
@@ -131,71 +118,48 @@ class DataSet:
             ].values
             self.comparisons.loc[:, 'Citation'] =  cites
         except:
-            LOG.warning('Citations column missing from exeriments_metadata')
+            logger.warning('Citations column missing from exeriments_metadata')
             self.comparisons.loc[:, 'Citation'] = ''
 
 
-        # DF of previous symbols and IDs for currently used.
-        try:
-            pidf = pd.read_csv(
-                os.path.join(source_directory, 'previous_and_id.csv'), index_col=0
-            )
-            self.previous_and_id = pidf.fillna('')
-
-        except FileNotFoundError:
-            LOG.warning("file 'previous_and_id.csv' is missing.")
-            # when .loc fails to find a name in the table it just uses the current name.
-            self.previous_and_id = pd.DataFrame()
-
-        self.previous_and_id.fillna('', inplace=True)
-
-        if print_validations and (not self._use_db):
-            self.validate_comparisons()
-            self.validate_previous_and_id()
+        # # DF of previous symbols and IDs for currently used.
+        # try:
+        #     pidf = pd.read_csv(
+        #         os.path.join(, 'previous_and_id.csv'), index_col=0
+        #     )
+        #     self.previous_and_id = pidf.fillna('')
+        #
+        # except FileNotFoundError:
+        logger.warning("file 'previous_and_id.csv' is missing.")
+        # when .loc fails to find a name in the table it just uses the current name.
+        self.previous_and_id = pd.DataFrame()
 
     def validate_comparisons(self):
         """Print information that might be helpful in spotting data validity issues
         Check for comparisons present in the metadata/actual-data but missing
           in the other"""
-        all_good = True
-        for ans in self.available_analyses:
-            score_comps = self.exp_data[ans]['score'].columns
-            meta_comps = self.comparisons.index
+        with Session(self.engine) as S:
+            for analysis in self.available_analyses:
+                # get comparison IDs where the ID doesn't appear in the stat table
+                query_result = S.query(
+                    ComparisonTable.stringid
+                ).filter(
+                    ~ComparisonTable.stringid.in_(
+                        S.query(
+                            StatTable.comparison_id
+                        ).where(
+                            StatTable.analysis_type_id == analysis.id
+                        )
+                    )
+                ).distinct().all()
 
-            meta_in_score = meta_comps.isin(score_comps)
-            missing_in_data = meta_comps[~meta_in_score]
-            # todo log.warning
-            # todo check experiments metadata
-            if missing_in_data.shape[0] > 0:
-                all_good = False
-                print(
-                    f"Comparisons in comparisons metadata but not in {ans}_score.csv:"
-                    f"\n    {', '.join(missing_in_data)}\n"
+            missing_ids = set([s[0] for s in query_result])
+            if missing_ids:
+                logger.info(
+                    f"Comparison IDs in ComparisonTable not found in StatTable in {analysis.name} results "
+                    f"suggesting the data is missing: \n\t"
+                    f"{', '.join(list(missing_ids))}"
                 )
-            score_in_meta = score_comps.isin(meta_comps)
-            missing_in_score = score_comps[~score_in_meta]
-            if missing_in_data.shape[0] > 0:
-                all_good = False
-                print(
-                    f"Comparisons in {ans}_score.csv, but not in comparisons metadata:"
-                    f"\n    {', '.join(missing_in_score)}\n"
-                )
-        comps = self.comparisons.index
-        if comps.duplicated().any():
-            all_good = False
-            print('Duplicate comparisons found - this will probably stop the server from working:')
-            print('   ' , ', '.join(sorted(comps.index[comps.index.duplicated(keep=False)])))
-        if all_good:
-            print(f'All comparisons data in {self.source_directory} are consistent')
-
-        # check all comparison ExpID appear in experiments metadata
-        # the reverse isn't fatal
-        expids = self.comparisons['Experiment ID'].unique()
-        found = [xi in self.experiments_metadata.index for xi in expids]
-        if not all(found):
-            not_found = [x for (x, b) in zip(expids, found) if not b]
-            print('Experiment IDs used in comparisons_metadata not found in experiments_metadata:\n'
-                  f'   {", ".join(not_found)}')
 
     def validate_previous_and_id(self):
         """Check all stats index in datasets are in previous_and_id"""
@@ -209,15 +173,20 @@ class DataSet:
             self, fdr_max: float,
             genes:Collection[str],
             comparisons:Collection[str],
-            analysis_type: str
+            analysis_type: str,
     ) -> list[str]:
-        """List of all comparisons with FDR<fdr_max in given genes."""
+        """List of all comparisons with FDR<fdr_max in given genes.
+        Comparisons are prefiltered to only those that match the filters set in app.
+        This method is, effectively, the trigger for updating boxplots and clustergram."""
+
+
+        logger.debug(f"{genes=}, {comparisons=}, {analysis_type=}, {fdr_max=}")
         ans_id = ANALYSESTYPES.str_to_id(analysis_type)
         with (Session(self.engine) as session):
             comp_ids = session.query(StatTable.comparison_id).where(
                 StatTable.fdr < fdr_max,
                 StatTable.gene_id.in_(genes),
-                StatTable.comparison_id.in_(comparisons),
+                # StatTable.comparison_id.in_(comparisons),
                 StatTable.analysis_type_id == ans_id,
             ).distinct().all()
 
@@ -230,6 +199,8 @@ class DataSet:
             fdr_anls:str=None,
             comparisons:Collection[str]='ALL',
             genes:Collection[str]='ALL',
+            fdr_max:float|None=None,
+            timepoints:str|Collection[str]='endpoints',
             #data_sources:Collection= 'NOT IMPLEMENTED'
     ) -> Dict[str, pd.DataFrame]:
         """Get score and FDR tables for the analysis types & data sets.
@@ -242,10 +213,12 @@ class DataSet:
             genes: list of genes to include
 
         Returns {'score':pd.DataFrame, 'fdr':pd.DataFrame}"""
-        LOG.debug(f"getting score fdr, n genes={len(genes)}, n comps={len(comparisons)}, fdr={fdr_anls}, score={score_anls}")
-        print(genes, comparisons)
+        if type(timepoints) is str:
+            timepoints = (timepoints,)
+        logger.debug(f"{score_anls=}, {fdr_anls=}, {comparisons=}, {genes=}")
 
-        def run_query(analysis_type: str) -> list:
+        def run_query(analysis_type: str, ) -> list:
+
             ans_id = ANALYSESTYPES.str_to_id(analysis_type)
             with (Session(self.engine) as session):
                 constraints = [StatTable.analysis_type_id == ans_id]
@@ -259,17 +232,28 @@ class DataSet:
                         StatTable.gene_id.in_(genes)
                     )
 
-                # if fdr_max is not None:
-                #     constraints.append(
-                #         StatTable.fdr < fdr_max
-                #     )
-
+                if fdr_max is not None:
+                    constraints.append(
+                        StatTable.fdr < fdr_max
+                    )
+                logger.debug(f'Constraints: {constraints}')
                 query = session.query(
                     StatTable.gene_id, StatTable.comparison_id,
                     StatTable.score, StatTable.fdr
                 ).where(
                     *constraints
                 )
+
+                if timepoints:
+                    query = query.filter(
+                        StatTable.comparison_id.in_(
+                            session.query(
+                                ComparisonTable.stringid
+                            ).where(
+                                ComparisonTable.timepoint.in_(timepoints)
+                            )
+                        )
+                    )
 
                 results = query.all()
 
@@ -290,14 +274,21 @@ class DataSet:
         query_res = run_query(score_anls)
         scores = pivot_results(query_res, 'score')
 
-        if fdr_anls is False:
-            return ScoreFDR(score=scores, fdr=None)
 
-        if fdr_anls is None:
+        if fdr_anls is False:
+            fdrs = pd.DataFrame()
+        elif fdr_anls is None:
             fdrs = pivot_results(query_res, 'fdr')
         else:
             query_res = run_query(fdr_anls)
             fdrs = pivot_results(query_res, 'fdr')
+
+        if genes is not 'ALL':
+            scores = scores.reindex(index=genes)
+            fdrs = fdrs.reindex(index=genes)
+
+        logger.debug('\n'+str(scores.head()))
+        logger.debug('\n'+str(fdrs.head()))
 
         return ScoreFDR(score=scores, fdr=fdrs)
 
@@ -323,11 +314,18 @@ def load_dataset(paff, db_engine:Engine=None):
     """If paff is a dir, the dataset is constructed from the files
     within, otherwise it is assumed to be a pickle."""
     if os.path.isfile(paff):
-        LOG.info('args.data_path is a file, assuming pickle and loading.')
+        logger.info('args.data_path is a file, assuming pickle and loading.')
         with open(paff, 'rb') as f:
             data_set = pickle.load(f)
     else:
-        data_set = DataSet(Path(paff), db_engine=db_engine)
+        paff = Path(paff)
+        exp_path = paff/'experiments_metadata.csv.gz'
+        cmp_path = paff/'comparisons_metadata.csv.gz'
+        data_set = DataSet(
+            experiments_path=exp_path,
+            comparisons_path=cmp_path,
+            db_engine=db_engine
+        )
 
     return data_set
 

@@ -268,7 +268,8 @@ def init_app(
         data_path:str=None, database_url=None,
         debug_messages=False,
         public_version=None, url_base='/',
-        app_title='CRISPR screen viewer'
+        app_title='CRISPR screen viewer',
+        db_echo=False,
 ):
     from importlib import resources
     if data_path is None:
@@ -276,7 +277,7 @@ def init_app(
         database_url = f"sqlite:///{data_path}/database.db"
 
     if database_url is not None:
-        db_engine = sqlalchemy.create_engine(database_url, echo=debug_messages)
+        db_engine = sqlalchemy.create_engine(database_url, echo=db_echo)
     else:
         db_engine = None
 
