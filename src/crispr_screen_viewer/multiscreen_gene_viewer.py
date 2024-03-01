@@ -1,8 +1,9 @@
 #!/usr/bin/env python
-
+import pathlib, os, logging
 import itertools
 import inspect
 import typing
+from typing import Collection,  Union, Dict
 
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
@@ -11,9 +12,7 @@ from dash.exceptions import PreventUpdate
 Div = html.Div
 import plotly.graph_objs as go
 
-import pathlib, os, logging
-
-from typing import Collection,  Union, Dict
+from loguru import logger
 
 from crispr_screen_viewer.shared_components import (
     create_datatable,
@@ -108,7 +107,11 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 fdr_thresh
         ):
             comps = comps_dict['selected_comps']
-            LOG.debug(f"{getfuncstr()}: {comps}")
+            logger.debug(
+                f"{show_outliers_option=}, {max_boxplots=}, {score_type=}, {comps=}, {selected_tab=}, {order_by=}, {color_by=}, { selected_genes=}, {fdr_thresh=}"
+            )
+
+
 
             if selected_tab != 'msgv-boxplot-tab':
                 raise PreventUpdate
@@ -120,20 +123,34 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 if len(comps) > max_boxplots:
                     show_outliers = False
 
-
-            data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(
-                score_type,
-                comparisons=comps,
-            )
-            filtered_scores = data_tabs['score'].loc[selected_genes]
-
             # *assemble the figure*
             fig = go.Figure()
 
+
+
+
             if (len(comps) == 0) and selected_genes:
-                fig.add_annotation(x=4, y=4,
+                fig.add_annotation(x=1.5, y=2.5,
                                    text=f"None of the selected genes have FDR <= {fdr_thresh}",
                                    showarrow=False, )
+
+            # data_tabs:Dict[str, pd.DataFrame] = data_set.get_score_fdr(
+            #     score_type,
+            #     comparisons=comps,
+            # )
+            # filtered_scores = data_tabs['score'].reindex(index=selected_genes)
+            genes_score_fdr = data_set.get_score_fdr(
+                score_type,
+                genes=selected_genes
+            )
+
+            filtered_scores = genes_score_fdr['score']
+            filtered_fdr = genes_score_fdr['fdr']
+
+            all_genes_score_fdr = data_set.get_score_fdr(
+                score_type,
+                comparisons=comps,
+            )
 
             # determine order of plots
             if order_by in selected_genes:
@@ -155,8 +172,11 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             # x_tick_labels = pd.Series(x_tick_labels, index=ordered_comps)
             # note: looping and adding traces was required, using the plotly express functions
             #   resulted in non-overlapping X positions for the gene scatters and boxplots.
+
             for gn in selected_genes:
-                fdrs:pd.Series = data_tabs['fdr'].loc[gn, ordered_comps]
+                if gn not in all_genes_score_fdr['fdr'].index:
+                    continue
+                fdrs:pd.Series = all_genes_score_fdr['fdr'].loc[gn, ordered_comps]
                 mrkrs: pd.Series = fdrs <= fdr_thresh
                 mrkrs[mrkrs == True] = 'diamond'
                 mrkrs[mrkrs == False] = 'square'
@@ -168,7 +188,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                         mode='markers', name=gn,
                         marker_symbol=mrkrs.values,
                         marker={'size': 15, 'line': {'width': 2, 'color': 'DarkSlateGrey'}},
-                        customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}'),
+                        customdata=fdrs.apply(lambda n: f'{float(f"{n:.3g}"):g}' if not pd.isna(n) else ''),
                         hovertemplate=f"{gn}" + "<br>Score: %{y}<br>FDR: %{customdata}<extra></extra>"
                     ),
 
@@ -179,8 +199,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             # Add a boxplot trace for each comparison
             for trace_i, comp in enumerate(ordered_comps):
                 # these values define the boxplot
-                ys = data_tabs['score'][comp]
-                fdr = data_tabs['fdr'][comp]
+                ys = all_genes_score_fdr['score'][comp]
+                fdr = all_genes_score_fdr['fdr'][comp]
 
 
                 # This gives the X value for each y value used to create the boxplot, which
@@ -270,10 +290,10 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             if not selected_genes:
                 return [html.P('Select genes above.', className='missing-data-paragraph')]
 
-            LOG.debug(f"{getfuncstr()} updating.")
+            logger.debug(f"{getfuncstr()} updating.")
 
             comps = comps_dict['selected_comps']
-            LOG.debug(f"{getfuncstr()}: {comps}")
+            logger.debug(f"{getfuncstr()}: {comps}")
 
             filtered_scores = data_set.get_score_fdr(
                 score_type,
@@ -388,7 +408,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             #   then score/FDR for each gene selected,
             #   then the metadata.
 
-            LOG.debug(f"{getfuncstr()}:\n\tordered_comps={ordered_comps}")
+            logger.debug(f"{score_type=}, {ordered_comps=}, {selected_genes=}, {selected_tab=}")
 
             data_tabs = data_set.get_score_fdr(
                 score_type,
@@ -639,10 +659,11 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             if not selected_genes:
                 raise PreventUpdate
 
-            LOG.debug(f'{inspect.currentframe().f_code.co_name}\n'
+            logger.debug(f'{inspect.currentframe().f_code.co_name}\n'
                       f"\tgenes={selected_genes}, fdr_thresh={fdr_thresh}\n"
                       f"\tfilters={filters}")
 
+            # apply filters from the app
             filter_mask = pd.Series(True, index=data_set.comparisons.index)
             for filter_id, values in zip(filter_cols, filters):
                 if values:
