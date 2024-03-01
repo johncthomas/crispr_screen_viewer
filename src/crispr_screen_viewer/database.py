@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, mapped_column, Mapped
 
 
 
-__all__ = "GeneTable", "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base"
+__all__ = "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base"
 
 # function for creating columns
 mcol = mapped_column
@@ -43,15 +43,15 @@ class Base(orm.DeclarativeBase):
 #     label: MStrN
 
 
-class GeneTable(Base):
-    __tablename__ = "gene"
-
-    #id: MInt = mcol(primary_key=True)
-    name: MStr = mcol(primary_key=True)
-    ensembl: MStrN
-    ncbi: MStrN
-    hgnc: MStrN
-    mgi: MStrN
+# class GeneTable(Base):
+#     __tablename__ = "gene"
+#
+#     #id: MInt = mcol(primary_key=True)
+#     name: MStr = mcol(primary_key=True)
+#     ensembl: MStrN
+#     ncbi: MStrN
+#     hgnc: MStrN
+#     mgi: MStrN
 
 
 class ExperimentTable(Base):
