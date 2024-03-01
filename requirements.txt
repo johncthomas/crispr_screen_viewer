@@ -8,3 +8,4 @@ dash-core-components
 dash-bootstrap-components
 dash-bio
 sqlalchemy
+loguru
