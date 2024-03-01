@@ -4,6 +4,7 @@ import logging
 import os.path, typing
 import pathlib
 from pathlib import Path
+import unicodedata
 
 import pandas as pd
 from sqlalchemy import Engine, create_engine, select
@@ -21,9 +22,9 @@ analysis_tabulate:dict[str, typing.Callable]
 
 import numpy as np
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-logging.basicConfig()
+from loguru import logger
+
+
 def is_nt(s):
     nts = {'None', 'DMSO', '', 'WT', 'NT'}
     return pd.isna(s) or (s in nts)
@@ -295,19 +296,6 @@ def split_data(data:dict[str, pd.DataFrame]):
 
     return out_data
 
-def __create_test_db():
-    os.chdir('/mnt/m/stuff/ddrcs/')
-
-    dbpaff = '/home/jthomas/tmp/test_db1.medium.db'
-    dspaff = 'dataset/2023-02-23_external/'
-    smlpaff = '/home/jthomas/tmp/meddataset'
-    if os.path.exists(dbpaff):
-        os.remove(dbpaff)
-    from dataset import sample_dataset
-    short_data = sample_dataset(dspaff, smlpaff, 20, 30, 5000)
-
-    create_database(**split_data(short_data), db_url=f"sqlite:///{dbpaff}", use_autogen_ids=False)
-
 def load_csv(paff:str):
     """Load all .csv in paff, should be experiments_metadata.csv, comparisons_metadata.csv and
     individual tables for the statistics. The stats tables get put under "stats_tables" key. """
@@ -316,34 +304,34 @@ def load_csv(paff:str):
         for fn in os.listdir(paff) if fn.endswith('.csv')}
     return split_data(data)
 
-def run_cli():
-    from argparse import ArgumentParser
-    parser = ArgumentParser(description="Create SQL database from compiled CSVs.")
-
-    parser.add_argument(
-        'data-directory',
-        help='Directory containing CSVs of data and metadata.'
-    )
-    parser.add_argument(
-        'database-url',
-        help="e.g. sqlite:////some/dir/database.db.\nSee https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls"
-    )
-    parser.add_argument(
-        '-r', '--remove-exant',
-        help='Set flag to delete exant database file before creating a new version.',
-        dest='remove', action='store_true', default=False
-    )
-    args = vars(parser.parse_args())
-    print(args)
-    db_path = args['database-url'].split('//', maxsplit=1)[-1]
-    if os.path.exists(db_path) and os.path.isfile(db_path):
-        if args['remove']:
-            os.remove(db_path)
-        else:
-            print(f'Output database file {db_path} exists. Run with -r or use a different file name.')
-            exit(1)
-    _data = load_csv(args['data-directory'])
-    create_database(**_data, db_url=args['database-url'])
+# def run_cli():
+#     from argparse import ArgumentParser
+#     parser = ArgumentParser(description="Create SQL database from compiled CSVs.")
+#
+#     parser.add_argument(
+#         'data-directory',
+#         help='Directory containing CSVs of data and metadata.'
+#     )
+#     parser.add_argument(
+#         'database-url',
+#         help="e.g. sqlite:////some/dir/database.db.\nSee https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls"
+#     )
+#     parser.add_argument(
+#         '-r', '--remove-exant',
+#         help='Set flag to delete exant database file before creating a new version.',
+#         dest='remove', action='store_true', default=False
+#     )
+#     args = vars(parser.parse_args())
+#     print(args)
+#     db_path = args['database-url'].split('//', maxsplit=1)[-1]
+#     if os.path.exists(db_path) and os.path.isfile(db_path):
+#         if args['remove']:
+#             os.remove(db_path)
+#         else:
+#             print(f'Output database file {db_path} exists. Run with -r or use a different file name.')
+#             exit(1)
+#     _data = load_csv(args['data-directory'])
+#     create_database(**_data, db_url=args['database-url'])
 
 
 @dataclasses.dataclass
@@ -376,7 +364,7 @@ def get_paths_simons_structure_v1(
     Pulls only the reannotated resultsm from dir 're' if it exists, harmonised from 'harm'
     otherwise. Warns if neither are found."""
 
-    logger.info(str(source_dirs))
+    logger.debug(str(source_dirs))
 
     def get_fn_or_crash(p:Path):
         fns = os.listdir(p)
@@ -385,19 +373,41 @@ def get_paths_simons_structure_v1(
         return p/fns[0]
 
     data = []
-    for source in source_dirs:
 
-        source = pathlib.Path(source)
-        assert os.path.isdir(source)
-        basepath = source/'re'
+    good_dirs = set()
+    for d in source_dirs:
+        d = Path(d)
 
-        tablepath = basepath / results_dir/'tables'
-        if not os.path.isdir(tablepath):
-            tablepath = basepath / 'harm'/results_dir/'tables'
-            if not os.path.isdir(tablepath):
+        # catch bad files, add other checks as elif
+        if d.stem.startswith('.'):
+            pass
+        elif os.path.isfile(d):
+            logger.info(f'Skipping non-directory: {d}')
+        # if it's not a file or directory how did it get here?
+        elif not os.path.isdir(d):
+            logger.warning(f"Path doesn't exist: {d}")
+        # else everything's good
+        else:
+            good_dirs.add(d)
+
+
+    for source in list(good_dirs):
+        try:
+            assert os.path.isdir(source)
+        except AssertionError as e:
+            print(source)
+            raise e
+
+
+        basepath = source / 're'
+        if not os.path.isdir(basepath):
+            basepath = source / 'harm'
+            if not os.path.isdir(basepath):
                 logger.warning(f'No "harm" or "re" dir found in {str(basepath)}, skipping')
                 continue
-            logger.warning(f'No "re" results found in {str(basepath)}, using "harm" instead')
+            logger.info(f'No "re" results found in {str(basepath)}, using "harm" instead')
+
+        tablepath = basepath/results_dir/'tables'
 
         resultspaths = {}
         for ans in ANALYSESTYPES:
@@ -416,7 +426,9 @@ def get_paths_simons_structure_v1(
         xpid = analysiswb.experiment_details['Experiment name']
         if '/' in xpid:
             xpid = xpid.split('/')[1]
+            logger.debug(f'New experiment ID is {xpid}')
             analysiswb.experiment_details['Experiment name'] = xpid
+            analysiswb.expd['experiment_id'] = xpid
 
         d = AnalysisInfo(
             experiment_id=xpid,
@@ -479,12 +491,15 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         pos_dates = list(pos_dates)
         if len(pos_dates) == 1:
             return pos_dates[0]
-        logger.warning(f"Multiple possible dates for reference '{reference}'. No citation created.")
+        logger.warning(f"Multiple or zero possible dates for reference '{reference}', possibilities '{pos_dates}'. No citation created.")
         return '????'
 
-    def short_cite_str(cite):
-        year = find_date(cite)
-        auth = cite.split(',')[0]
+    def short_cite_str(reference):
+        """Get "{first_author} ({year})" from reference, if possible."""
+        # remove weird formating characters.
+        reference = unicodedata.normalize('NFKD', reference)
+        year = find_date(reference)
+        auth = reference.split(',')[0]
         return f"{auth} ({year})"
 
     # if there's no external data, and the details excel were put together with older template
@@ -501,8 +516,13 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
 
     experiment_details_table.loc[~noref, 'citation'] = experiment_details_table.loc[~noref, 'reference'].apply(short_cite_str)
 
-    d = experiment_details_table['date'].str.replace('/', '-')
-    experiment_details_table['date'] = pd.to_datetime(d, format='mixed', dayfirst=True)
+    bad_cite = experiment_details_table.loc[experiment_details_table.citation.str.contains('?', regex=False), 'stringid'].values
+
+    if len(bad_cite) > 0:
+        logger.warning(f"The following experiments have bad citation info:\n{'\n\t'.join(bad_cite)}")
+
+    # d = experiment_details_table['date'].str.replace('/', '-')
+    # experiment_details_table['date'] = pd.to_datetime(d, format='mixed', )
 
     experiment_details_table = experiment_details_table.infer_objects()
 
@@ -583,12 +603,22 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
     experiment_id = info.experiment_id
     tables = []
     for analysis_type, fn in info.results_path.items():
+        logger.debug(f"tabulating from {fn}")
         stats_table = pd.read_csv(fn, header=[0, 1], index_col=0)
-        #table = tabulate_statistics(multi_table, info.experiment_id, anstype)
+        stats_table.index.name = 'gene'
+        null_genes = stats_table.index.isna()
+        if null_genes.any():
+            logger.warning(f"Stats table {info.results_path} has missing gene name, this will be dropped")
+            stats_table = stats_table.loc[~null_genes]
+
+        # drop non targeting genes
+        stats_table = stats_table.loc[
+            ~stats_table.index.str.contains('Non-targeting')
+        ]
 
         for cmp in stats_table.columns.levels[0]:
             table = stats_table[cmp].reset_index()
-            df_rename_columns(table, {'id': 'gene_id', 'gene': 'gene_id', 'lfc': 'score', 'normZ': 'score',
+            df_rename_columns(table, {'gene': 'gene_id', 'lfc': 'score', 'normZ': 'score',
                                       'fdr_log10': 'fdr10'}, inplace=True)
             table.loc[:, 'comparison_id'] = f"{experiment_id}.{cmp}"
             table.loc[:, 'analysis_type_id'] = analysis_type.id
@@ -609,52 +639,173 @@ def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
             session
         )
 
+def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
+    # This is a bit messy currently - the tabulate functions are written with database names
+    #    for the columns, all lower case, no spaces, but currently the code expects dataframes
+    #    with the columns named as displayed on the website, so here we build the tables and
+    #    then rename the columns. Later all functions should be rewritten to use the SQL DB
+    outdir = Path(outdir)
+    comparisons_metadata = []
+    for info in analysesinfo:
+        comparisons_metadata.append(tabulate_comparisons(info.analysis_workbook))
+    comparisons_metadata = pd.concat(comparisons_metadata)
+    db_to_df_header = {
+        'treatment_label': 'Treatment',
+         'timepoint': 'Timepoint',
+         'cell': 'Cell line',
+         'ctrl': 'Ctrl samp',
+         'treat': 'Treat samp',
+         'ko': 'KO',
+         'dose': 'Dose',
+         'gi': 'Growth inhibition %',
+         'days_grown': 'Days grown',
+         'library': 'Library',
+         'experiment': 'Experiment ID',
+         'notes': 'Notes',
+        'stringid':'Comparison ID'
+    }
 
-def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine, overwrite=False):
+    df_rename_columns(comparisons_metadata, db_to_df_header, inplace=True)
+
+    experiments_metadata = tabulate_experiments_metadata(
+            [d.analysis_workbook.experiment_details for d in analysesinfo]
+    )
+
+    df_rename_columns(
+        experiments_metadata,
+        {'stringid': 'Experiment ID',
+         'library': 'Library',
+         'moi': 'Multiplicity of infection',
+         'representation': 'Representation average',
+         'description': 'Experiment description',
+         'notes': 'Notes',
+         'doi': 'DOI',
+         'reference': 'Reference',
+         'date': 'Date published'},
+        inplace=True,
+    )
+
+    # remove path information encoded into the experiment ids...
+    def fix_expid(xid):
+        if '/' in xid:
+            return xid.split('/')[1]
+        return xid
+
+    experiments_metadata['Experiment ID'] = experiments_metadata['Experiment ID'].apply(fix_expid)
+    comparisons_metadata['Experiment ID'] = comparisons_metadata['Experiment ID'].apply(fix_expid)
+
+    def fix_compid(compid):
+        xpid, cmps = compid.split('.', maxsplit=1)
+        return f"{fix_expid(xpid)}.{cmps}"
+
+    comparisons_metadata['Comparison ID'] = comparisons_metadata['Comparison ID'].apply(fix_compid)
+
+    comparisons_metadata.to_csv(outdir/'comparisons_metadata.csv.gz')
+    experiments_metadata.to_csv(outdir/'experiments_metadata.csv.gz')
+
+def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
+                         outdir:str|Path, overwrite=False):
     #todo check for exant expid and skip if skipping
+    #todo convert comparisons and experiment details to use SQL
+    outdir = Path(outdir)
+
+    write_metadata_tables(analysesinfo, outdir)
 
     with Session(engine) as session:
-        add_experiments(analysesinfo, session)
+        add_experiments(analysesinfo, session) # note, only actual thing this is currently used for is doi and reference
         add_comparisons(analysesinfo, session)
         add_statistics(analysesinfo, session)
+        logger.info("Commiting changes")
         session.commit()
 
-    # things should be added in a single transaction, per experiment at the very least
+def __create_database_20240228():
+    stemd = '2024-02-28'
+    import glob
 
-#
-# def test_tabulations(analyses_info:list[AnalysisInfo]):
-#     tabulate_statistics()
+
+    outdir = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
+    outdir.mkdir(exist_ok=True)
+
+    files = glob.glob(str(outdir) + '/*')
+    for f in files:
+        os.remove(f)
+
+    engine_url = f'sqlite:////Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}/ddrcs.db'
+    source_dir = Path(
+        '/Users/thomas03/Library/CloudStorage/OneDrive-SharedLibraries-UniversityofCambridge/Simon Lam - ddrcs/runs'
+    )
+
+    exclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
+    drs = [source_dir/d for d in os.listdir(source_dir) if d not in exclude]
+
+    # print(drs)
+    datobj = get_paths_simons_structure_v1(drs)
+
+    sql_engin = create_engine_with_schema(
+        engine_url
+    )
+    add_data_to_database(datobj, sql_engin, outdir)
+
+    write_metadata_tables(datobj, outdir)
+
+
+def run_test_server():
+    logger.level('DEBUG')
+    stemd = 'smol_2024-02-28'
+    outdir = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
+    outdir.mkdir(exist_ok=True)
+
+    # delete exant info
+    import glob
+    files = glob.glob(str(outdir)+'/*')
+    for f in files:
+        os.remove(f)
+
+    engine_url = f'sqlite:////Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}/ddrcs.db'
+    engine = create_engine_with_schema(engine_url, echo=True)
+
+    infos = get_paths_simons_structure_v1(
+        ['/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/tests/test_data/exorcise_style/test1']
+    )
+    add_data_to_database(
+        infos,
+        engine,
+        outdir=outdir,
+        overwrite=False
+    )
+
+    from crispr_screen_viewer.dataset import DataSet
+    dataset = DataSet(
+        engine,
+        comparisons_path=os.path.join(outdir, 'comparisons_metadata.csv.gz'),
+        experiments_path=os.path.join(outdir, 'experiments_metadata.csv.gz')
+    )
+
+    all_all_mag = dataset.get_score_fdr('mageck', 'mageck')
+    all_all_drz = dataset.get_score_fdr('drugz', 'drugz')
+    some_cmp_drz = dataset.get_score_fdr('drugz', 'drugz', ['test1.TREAT-KO_TREAT'])
+    some_cmp_gn_drz = dataset.get_score_fdr(
+        'drugz',
+        'drugz',
+        ['test1.TREAT-KO_TREAT'],
+        genes=['A1CF', 'A2M']
+    )
+
+    from crispr_screen_viewer.launch import init_app
+    app = init_app(
+        str(outdir),
+        engine_url,
+        debug_messages=True
+    )
+
+    app.run_server(debug=True, host='0.0.0.0', port=8050)
+
+
 
 if __name__ == '__main__':
-    # Input is list of directory paths that lead to dir with "cts", 'det' and 'res' folders.
-    # function takes one folder path and
-    #   validates metadata
-    #   creates all rows for tables
-    #   1.
-    # Symbol mapping: I'm going to use what Exorcise says and just pull prev and id from HGNC table.
-    #   future might make sense for exorcise to supply all that information, or have script to update
-    #   symbols in database from HGNC_table.
-    # If experiment ID exists, by default skip and do not alter DB, alternatively drop all rows associated with that experiment
-    # Add rows
 
-    import os, pathlib
-    import pandas as pd
-
-    rute = pathlib.Path('/Users/thomas03/Library/CloudStorage/OneDrive-SharedLibraries-UniversityofCambridge/Simon Lam - ddrcs/runs')
-    srces = [rute/p for p in os.listdir(rute,) if not p.startswith('.')]
-    srces = srces[:2]
-    print(srces)
-
-
-    ngin = create_engine_with_schema(echo=False)
-    logger.setLevel('DEBUG')
-    logger.info('logger level INFO')
-    dta = get_paths_simons_structure_v1(srces)
-    add_data_to_database(dta, ngin)
-
-
-
-
+    run_test_server()
+    #__create_database_20240228()
 
 
 

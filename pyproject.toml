@@ -26,7 +26,7 @@ launch-crsv = "crispr_screen_viewer:launch.from_cli"
 where = ["src"]
 
 [tool.setuptools.package-data]
-crispr_screen_viewer = ["data/*", "assets/*", "assets/images/*"]
+crispr_screen_viewer = ["tests/*", "assets/*", "assets/images/*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
