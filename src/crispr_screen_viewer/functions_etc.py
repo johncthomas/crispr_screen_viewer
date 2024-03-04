@@ -1,6 +1,7 @@
 import copy
 import inspect
 import typing
+import unicodedata
 #from statsmodels.stats.multitest import multipletests
 import pandas as pd
 import numpy as np
@@ -45,6 +46,10 @@ style_comparisons_card = {'padding-top':'98px',
 
 style_hidden = {'display':'none'}
 style_gene_selector_div = {}
+
+def normalise_text(s:str):
+    """Removes formatting bytes, literally `unicodedata.normalize('NFKD' s)`"""
+    return unicodedata.normalize('NFKD', s)
 
 def datatable_column_dict(c,):
     """return {'name':k, 'id':k} for all k except "DOI" which

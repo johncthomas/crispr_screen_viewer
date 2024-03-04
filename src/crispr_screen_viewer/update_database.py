@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from crispr_screen_viewer.database import *
 
 from crispr_screen_viewer import functions_etc
-from crispr_screen_viewer.functions_etc import df_rename_columns
+from crispr_screen_viewer.functions_etc import df_rename_columns, normalise_text
 from crispr_screen_viewer.dataset import ANALYSESTYPES, AnalysisType
 
 from crispr_tools.data_classes import AnalysisWorkbook, CrisprCounts
@@ -497,10 +497,10 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     def short_cite_str(reference):
         """Get "{first_author} ({year})" from reference, if possible."""
         # remove weird formating characters.
-        reference = unicodedata.normalize('NFKD', reference)
+        reference = normalise_text(reference)
         year = find_date(reference)
         auth = reference.split(',')[0]
-        return f"{auth} ({year})"
+        return f"{auth} et al ({year})"
 
     # if there's no external data, and the details excel were put together with older template
     #   it's possible that we won't have a reference column in the whole table
@@ -520,6 +520,16 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
 
     if len(bad_cite) > 0:
         logger.warning(f"The following experiments have bad citation info:\n{'\n\t'.join(bad_cite)}")
+
+    # deduplicate citations
+    cites = experiment_details_table['citation']
+    if cites.duplicated().any():
+        for ref, indicies in cites.groupby(cites).groups.items():
+            if len(indicies) > 1:
+                for n, i in enumerate(indicies):
+                    # starting from 'a'...
+                    letter = chr(97 + n)
+                    cites.loc[i] = ref.replace(')', letter + ')')
 
     # d = experiment_details_table['date'].str.replace('/', '-')
     # experiment_details_table['date'] = pd.to_datetime(d, format='mixed', )
@@ -576,11 +586,15 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
                     already_warned_of_missing_column.add(k)
                     logger.warning(f"Missing columns '{k}' in workbook for experiment {analysis_wb.expd['experiment_id']}")
                 comp_row[comparison_column_mapping[k]] = np.nan
-        exp_id = analysis_wb.expd['experiment_id']
 
+        exp_id = analysis_wb.expd['experiment_id']
         comp_row['experiment'] = exp_id
         comp_row['library'] = analysis_wb.experiment_details['Library']
         comp_row['stringid'] = f"{exp_id}.{ctrl}-{treat}"
+
+        # format strings
+        if not pd.isna(comp_row['dose']):
+            comp_row['dose'] = str(comp_row['dose']).replace('uM', 'μM')
         if pd.isna(comp_row['ko']) or (comp_row['ko'] == ''):
             comp_row['ko'] = 'WT'
 
