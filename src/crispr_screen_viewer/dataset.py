@@ -66,6 +66,7 @@ class DataSet:
             self.available_analyses = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
 
         # todo all this processing should be in update_database and applied to the SQL table
+        #   obviously to be done along side dropping use of CSV tables.
         comparisons = pd.read_csv(comparisons_path )
         # this is sometimes put in wrong...
         m = comparisons['Timepoint'] == 'endpoint'
@@ -116,10 +117,10 @@ class DataSet:
                 self.comparisons['Experiment ID'],
                 'Citation'
             ].values
-            self.comparisons.loc[:, 'Citation'] =  cites
+            self.comparisons.loc[:, 'citation'] =  cites
         except:
             logger.warning('Citations column missing from exeriments_metadata')
-            self.comparisons.loc[:, 'Citation'] = ''
+            self.comparisons.loc[:, 'citation'] = ''
 
 
         # # DF of previous symbols and IDs for currently used.
