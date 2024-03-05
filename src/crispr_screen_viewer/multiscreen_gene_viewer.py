@@ -1,11 +1,5 @@
 #!/usr/bin/env python
-import pathlib, os, logging
-import itertools
-import inspect
-import typing
-from typing import Collection,  Union, Dict
 
-import numpy as np
 import pandas as pd
 from dash import dash, dcc, html, Input, Output, State
 import dash_bio
