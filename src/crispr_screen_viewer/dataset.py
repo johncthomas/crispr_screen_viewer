@@ -117,10 +117,10 @@ class DataSet:
                 self.comparisons['Experiment ID'],
                 'Citation'
             ].values
-            self.comparisons.loc[:, 'citation'] =  cites
+            self.comparisons.loc[:, 'Citation'] =  cites
         except:
             logger.warning('Citations column missing from exeriments_metadata')
-            self.comparisons.loc[:, 'citation'] = ''
+            self.comparisons.loc[:, 'Citation'] = ''
 
 
         # # DF of previous symbols and IDs for currently used.
@@ -219,6 +219,10 @@ class DataSet:
                 returned comparisons (so they'll all be NaN).
                 """
 
+        if type(comparisons) is str:
+            comparisons=[comparisons]
+        if type(genes) is str:
+            genes = [genes]
 
         logger.debug(f"{score_anls=}, {fdr_anls=}, {comparisons=}, {genes=}")
 
@@ -260,6 +264,7 @@ class DataSet:
                 #         )
                 #     )
 
+                logger.debug(query)
                 results = query.all()
 
             return results
@@ -292,8 +297,8 @@ class DataSet:
             scores = scores.reindex(index=genes)
             fdrs = fdrs.reindex(index=genes)
 
-        logger.debug('\n'+str(scores.head()))
-        logger.debug('\n'+str(fdrs.head()))
+        logger.debug('scores returned: '+'\n'+str(scores.head()))
+        logger.debug('FDRs returned: '+'\n'+str(fdrs.head()))
 
         return ScoreFDR(score=scores, fdr=fdrs)
 
