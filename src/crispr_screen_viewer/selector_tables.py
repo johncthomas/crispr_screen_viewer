@@ -14,7 +14,7 @@ from crispr_screen_viewer.functions_etc import (
     datatable_column_dict,
     get_selector_table_filter_keys,
     get_metadata_table_columns,
-    LOG,
+    logger,
     style_hidden,
     style_comparisons_card,
     style_gene_selector_div
@@ -52,7 +52,7 @@ def prep_exp_data(data_set:DataSet) -> (pd.DataFrame, pd.DataFrame):
     latter containing lists of values to be searched against."""
     comparisons = data_set.comparisons
 
-    LOG.debug('Comparison tab columns '+str(comparisons.columns))
+    logger.debug('Comparison tab columns ' + str(comparisons.columns))
 
     # ** table_of_experiments **
     # get the grouped 'Treatment', 'Cell line', 'KO', 'Library' for experiments
@@ -89,7 +89,7 @@ def register_filter_callbacks(app, id_prefix, exp_or_comp, filter_columns,
 
     Output ID is  f'{id_prefix}-{exp_or_comp}-table'"""
     table_id = f'{id_prefix}-{exp_or_comp}-table'
-    LOG.debug(
+    logger.debug(
         f"Registering data selector table row filters with IDs:\n"
         f"   Output: {table_id}\n"
         f"   Inputs: {id_prefix}-{exp_or_comp}-filter-{{col}} for col in {filter_columns}"
@@ -114,7 +114,7 @@ def register_filter_callbacks(app, id_prefix, exp_or_comp, filter_columns,
     def filter_selector_table(*filters_etc):
         """Filter rows in the exp or comp tables based on values in the
         filter boxes."""
-        LOG.debug(f'CALLBACK: filter_selector_table:\n\tTriggered by '
+        logger.debug(f'CALLBACK: filter_selector_table:\n\tTriggered by '
                   f'{callback_context.triggered[0]["prop_id"]}\n\tfilters ={filters_etc[:-2]};')
 
         selected_row = filters_etc[-2]
@@ -158,7 +158,7 @@ def register_filter_callbacks(app, id_prefix, exp_or_comp, filter_columns,
         # Get the pre-filtered compID
         if selected_row:
             index_key = {'exp':'Experiment ID', 'comp':'Comparison ID'}[selected_table]
-            LOG.debug(f"Data of selected row: {table_data[selected_row[0]]}")
+            logger.debug(f"Data of selected row: {table_data[selected_row[0]]}")
             correct_compid = table_data[selected_row[0]][index_key]
             # new, if it's still in the table
             if correct_compid in filtered_table.index:
@@ -195,7 +195,7 @@ def register_exptable_filters_comps(app, id_prefix):
 def get_DataTable(id_prefix, table_type, columns, data,
                   ) -> DataTable:
     idd = f'{id_prefix}-{table_type}-table'
-    LOG.debug(f"get_DataTable(id={idd}, columns={columns})")
+    logger.debug(f"get_DataTable(id={idd}, columns={columns})")
     selectable = {'exp':'multi', 'comp':'single'}[table_type]
 
     # these kwargs shared between tables
@@ -243,7 +243,7 @@ def register_comp_table_xy_row_selection(app, id_prefix):
 
     Also updates actual table_data when filters are applied to the comp
     table, via Input('cm-comp-table-data', 'data')"""
-    LOG.info('Register comp table XY by cell selection')
+    logger.info('Register comp table XY by cell selection')
     table_id = f'{id_prefix}-comp-table'
     @app.callback(
         #Output('selected-comps', 'data'),
@@ -264,11 +264,11 @@ def register_comp_table_xy_row_selection(app, id_prefix):
     )
     def update_selected_xy(active_cell, table_data, viewport_data,
                            selected_comps, comp_options):
-        LOG.debug('CM XY selection by active cell:')
+        logger.debug('CM XY selection by active cell:')
         # first, deal with updates to table data from filters
         if any([trig['prop_id'] == 'cm-comp-table-data.data'
                 for trig in callback_context.triggered]):
-            LOG.debug('\tTriggered by filters, just updating table data')
+            logger.debug('\tTriggered by filters, just updating table data')
             if table_data is None: # this happens on first load
                 raise PreventUpdate
             else:
@@ -281,7 +281,7 @@ def register_comp_table_xy_row_selection(app, id_prefix):
         prev_selected = copy.copy(selected_comps)
 
         axiskey = 'XY'[active_cell['column']]
-        LOG.debug(f'\taxiskey = {axiskey}')
+        logger.debug(f'\taxiskey = {axiskey}')
 
         # Format of active_cell is {'row': 0, 'column': 0, 'column_id': str}
         rowi = active_cell['row']
@@ -293,7 +293,7 @@ def register_comp_table_xy_row_selection(app, id_prefix):
         viewport_data[rowi][axiskey] = selectedradiobutton
 
         selected_comps[axiskey] = compid
-        LOG.debug(f'comp_options={comp_options}')
+        logger.debug(f'comp_options={comp_options}')
 
         if comp_options:
             co = set(comp_options)
@@ -302,7 +302,7 @@ def register_comp_table_xy_row_selection(app, id_prefix):
         co.add(compid)
         comp_options = list(sorted(set(co)))
 
-        LOG.debug('\t'+str(active_cell)+'\n\t'+str(selected_comps)+'\n\t'+str(comp_options))
+        logger.debug('\t' + str(active_cell) + '\n\t' + str(selected_comps) + '\n\t' + str(comp_options))
 
         return (selected_comps['X'], selected_comps['Y'], viewport_data,
                 comp_options, comp_options)
@@ -317,7 +317,7 @@ def spawn_selector_tables(
     filter boxes.
     """
 
-    LOG.debug(f"Spawning selection tables for page {id_prefix}")
+    logger.debug(f"Spawning selection tables for page {id_prefix}")
     exp_data, exp_data_searchable = prep_exp_data(data_set)
     comp_data = data_set.comparisons
 
@@ -364,7 +364,7 @@ def spawn_selector_tabs(
         if not selected_tab:
             raise PreventUpdate
         # any of these should be fine, if we add things later
-        LOG.debug(f"Selected tab = {selected_tab}")
+        logger.debug(f"Selected tab = {selected_tab}")
         show_treat_select = False
         for n in ('chart', 'graph', 'figure', 'table'):
             if n in selected_tab:
@@ -575,7 +575,7 @@ def test(testing_page='cm'):
         xy = triggered.split('-')[-1]
 
         compid = get_compid_from_rowi(table_data, selected_row[0])
-        LOG.debug(f'Choosing {compid} for axis {xy}')
+        logger.debug(f'Choosing {compid} for axis {xy}')
         if xy == 'x':
             return [compid, state_y]
         else:
@@ -586,5 +586,5 @@ def test(testing_page='cm'):
     app.run_server(debug=True)
 
 if __name__ == '__main__':
-    LOG.setLevel('DEBUG')
+    logger.setLevel('DEBUG')
     test('cm')

@@ -1,11 +1,9 @@
 from dash.dependencies import Input, Output, State
-import logging
 from dash.dash_table import DataTable
 from dash.dash_table.Format import Format, Scheme
 
 from dash import dcc, html, callback_context
 from crispr_screen_viewer.functions_etc import (
-    LOG,
     style_gene_selector_div,
     datatable_column_dict
 )
@@ -19,6 +17,8 @@ import dash_bootstrap_components as dbc
 #from crispr_screen_viewer.functions_etc import DataSet
 
 from typing import Tuple, List, Dict, Callable
+
+from loguru import logger
 
 #from https://sashamaps.net/docs/resources/20-colors/, 99%,
 
@@ -156,7 +156,7 @@ def register_gene_selection_processor(app, figure_id, selected_genes_state, outp
         selected_genes_state,
     )
     def put_selected_genes_into_dropdown(selected_data, dropdown_genes):
-        LOG.debug(f'Adding genes from {figure_id}.selectedData: {selected_data}')
+        logger.debug(f'Adding genes from {figure_id}.selectedData: {selected_data}')
 
         if not selected_data:
             raise PreventUpdate
@@ -166,7 +166,7 @@ def register_gene_selection_processor(app, figure_id, selected_genes_state, outp
             selected_genes.add(p['text'])
 
         if selected_genes.issubset(dropdown_genes):
-            LOG.debug('...no new genes, preventing update')
+            logger.debug('...no new genes, preventing update')
             raise PreventUpdate
 
         return dropdown_genes+list(selected_genes.difference(dropdown_genes))
@@ -216,10 +216,13 @@ def spawn_filter_dropdowns(
     Options from comparisons[col].
 
     """
+
+    logger.debug(f"{comparisons=}, {values=}")
+
     filter_dropdowns = []
     for col in filter_cols:
         idd = f"{id_prefix}-{table_str}-filter-{col}"
-        LOG.debug(f"Filter dropdown: register ID={idd}")
+        logger.debug(f"Filter dropdown: register ID={idd}")
 
         try:
             value = values[col]

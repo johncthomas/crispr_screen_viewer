@@ -27,7 +27,7 @@ from crispr_screen_viewer.functions_etc import (
 from crispr_screen_viewer.shared_components import (
     get_gene_dropdown_lab_val,
     get_annotation_dicts,
-    LOG,
+    logger,
     get_stat_source_selector,
     register_gene_selection_processor,
     spawn_gene_dropdown,
@@ -95,7 +95,7 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
     def render_volcano(selected_genes, xy_genes,
                        table_data, selected_row):
 
-        LOG.debug(f"Rendering volcano")
+        logger.debug(f"Rendering volcano")
 
         if not selected_row:
             raise PreventUpdate
@@ -125,7 +125,7 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
                     'dragmode':'select'},
 
         )
-        LOG.debug(f"{(len(x), len(y))}")
+        logger.debug(f"{(len(x), len(y))}")
 
         # add some titles
         # consider using data_set.comparisons.loc[<Input('selected-comp', 'data')>]
@@ -146,8 +146,8 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
                 **anot
             )
 
-        LOG.debug(str(fig))
-        LOG.debug('Finished generating volcano Figure')
+        logger.debug(str(fig))
+        logger.debug('Finished generating volcano Figure')
         return fig
 
 
@@ -293,7 +293,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             'selected_row, sig_source, table_stat_source'.split(', '),
             [compid, sig_source, ]
         )}
-        LOG.debug(f'CALLBACK: update_volcano_data with {args_for_printing}')
+        logger.debug(f'CALLBACK: update_volcano_data with {args_for_printing}')
 
         if not compid:
             raise PreventUpdate
@@ -309,8 +309,8 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         volcano_data = {'score': score, 'fdr': fdr, 'genes': score.index}
         gene_options = get_gene_dropdown_lab_val(data_set, score.index)
 
-        LOG.debug(f'End of update_volcano_data with:')
-        LOG.debug('     datatable:  '+'\n'.join([f"{k}={volcano_data[k].head()}" for k in ('score', 'fdr')]))
+        logger.debug(f'End of update_volcano_data with:')
+        logger.debug('     datatable:  ' + '\n'.join([f"{k}={volcano_data[k].head()}" for k in ('score', 'fdr')]))
 
         return (
             volcano_data,
@@ -329,9 +329,9 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         Input(f'{PAGE_ID}-tabs', 'value'),
 
     )
-    def update_results_table_data(selected_comp, selected_genes, stat_source,
-                                  selected_tab, ):
-        LOG.debug(f'CALLBACK: update_results_table_data({selected_comp}, {stat_source})')
+    def update_results_table_data(selected_comp:str, selected_genes:Collection[str], stat_source:str,
+                                  selected_tab:str, ):
+        logger.debug(f'CALLBACK: {selected_comp=}, {stat_source=}, N genes = {selected_genes}')
         if not selected_comp:
             raise PreventUpdate
         if selected_tab != idprfx_res_table+'-tab':
@@ -339,9 +339,9 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
         # data for the table
         dat = data_set.get_score_fdr(stat_source, stat_source, comparisons=selected_comp)
-        lfc = data_set.get_score_fdr('mageck', False, comparisons=selected_comp)['score']
-        score = dat['score']
-        fdr = dat['fdr']
+        lfc = data_set.get_score_fdr('mageck', False, comparisons=selected_comp)['score'][selected_comp]
+        score = dat['score'][selected_comp]
+        fdr = dat['fdr'][selected_comp]
 
         # index is genes
         index = lfc.index.union(score.index).union(fdr.index)
@@ -351,14 +351,16 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         ans_lab = ANALYSESTYPES[stat_source].label
         score_lab = ANALYSESTYPES[stat_source].label
 
-        # Build the table
-        results_tab = pd.DataFrame(
-            {
+        table_data = {
                 'Log2(FC)':lfc,
                 score_lab:score,
                 'FDR':fdr,
                 'Gene selected':is_selected,
-            },
+            }
+        logger.debug(table_data)
+        # Build the table
+        results_tab = pd.DataFrame(
+            table_data,
             index=index
         )
         no_stats = results_tab[[score_lab, 'FDR']].isna().any(axis=1)
@@ -392,7 +394,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
         # get the comparison ID, select the relevant data from dataset
         compid = table_data[selected_row[0]]['Comparison ID']
-        LOG.debug(f'selected comp: {compid}')
+        logger.debug(f'selected comp: {compid}')
         if compid not in [d['value'] for d in opt]:
             opt.append(
                 {'value':compid, 'label':compid}

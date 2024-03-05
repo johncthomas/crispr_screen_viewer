@@ -23,7 +23,7 @@ from crispr_screen_viewer.shared_components import (
     get_stat_source_selector,
     colours,
     big_text_style,
-    LOG,
+    logger,
     spawn_filter_dropdowns,
 )
 
@@ -441,7 +441,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             selected_metadata = data_set.comparisons.loc[selected_stats.index, cols_oi]
 
             data_table_data = pd.concat([selected_stats, selected_metadata], axis=1)
-            LOG.debug(f"{getfuncstr()} datatable data head:\n{str(data_table_data.head())}")
+            logger.debug(f"{getfuncstr()} datatable data head:\n{str(data_table_data.head())}")
 
             return create_datatable(data_table_data)
 
@@ -618,7 +618,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             elif selected_tab == 'msgv-clustergram-tab':
                 return (hide, hide, hide, show, show)
 
-            LOG.warn(f'MSGV: Unknown tab value {selected_tab}')
+            logger.warn(f'MSGV: Unknown tab value {selected_tab}')
             return (show, show, show, show)
 
         return control_panel

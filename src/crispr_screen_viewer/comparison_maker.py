@@ -17,7 +17,7 @@ from dash.dependencies import Input, Output, State
 import typing
 
 from crispr_screen_viewer.functions_etc import (
-    LOG,
+    logger,
     style_gene_selector_div,
     get_cmdline_options,
     html_small_span,
@@ -183,10 +183,10 @@ def initiate(app, data_set:DataSet, public):
         Input(f'{PAGE_ID}-y-selector', 'value'),
     )
     def update_selection(xk, yk):
-        LOG.debug(f'update_selection({xk}, {yk})')
+        logger.debug(f'update_selection({xk}, {yk})')
         selected_comps = {'X':xk, 'Y':yk}
         if (not xk) or (not yk):
-            LOG.debug('\tOnly 0-1 comps selected, not making graph')
+            logger.debug('\tOnly 0-1 comps selected, not making graph')
             return selected_comps, dash.no_update
         x, _ = get_xyscores_genes(xk, yk, 'drz')
         return selected_comps, get_gene_dropdown_lab_val(data_set, x.index)
@@ -211,11 +211,11 @@ def initiate(app, data_set:DataSet, public):
     def update_chart_table(selected_comps, selected_genes):
         xk, yk = selected_comps['X'], selected_comps['Y']
 
-        LOG.debug(f'update_chart_table(selected_comps={selected_comps},\n'
+        logger.debug(f'update_chart_table(selected_comps={selected_comps},\n'
                   f'                   selected_genes={selected_genes})')
-        LOG.debug(str(callback_context.triggered))
+        logger.debug(str(callback_context.triggered))
         if (not xk) or (not yk):
-            LOG.debug('not updating')
+            logger.debug('not updating')
             raise PreventUpdate
 
         x, y = get_xyscores_genes(xk, yk)

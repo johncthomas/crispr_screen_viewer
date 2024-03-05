@@ -17,7 +17,7 @@ from crispr_screen_viewer.dataset import (
 )
 
 from crispr_screen_viewer.shared_components import (
-    LOG
+    logger
 )
 from dash import dash, html, dcc, Input, Output, State
 Div = html.Div
@@ -288,7 +288,7 @@ def init_app(
         print('Debug messages on')
         werklog = logging.getLogger('werkzeug')
         werklog.setLevel(logging.ERROR)
-        LOG.setLevel('DEBUG')
+        logger.level('DEBUG')
 
     server = flask.Flask(__name__)
 

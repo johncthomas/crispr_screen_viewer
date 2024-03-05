@@ -11,7 +11,7 @@ from scipy.stats import norm
 from scipy import odr
 from scipy.stats import linregress
 from typing import Union, List, Dict, Iterable, Collection, Sequence
-import logging, pickle
+from loguru import logger
 from dash import html
 parse_expid = lambda comp: comp.split('.')[0]
 
@@ -402,8 +402,10 @@ def launch_page(source:Union[pathlib.Path, str],
     if debug:
         LOG.setLevel(logging.DEBUG)
     LOG.debug(source)
+        logger.level('DEBUG')
+    logger.debug(source)
     source_directory = pathlib.Path(source)
-    data_set = DataSet(source_directory)
+    data_set = DataSet(source_directory) #todo update this
     app.layout = initiate(app, data_set, public=True)
     app.run_server(debug=debug, host='0.0.0.0', port=int(port), )
 
