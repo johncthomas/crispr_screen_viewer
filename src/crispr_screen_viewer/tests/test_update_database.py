@@ -83,7 +83,24 @@ class TestDatabaseExorciseV1(TestCase):
         self.assertTrue(observed == expected)
 
 
+def test_add_genes_from_symbols():
+    from crispr_screen_viewer.update_database import (
+        create_engine_with_schema,
+        load_stats_csv,
+        add_genes_from_symbols,
+        get_gene_symbols_db
+    )
+    from importlib import resources
+    ngn = create_engine_with_schema(echo=True)
 
+    fn = resources.files("crispr_screen_viewer").joinpath("tests/test_data/exorcise_style/test1/re/res/tables/result.drugz_table.csv").__str__()
+    test_table = load_stats_csv(fn)
+
+    with Session(ngn) as S:
+        add_genes_from_symbols(test_table.index[:-5], 'Human', S)
+        assert len(get_gene_symbols_db(S)) == len(test_table.index)-5
+        add_genes_from_symbols(test_table.index, 'Human', S)
+        assert len(get_gene_symbols_db(S)) == len(test_table.index)
 
 
 
