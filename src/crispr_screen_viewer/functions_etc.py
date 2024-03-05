@@ -15,8 +15,7 @@ from loguru import logger
 from dash import html
 parse_expid = lambda comp: comp.split('.')[0]
 
-logging.basicConfig()
-LOG = logging.getLogger('screen_viewers')
+
 
 cell_text_style = {
     'font-family':'Helvetica',
@@ -46,6 +45,28 @@ style_comparisons_card = {'padding-top':'98px',
 
 style_hidden = {'display':'none'}
 style_gene_selector_div = {}
+
+def load_stats_csv(
+        fn,
+        drop_controls_with=('control', 'Control', 'CONTROL', 'Non-target', 'Cutting'),
+) -> pd.DataFrame:
+    """Load the double-headered stats CSV. Drop genes with any substrings
+    defined in `drop_controls_with`."""
+    df = pd.read_csv(fn, index_col=0, header=[0,1])
+    if df.index.isna().any():
+        logger.warning(f"NaN genes found in {fn}")
+
+    if drop_controls_with:
+        # get Falses
+        drop_mask = df.index != df.index
+        # Make True where index contains a control indicating substring
+        for ctrl_indicator in drop_controls_with:
+            drop_mask = drop_mask | df.index.str.contains(ctrl_indicator)
+        df = df.loc[~drop_mask]
+
+    return df
+
+
 
 def normalise_text(s:str):
     """Removes formatting bytes, literally `unicodedata.normalize('NFKD' s)`"""
@@ -400,8 +421,6 @@ def launch_page(source:Union[pathlib.Path, str],
     app = dash.Dash(name, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     if debug:
-        LOG.setLevel(logging.DEBUG)
-    LOG.debug(source)
         logger.level('DEBUG')
     logger.debug(source)
     source_directory = pathlib.Path(source)

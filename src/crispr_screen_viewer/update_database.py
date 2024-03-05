@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 import dataclasses
-import logging
+import requests, json
 import os.path, typing
 import pathlib
 from pathlib import Path
 import unicodedata
+
+from typing import Literal
 
 import pandas as pd
 from sqlalchemy import Engine, create_engine, select
@@ -13,7 +15,11 @@ from sqlalchemy.orm import Session
 from crispr_screen_viewer.database import *
 
 from crispr_screen_viewer import functions_etc
-from crispr_screen_viewer.functions_etc import df_rename_columns, normalise_text
+from crispr_screen_viewer.functions_etc import (
+    df_rename_columns,
+    normalise_text,
+    load_stats_csv
+)
 from crispr_screen_viewer.dataset import ANALYSESTYPES, AnalysisType
 
 from crispr_tools.data_classes import AnalysisWorkbook, CrisprCounts
@@ -108,13 +114,13 @@ def prep_deets_columns(tbl:pd.DataFrame, cmap:dict):
     return tbl
 
 
-def insert_df_rows(tablecls, df:pd.DataFrame, session:Session):
-    """Take row values from df, and add them as rows to the table.
+def insert_records(tablecls, records:list[dict], session:Session):
+    """Insert rows into given table. Record dict.keys must be present in tablecls
+    columns. Use DataFrame.to_dict(orient='records') to pass DF info.
 
     NaN are skipped over.
 
-    Assumes everything is formated correctly with df.columns matching field names.
-    Fails if they've already been added, dunno how you update them
+    Fails if they've already been added.
 
     Does not commit"""
     # https://docs.sqlalchemy.org/en/20/tutorial/data_update.html
@@ -122,7 +128,7 @@ def insert_df_rows(tablecls, df:pd.DataFrame, session:Session):
     # filter the records so key:value pairs of null value are removed
     session.add_all(
         [tablecls(**{k: v for k, v in kw.items() if not pd.isna(v)})
-         for kw in df.to_dict(orient='records')]
+         for kw in records]
     )
 
 
@@ -286,23 +292,23 @@ def insert_df_rows(tablecls, df:pd.DataFrame, session:Session):
 #         insert_df_rows(StatTable, tbl, engine)
 
 
-def split_data(data:dict[str, pd.DataFrame]):
-    out_data = {}
-    for k in ('experiments_metadata', 'comparisons_metadata'):
-        out_data[k] = data[k]
-        del data[k]
+# def split_data(data:dict[str, pd.DataFrame]):
+#     out_data = {}
+#     for k in ('experiments_metadata', 'comparisons_metadata'):
+#         out_data[k] = data[k]
+#         del data[k]
+#
+#     out_data['stats_tables'] = data
+#
+#     return out_data
 
-    out_data['stats_tables'] = data
-
-    return out_data
-
-def load_csv(paff:str):
-    """Load all .csv in paff, should be experiments_metadata.csv, comparisons_metadata.csv and
-    individual tables for the statistics. The stats tables get put under "stats_tables" key. """
-    data: dict[str, pd.DataFrame] = {
-        fn.replace('.csv', ''): pd.read_csv(pathlib.Path(paff) / fn, index_col=0)
-        for fn in os.listdir(paff) if fn.endswith('.csv')}
-    return split_data(data)
+# def load_csv(paff:str):
+#     """Load all .csv in paff, should be experiments_metadata.csv, comparisons_metadata.csv and
+#     individual tables for the statistics. The stats tables get put under "stats_tables" key. """
+#     data: dict[str, pd.DataFrame] = {
+#         fn.replace('.csv', ''): pd.read_csv(pathlib.Path(paff) / fn, index_col=0)
+#         for fn in os.listdir(paff) if fn.endswith('.csv')}
+#     return split_data(data)
 
 # def run_cli():
 #     from argparse import ArgumentParser
@@ -542,7 +548,7 @@ def add_experiments(data_paths:list[AnalysisInfo], session:Session):
     experiment_details = [d.analysis_workbook.experiment_details for d in data_paths]
     table = tabulate_experiments_metadata(experiment_details)
     logger.info(f"Adding {table.shape[0]} rows to ExperimentTable")
-    insert_df_rows(ExperimentTable, table, session)
+    insert_records(ExperimentTable,  table.to_dict(orient='records'), session)
 
 def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     comparison_column_mapping = {
@@ -609,30 +615,107 @@ def add_comparisons(analyses_info:list[AnalysisInfo], session:Session):
     for info in analyses_info:
         comparisons_metadata = tabulate_comparisons(info.analysis_workbook)
         logger.info(f"Adding {comparisons_metadata.shape[0]} rows to ComparisonTable from {info.experiment_id}")
-        insert_df_rows(ComparisonTable, comparisons_metadata, session)
+        insert_records(ComparisonTable, comparisons_metadata.to_dict(orient='records'), session)
 
+
+def get_gene_symbols_db(session) -> set[str]:
+    gns = set([g[0] for g in session.query(GeneTable.symbol).distinct().all()])
+    return gns
+
+def gene_info_from_refseq_by_symbols(
+        symbols:list[str],
+        organism:Literal['human']|Literal['mouse']|int,
+) -> list[dict[str,str]]:
+    """Get list of information from RefSeq, formatted to pass to GeneTable."""
+    if type(organism) is int:
+        orgid = organism
+    else:
+        orgid = {
+            'Human':"9606",
+            'Mouse':"10090",
+        }[organism]
+
+    payload = {
+        "symbols_for_taxon": {
+            "symbols": list(symbols),
+            "taxon": orgid}
+    }
+
+    logger.debug(payload)
+
+    refseqres = requests.request(
+        'POST',
+        'https://api.ncbi.nlm.nih.gov/datasets/v2alpha/gene',
+        data=json.dumps(payload),
+    )
+
+    refseqres.raise_for_status()
+
+    gene_info:list[dict[str,str]] = []
+
+    for r in refseqres.json()['reports']:
+        gn_res = r['gene']
+        symbol:str = gn_res['symbol']
+        query = r['query'][0]
+
+        # Skip synonyms.
+        # We are working with the assumption that the symbol comes from refseq
+        if not symbol == query:
+            continue
+
+        try:
+            official_id = gn_res['nomenclature_authority']['identifier']
+            symonyms = gn_res['synonyms']
+        except KeyError:
+            logger.info(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
+            continue
+
+        gninfo = {
+            'id':symbol,
+            'symbol':symbol,
+            'ncbi':'NCBI: '+str(gn_res['gene_id']),
+            'official_id':official_id,
+            'synonyms_str':str(symonyms),
+            'organism':organism
+        }
+
+        gene_info.append(gninfo)
+
+    return gene_info
+
+def add_genes_from_symbols(
+        symbols: list[str],
+        organism: Literal['Human'] | Literal['Mouse'] | int,
+        session:Session,
+        query_refseq_by_symbol=False,
+):
+    """Look up the symbol in refseq, get some IDs"""
+
+    symbols_to_add = set(symbols).difference(get_gene_symbols_db(session))
+    if query_refseq_by_symbol:
+        logger.debug('Adding: '+str(symbols_to_add))
+        records = gene_info_from_refseq_by_symbols(list(symbols_to_add), organism)
+        insert_records(GeneTable, records, session)
+
+    # above queries will not add rows for genes that aren't in refseq
+    new_current_symbols = get_gene_symbols_db(session)
+    no_refseq_genes = symbols_to_add.difference(new_current_symbols)
+    logger.debug('ID-less genes being added: '+str(no_refseq_genes))
+    empty_records = [dict(id=s, symbol=s, organism=organism) for s in no_refseq_genes]
+    logger.debug(empty_records)
+    insert_records(GeneTable, empty_records, session)
 
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
-
     experiment_id = info.experiment_id
     tables = []
     for analysis_type, fn in info.results_path.items():
         logger.debug(f"tabulating from {fn}")
-        stats_table = pd.read_csv(fn, header=[0, 1], index_col=0)
-        stats_table.index.name = 'gene'
-        null_genes = stats_table.index.isna()
-        if null_genes.any():
-            logger.warning(f"Stats table {info.results_path} has missing gene name, this will be dropped")
-            stats_table = stats_table.loc[~null_genes]
-
-        # drop non targeting genes
-        stats_table = stats_table.loc[
-            ~stats_table.index.str.contains('Non-targeting')
-        ]
+        stats_table = load_stats_csv(fn)
+        stats_table.index.name = 'gene_id'
 
         for cmp in stats_table.columns.levels[0]:
             table = stats_table[cmp].reset_index()
-            df_rename_columns(table, {'gene': 'gene_id', 'lfc': 'score', 'normZ': 'score',
+            df_rename_columns(table, {'lfc': 'score', 'normZ': 'score',
                                       'fdr_log10': 'fdr10'}, inplace=True)
             table.loc[:, 'comparison_id'] = f"{experiment_id}.{cmp}"
             table.loc[:, 'analysis_type_id'] = analysis_type.id
@@ -642,14 +725,22 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
             tables.append(table)
     return pd.concat(tables)
 
-def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
+def add_statistics(analysesinfo:list[AnalysisInfo], session:Session, query_refseq_by_symbol=False):
     """Take a table, as output by crispr_pipeline, add rows to StatTable."""
     for info in analysesinfo:
         table = tabulate_statistics(info)
+
+        add_genes_from_symbols(
+            table.gene_id,
+            info.analysis_workbook.experiment_details.Organism,
+            session,
+            query_refseq_by_symbol=query_refseq_by_symbol
+        )
+
         logger.info(f"Adding {table.shape[0]} rows to StatTable from {info.experiment_id}")
-        insert_df_rows(
+        insert_records(
             StatTable,
-            table,
+            table.to_dict(orient='records'),
             session
         )
 
@@ -718,9 +809,12 @@ def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
     experiments_metadata.to_csv(outdir/'experiments_metadata.csv.gz')
 
 def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
-                         outdir:str|Path, overwrite=False):
+                         outdir:str|Path, overwrite=False, query_refseq_by_symbol=True):
     #todo check for exant expid and skip if skipping
     #todo convert comparisons and experiment details to use SQL
+    if overwrite is True:
+        raise NotImplementedError("Not currently able to update the database in place")
+
     outdir = Path(outdir)
 
     write_metadata_tables(analysesinfo, outdir)
@@ -728,7 +822,7 @@ def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
     with Session(engine) as session:
         add_experiments(analysesinfo, session) # note, only actual thing this is currently used for is doi and reference
         add_comparisons(analysesinfo, session)
-        add_statistics(analysesinfo, session)
+        add_statistics(analysesinfo, session, query_refseq_by_symbol=query_refseq_by_symbol)
         logger.info("Commiting changes")
         session.commit()
 
@@ -763,7 +857,7 @@ def __create_database_20240228():
     write_metadata_tables(datobj, outdir)
 
 
-def run_test_server():
+def __run_test_server():
     logger.level('DEBUG')
     stemd = 'smol_2024-02-28'
     outdir = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
@@ -817,9 +911,8 @@ def run_test_server():
 
 
 if __name__ == '__main__':
-
-    run_test_server()
-    #__create_database_20240228()
+    __run_test_server()
+    pass
 
 
 

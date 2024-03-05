@@ -15,15 +15,16 @@ from sqlalchemy.orm import Session, mapped_column, Mapped
 
 
 
-__all__ = "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base"
+__all__ = "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base", 'GeneTable'
 
 # function for creating columns
 mcol = mapped_column
 
+# declaritive type shorthands
 MInt = orm.Mapped[int]
 MFloat = orm.Mapped[float]
 MStr = orm.Mapped[str]
-# nullable versions
+# nullable types
 MIntN = orm.Mapped[Optional[int]]
 MFloatN = orm.Mapped[Optional[float]]
 MStrN = orm.Mapped[Optional[str]]
@@ -33,25 +34,16 @@ class Base(orm.DeclarativeBase):
     pass
 
 
-# going with a simple
-# class AnalysisTypeTable(Base):
-#     __tablename__ = 'analysis_type'
-#
-#     id: MInt = mcol(primary_key=True)
-#     name: MStr
-#     shortname: MStr
-#     label: MStrN
+class GeneTable(Base):
+    __tablename__ = "gene"
 
-
-# class GeneTable(Base):
-#     __tablename__ = "gene"
-#
-#     #id: MInt = mcol(primary_key=True)
-#     name: MStr = mcol(primary_key=True)
-#     ensembl: MStrN
-#     ncbi: MStrN
-#     hgnc: MStrN
-#     mgi: MStrN
+    id: MStr = mcol(primary_key=True)
+    symbol: MStr = mcol(unique=True)
+    ensembl: MStrN
+    ncbi: MStrN
+    official_id: MStrN # i.e. MGI or HGNC
+    organism: MStrN
+    synonyms_str: MStrN
 
 
 class ExperimentTable(Base):
@@ -96,7 +88,6 @@ class ComparisonTable(Base):
 class StatTable(Base):
     __tablename__ = 'stat'
     __table_args__ = (
-        # sqla.PrimaryKeyConstraint(
         sqla.UniqueConstraint(
             'comparison_id', 'gene_id', 'analysis_type_id'
         ),
@@ -106,8 +97,7 @@ class StatTable(Base):
     #  so if they change name, __table_args__ needs to change
     comparison_id: MInt = mcol(ForeignKey(ComparisonTable.stringid), primary_key=True)
     experiment_id: MStr = mcol(ForeignKey(ExperimentTable.stringid))
-    #gene_id: MInt = orm.mapped_column(ForeignKey(GeneTable.id), primary_key=True)
-    gene_id: MStr = mcol(primary_key=True)
+    gene_id: MInt = orm.mapped_column(ForeignKey(GeneTable.id), primary_key=True)
     analysis_type_id: MInt = mcol(primary_key=True)
 
     score: MFloatN
