@@ -54,8 +54,8 @@ def load_stats_csv(
     defined in `drop_controls_with`."""
     df = pd.read_csv(fn, index_col=0, header=[0,1])
     if df.index.isna().any():
-        logger.warning(f"NaN genes found in {fn}")
         df = df.loc[~df.index.isna()]
+        logger.warning(f"NaN genes found in (and dropped from) {fn}")
 
     if drop_controls_with:
         # get Falses
