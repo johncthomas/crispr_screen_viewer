@@ -154,6 +154,99 @@ def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
     return volcano_layout
 
 
+def spawn_rank_plot(app, fig_id=f'{PAGE_ID}-rank-plot'):
+    """Return layout containing the plotly Graph object and stat/gene
+    selectors. Register rank plot callbacks.
+    """
+    rank_plot = dcc.Graph(
+        id=fig_id,
+        config={
+            'editable':True,
+            'edits':{'annotationPosition':False},
+        },
+        style={'width': '800px',
+               'height':'1200px',
+               'padding':'0px'},
+        figure={'layout':{'clickmode':'event+select',
+                          'dragmode':'select'}, }
+    )
+
+    rank_plot_layout = [
+        Div([rank_plot]),
+    ]
+
+    @app.callback(
+        Output(f'{PAGE_ID}-rank-plot', 'figure'),
+
+        #Input(f'{PAGE_ID}-gene-dropdown', 'value'),
+        Input(f'{PAGE_ID}-graph-data', 'data'),
+
+        State(f'{PAGE_ID}-comp-table', 'data'),
+        State(f'{PAGE_ID}-comp-table', 'selected_rows'),
+        State(f'{PAGE_ID}-stat-source-selector', 'value')
+    )
+    def update_rank_plot_figure(
+            score_fdr_genes,
+            table_data, selected_row, stat_source
+    ):
+        LOG.debug(f"Rendering rank plot")
+
+        if not selected_row:
+            LOG.debug("No selected row")
+            raise PreventUpdate
+
+        score_lab = ANALYSESTYPES[stat_source].score_label
+
+        #LOG.debug(score_fdr_genes)
+
+        y = np.array(score_fdr_genes['score'])
+        ranks = y.argsort().argsort()
+
+        fig = go.Figure(
+            data=go.Scattergl(
+                x=ranks,
+                y=y,
+                mode='markers',
+                customdata=score_fdr_genes['fdr'],
+                text=score_fdr_genes['genes'],
+                hovertemplate=(
+                        "<b>%{text}</b><br>" +
+                        "Rank: %{x}<br>" +
+                        score_lab + ": %{y}<br>" +
+                        "FDR: %{customdata:.2e}" +
+                        "<extra></extra>"
+                ),
+            ),
+            layout={'clickmode': 'event+select',
+                    'dragmode': 'select'},
+        )
+
+        # add some titles
+        # consider using data_set.comparisons.loc[<Input('selected-comp', 'data')>]
+        row = table_data[selected_row[0]]
+        line1, line2 = get_treatment_label(row)
+        title = f"<b>{line1}</b><br>{line2}"
+        fig.update_layout(
+            title=title,
+            xaxis_title='Rank',
+            yaxis_title=score_lab,
+
+        )
+
+        # # Add annotations for the selected genes
+        # new_annotations = get_annotation_dicts(x[selected_genes], y[selected_genes], selected_genes)
+        # for anot in new_annotations:
+        #     fig.add_annotation(
+        #         **anot
+        #     )
+
+        LOG.debug(str(fig))
+        LOG.debug('Finished generating rank plot Figure')
+        return fig
+
+
+
+    return rank_plot_layout
 
 def initiate(app, data_set:DataSet, public=False) -> Div:
     """Source directory should contain the relevant info: metadata.csv,
@@ -167,7 +260,8 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
 
 
     # **GRAPHS****
-    volcano_layout = spawn_volcano_graph(app, f'{PAGE_ID}-volcano')
+    volcano_layout = spawn_volcano_plot(app, f'{PAGE_ID}-volcano')
+    rank_plot_layout = spawn_rank_plot(app, f'{PAGE_ID}-rank-plot')
 
     # # ***TABLES***
     # # Timepoint, renaming values to something more readable
@@ -226,6 +320,11 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             label='Volcano plot', value='volcano-chart-tab',
             className='data-tab', selected_className='data-tab--selected',
             children=volcano_layout
+        ),
+        dcc.Tab(
+            label='Rank plot', value='rank-plot-tab',
+            className='data-tab', selected_className='data-tab--selected',
+            children=rank_plot_layout
         ),
         dcc.Tab(
             label='Results Table', value=idprfx_res_table+'-tab',
@@ -333,8 +432,10 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
                                   selected_tab:str, ):
         logger.debug(f'CALLBACK: {selected_comp=}, {stat_source=}, N genes = {selected_genes}')
         if not selected_comp:
+            logger.debug('no comp selected')
             raise PreventUpdate
         if selected_tab != idprfx_res_table+'-tab':
+            logger.debug('no tab selected')
             raise PreventUpdate
 
         # data for the table
@@ -377,6 +478,9 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
             comparisons.loc[selected_comp],
             ans_lab
         )
+        logger.debug('Table data: ')
+        logger.debug(str((columns, results_data, treatment_para,)))
+        logger.debug('Done updating table data')
 
         return (columns, results_data, treatment_para, )
 
