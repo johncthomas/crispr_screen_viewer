@@ -635,11 +635,27 @@ def gene_info_from_refseq_by_symbols(
             'Mouse':"10090",
         }[organism]
 
-    payload = {
-        "symbols_for_taxon": {
-            "symbols": list(symbols),
-            "taxon": orgid}
-    }
+    #might be a set or something
+    symbols = list(symbols)
+
+    # seems to have ~1000 gene query limit
+    gene_info: list[dict[str, str]] = []
+    done = False
+    batch_size = 1000
+    chunk = 0
+    n_symbols = len(symbols)
+    logger.info(f"Querying refseq with {n_symbols} genes in batches of {batch_size}.")
+    while not done:
+        start, stop = batch_size*chunk, batch_size*(chunk+1)
+        symb_chunk = symbols[start:stop]
+        if stop > n_symbols:
+            done = True
+
+        payload = {
+            "symbols_for_taxon": {
+                "symbols": symb_chunk,
+                "taxon": orgid}
+        }
 
     logger.debug(payload)
 
