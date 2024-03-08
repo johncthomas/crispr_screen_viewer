@@ -647,6 +647,7 @@ def gene_info_from_refseq_by_symbols(
     logger.info(f"Querying refseq with {n_symbols} genes in batches of {batch_size}.")
     while not done:
         start, stop = batch_size*chunk, batch_size*(chunk+1)
+        chunk += 1
         symb_chunk = symbols[start:stop]
         if stop > n_symbols:
             done = True
@@ -678,6 +679,11 @@ def gene_info_from_refseq_by_symbols(
             # We are working with the assumption that the symbol comes from refseq
             if not symbol == query:
                 continue
+
+            if 'synonyms' in gn_res:
+                symonyms = gn_res['synonyms']
+            else:
+                symonyms = []
 
             try:
                 official_id = gn_res['nomenclature_authority']['identifier']
