@@ -511,7 +511,7 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     # if there's no external data, and the details excel were put together with older template
     #   it's possible that we won't have a reference column in the whole table
     if "reference" not in experiment_details_table.columns:
-        experiment_details_table.loc[:, 'reference'] = np.nan
+        experiment_details_table.loc[:, 'reference'] = ''
 
     # should only be internal
     isinternal = lambda s: 'internal' in str(s).lower()
@@ -624,11 +624,11 @@ def get_gene_symbols_db(session) -> set[str]:
 
 def gene_info_from_refseq_by_symbols(
         symbols:list[str],
-        organism:Literal['human']|Literal['mouse']|int,
+        organism:Literal['Human']|Literal['Mouse']|int,
 ) -> list[dict[str,str]]:
     """Get list of information from RefSeq, formatted to pass to GeneTable."""
     if type(organism) is int:
-        orgid = organism
+        orgid = str(organism)
     else:
         orgid = {
             'Human':"9606",
@@ -657,45 +657,45 @@ def gene_info_from_refseq_by_symbols(
                 "taxon": orgid}
         }
 
-    logger.debug(payload)
+        logger.debug(payload)
 
-    refseqres = requests.request(
-        'POST',
-        'https://api.ncbi.nlm.nih.gov/datasets/v2alpha/gene',
-        data=json.dumps(payload),
-    )
+        refseqres = requests.request(
+            'POST',
+            'https://api.ncbi.nlm.nih.gov/datasets/v2alpha/gene',
+            data=json.dumps(payload),
+        )
 
-    refseqres.raise_for_status()
+        refseqres.raise_for_status()
 
-    gene_info:list[dict[str,str]] = []
 
-    for r in refseqres.json()['reports']:
-        gn_res = r['gene']
-        symbol:str = gn_res['symbol']
-        query = r['query'][0]
 
-        # Skip synonyms.
-        # We are working with the assumption that the symbol comes from refseq
-        if not symbol == query:
-            continue
+        for r in refseqres.json()['reports']:
+            gn_res = r['gene']
+            symbol:str = gn_res['symbol']
+            query = r['query'][0]
 
-        try:
-            official_id = gn_res['nomenclature_authority']['identifier']
-            symonyms = gn_res['synonyms']
-        except KeyError:
-            logger.info(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
-            continue
+            # Skip synonyms.
+            # We are working with the assumption that the symbol comes from refseq
+            if not symbol == query:
+                continue
 
-        gninfo = {
-            'id':symbol,
-            'symbol':symbol,
-            'ncbi':'NCBI: '+str(gn_res['gene_id']),
-            'official_id':official_id,
-            'synonyms_str':str(symonyms),
-            'organism':organism
-        }
+            try:
+                official_id = gn_res['nomenclature_authority']['identifier']
+                symonyms = gn_res['synonyms']
+            except KeyError:
+                logger.info(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
+                continue
 
-        gene_info.append(gninfo)
+            gninfo = {
+                'id':symbol,
+                'symbol':symbol,
+                'ncbi':'NCBI: '+str(gn_res['gene_id']),
+                'official_id':official_id,
+                'synonyms_str':str(symonyms),
+                'organism':organism
+            }
+
+            gene_info.append(gninfo)
 
     return gene_info
 
@@ -709,7 +709,7 @@ def add_genes_from_symbols(
 
     symbols_to_add = set(symbols).difference(get_gene_symbols_db(session))
     if query_refseq_by_symbol:
-        logger.debug('Adding: '+str(symbols_to_add))
+        #logger.debug('Adding: '+str(symbols_to_add))
         records = gene_info_from_refseq_by_symbols(list(symbols_to_add), organism)
         insert_records(GeneTable, records, session)
 
@@ -718,7 +718,7 @@ def add_genes_from_symbols(
     no_refseq_genes = symbols_to_add.difference(new_current_symbols)
     logger.debug('ID-less genes being added: '+str(no_refseq_genes))
     empty_records = [dict(id=s, symbol=s, organism=organism) for s in no_refseq_genes]
-    logger.debug(empty_records)
+    #logger.debug(empty_records)
     insert_records(GeneTable, empty_records, session)
 
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
@@ -842,35 +842,45 @@ def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
         logger.info("Commiting changes")
         session.commit()
 
-def __create_database_20240228():
-    stemd = '2024-02-28'
+def create_database(outdir, analysis_infos:list[AnalysisInfo],
+                     refseq=True, run_server=False,
+                    port=8050, max_analyses_for_testing:int=None):
+
     import glob
 
-
-    outdir = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
     outdir.mkdir(exist_ok=True)
 
     files = glob.glob(str(outdir) + '/*')
-    for f in files:
-        os.remove(f)
+    filestr = '\n'.join(files)
+    if files:
+        print(f"Output dir has files, these will be deleted: \n {filestr}")
+        input("Press enter to continue. Ctrl+C to cancel")
+        for f in files:
+            os.remove(f)
 
-    engine_url = f'sqlite:////Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}/ddrcs.db'
-    source_dir = Path(
-        '/Users/thomas03/Library/CloudStorage/OneDrive-SharedLibraries-UniversityofCambridge/Simon Lam - ddrcs/runs'
-    )
-
-    exclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
-    drs = [source_dir/d for d in os.listdir(source_dir) if d not in exclude]
-
-    # print(drs)
-    datobj = get_paths_simons_structure_v1(drs)
+    engine_url = f'sqlite:///{str(outdir)}/ddrcs.db'
 
     sql_engin = create_engine_with_schema(
         engine_url
     )
-    add_data_to_database(datobj, sql_engin, outdir)
 
-    write_metadata_tables(datobj, outdir)
+    analysis_infos=analysis_infos[:max_analyses_for_testing]
+
+    add_data_to_database(analysis_infos, sql_engin, outdir, query_refseq_by_symbol=refseq)
+
+    write_metadata_tables(analysis_infos, outdir)
+
+    if run_server:
+        from crispr_screen_viewer.launch import init_app
+        app = init_app(
+            str(outdir),
+            engine_url,
+            debug_messages=False
+        )
+
+        app.run_server(debug=False, host='0.0.0.0', port=port)
+
+
 
 
 def __run_test_server():
@@ -915,20 +925,35 @@ def __run_test_server():
         genes=['A1CF', 'A2M']
     )
 
-    from crispr_screen_viewer.launch import init_app
-    app = init_app(
-        str(outdir),
-        engine_url,
-        debug_messages=True
+
+def __create_database_20240228():
+    stemd = '2024-02-28'
+    outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
+
+    xclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
+
+    src = Path(
+        '/Users/thomas03/Library/CloudStorage/OneDrive-SharedLibraries-UniversityofCambridge/Simon Lam - ddrcs/runs'
     )
 
-    app.run_server(debug=True, host='0.0.0.0', port=8050)
+    drs = [src/d for d in os.listdir(src) if d not in xclude]
+
+    # print(drs)
+    analysis_infos = get_paths_simons_structure_v1(drs)
+
+    #create_database(outd, analysis_infos, refseq=False, run_server=True)
 
 
+# def check_for_null_genes(analysis_infos:list[AnalysisInfo]):
+#     for a in analysis_infos:
+#         tab = tabulate_statistics(a)
+#         if tab.gene_id.isna().any():
+#             print(a.experiment_id)
 
 if __name__ == '__main__':
-    __run_test_server()
-    pass
+    __create_database_20240228()
 
+
+    pass
 
 
