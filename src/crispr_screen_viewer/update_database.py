@@ -470,10 +470,12 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     }
 
     experiment_details = [xpmet.copy() for xpmet in experiment_details]
+    logger.debug(experiment_details)
     for expmet in experiment_details:
         df_rename_columns(expmet, column_renamer, inplace=True, axis='index')
 
     experiment_details_table = pd.DataFrame(experiment_details)
+    experiment_details_table = experiment_details_table.reset_index(drop=True)
 
     # drop columns not in the mapper
     #cols = list(set(column_renamer.values()))
@@ -519,6 +521,7 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     noref = experiment_details_table.Reference.isna() | experiment_details_table.Reference.apply(isinternal)
     # fill with exp ID which is the index
     experiment_details_table.loc[noref, 'Reference'] = experiment_details_table.loc[noref].index
+    experiment_details_table.loc[:, 'Citation'] = ''
     experiment_details_table.loc[noref, 'Citation'] = experiment_details_table.loc[noref].index
 
     experiment_details_table.loc[~noref, 'Citation'] = experiment_details_table.loc[~noref, 'Reference'].apply(short_cite_str)
