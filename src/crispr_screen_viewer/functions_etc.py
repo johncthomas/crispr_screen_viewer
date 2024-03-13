@@ -369,7 +369,7 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # this is set up so that different pages can recieve different columns but
     # at the time of writing they all use the same...
     tab_columns = {
-        'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI',  'Date'],
+        'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', ],
         'comp':['Treatment', 'Dose', 'Timepoint',
                 'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
                 'Library', 'Citation', 'DOI', ]
