@@ -49,7 +49,7 @@ idprfx_res_table = 'gene-results-table'
 #   preceeded by this string
 PAGE_ID = 'se'
 
-def spawn_volcano_graph(app, fig_id=f'{PAGE_ID}-volcano'):
+def spawn_volcano_plot(app, fig_id=f'{PAGE_ID}-volcano'):
     """Return layout containing the plotly Graph object and stat/gene
     selectors. Register volcano chart callbacks.
 
@@ -189,15 +189,15 @@ def spawn_rank_plot(app, fig_id=f'{PAGE_ID}-rank-plot'):
             score_fdr_genes,
             table_data, selected_row, stat_source
     ):
-        LOG.debug(f"Rendering rank plot")
+        logger.debug(f"Rendering rank plot")
 
         if not selected_row:
-            LOG.debug("No selected row")
+            logger.debug("No selected row")
             raise PreventUpdate
 
         score_lab = ANALYSESTYPES[stat_source].score_label
 
-        #LOG.debug(score_fdr_genes)
+        #logger.debug(score_fdr_genes)
 
         y = np.array(score_fdr_genes['score'])
         ranks = y.argsort().argsort()
@@ -240,8 +240,8 @@ def spawn_rank_plot(app, fig_id=f'{PAGE_ID}-rank-plot'):
         #         **anot
         #     )
 
-        LOG.debug(str(fig))
-        LOG.debug('Finished generating rank plot Figure')
+        logger.debug(str(fig))
+        logger.debug('Finished generating rank plot Figure')
         return fig
 
 
