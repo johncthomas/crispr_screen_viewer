@@ -50,8 +50,9 @@ class DataSet:
         get_results: get dict of score and fdr for specified analysis types and
             datasets."""
     def __init__(
-            self, db_engine:Engine,
-             comparisons_path: str | Path,
+            self,
+            db_engine:Engine,
+            comparisons_path: str | Path,
             experiments_path:str|Path,
     ):
 
