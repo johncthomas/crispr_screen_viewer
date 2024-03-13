@@ -14,7 +14,7 @@ from typing import Union, List, Dict, Iterable, Collection, Sequence
 from loguru import logger
 from dash import html
 parse_expid = lambda comp: comp.split('.')[0]
-
+import sys
 
 
 cell_text_style = {
@@ -45,6 +45,14 @@ style_comparisons_card = {'padding-top':'98px',
 
 style_hidden = {'display':'none'}
 style_gene_selector_div = {}
+
+def set_loguru_level(logger, level='INFO'):
+    logger.remove()
+    logger.add(sys.stderr, level=level)
+
+def get_resource_path(relative_path):
+    fn = os.path.join(os.path.dirname(__file__), relative_path)
+    return fn
 
 def load_stats_csv(
         fn,
