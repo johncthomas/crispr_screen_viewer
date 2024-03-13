@@ -341,6 +341,11 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                     return [html.P(f"None of the selected genes have FDR <= {fdr_thresh}\n"
                                    f"Some samples don't have scores for some genes.",
                                    className='no-data-paragraph')]
+            elif (0 in filtered_scores.shape) or (1 in filtered_scores.shape):
+                return [html.P(
+                    "Not enough observations left after removing missing genes/comparisons",
+                    className='no-data-paragraph'
+                )]
 
             mn, mx = filtered_scores.min().min(), filtered_scores.max().max()
             cmap_slice = bicolour_cmap(mn, mx, )
