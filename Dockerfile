@@ -28,13 +28,14 @@ RUN adduser \
     --uid "${UID}" \
     appuser
 
-# install gcc and g++
+# install git, gcc and g++
 RUN --mount=target=/var/lib/apt/lists,type=cache,sharing=locked \
     --mount=target=/var/cache/apt,type=cache,sharing=locked \
     rm -f /etc/apt/apt.conf.d/docker-clean
-RUN apt-get update && \
-    apt-get -y install gcc g++ && \
-    rm -rf /var/lib/apt/lists/*
+RUN apt-get update
+RUN apt-get -y install gcc g++
+RUN apt-get -y install git
+RUN rm -rf /var/lib/apt/lists/*
 
 # install pip requirements
 RUN --mount=type=cache,target=/root/.cache/pip \
@@ -44,9 +45,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 RUN python -m pip install gunicorn
 
 ARG DIR=/app
-WORKDIR ${DIR}
-
-ENV PATH="$PATH:${DIR}/src/crispr_screen_viewer"
+WORKDIR /app
+ENV PATH="$PATH:/app/src/crispr_screen_viewer"
 
 COPY . .
 
