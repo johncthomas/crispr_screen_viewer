@@ -4,8 +4,8 @@ scipy
 pandas
 flask
 plotly
-dash-core-components
 dash-bootstrap-components
 dash-bio
 sqlalchemy
 loguru
+crispr-tools @ git+https://github.com/johncthomas/crispr_tools
