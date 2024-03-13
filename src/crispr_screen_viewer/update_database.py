@@ -349,7 +349,7 @@ class AnalysisInfo:
 
 
 
-def get_paths_simons_structure_v1(
+def get_paths_exorcise_structure_v1(
         source_dirs:list[str|Path],
         details_dir='./det',
         results_dir='./res',

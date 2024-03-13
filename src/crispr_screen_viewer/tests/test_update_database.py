@@ -33,7 +33,7 @@ class TestDatabaseExorciseV1(TestCase):
 
         self.outdir = outdir
         self.engine = update_database.create_engine_with_schema()
-        infos = update_database.get_paths_simons_structure_v1(['./test_data/exorcise_style/test1'])
+        infos = update_database.get_paths_exorcise_structure_v1(['./test_data/exorcise_style/test1'])
         update_database.add_data_to_database(
             infos,
             self.engine,
