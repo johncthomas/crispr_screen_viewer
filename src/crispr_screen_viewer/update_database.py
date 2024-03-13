@@ -451,22 +451,22 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     to be added to the database."""
 
     column_renamer = {
-        "Experiment name":"stringid",
-        'Analysis name': 'stringid', # old label for experiment name
-        'Library':'library',
-        'Multiplicity of infection':'moi',
-        'Representation average':'representation',
-        'Experiment description (a few sentances)': 'description',
-        'Experiment description (a few sentences)':'description',
-        'Experiment description': 'description',
-        'Notes':'notes',
-        'DOI':'doi',
+        "Experiment name":"Experiment ID",
+        'Analysis name': 'Experiment ID', # old label for experiment name
+        #'Library':'Library',
+        #'Multiplicity of infection':'MOI',
+        #'Representation average':'Representation',
+        'Experiment description (a few sentances)': 'Experiment description',
+        'Experiment description (a few sentences)':'Experiment description',
+        #'Experiment description': 'Experiment description',
+        # 'Notes':'notes',
+        # 'DOI':'doi',
         # Citation in the workbook is mislabeled. Citation in the app generated from this
-        "Citation":"reference",
-        "Reference":'reference',
-        'Date screen completed (yyyy-mm-dd)':'date',
-        'Date screen completed':'date',
-        'Date published':'date',
+        "Citation":"Reference",
+        # "Reference":'reference',
+        'Date screen completed (yyyy-mm-dd)':'Date',
+        'Date screen completed':'Date',
+        'Date published':'Date',
     }
 
     experiment_details = [xpmet.copy() for xpmet in experiment_details]
@@ -476,8 +476,8 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     experiment_details_table = pd.DataFrame(experiment_details)
 
     # drop columns not in the mapper
-    cols = list(set(column_renamer.values()))
-    experiment_details_table = experiment_details_table.loc[:, cols]
+    #cols = list(set(column_renamer.values()))
+    #experiment_details_table = experiment_details_table.loc[:, cols]
 
     #experiment_details_table.set_index('stringid', inplace=True, )
 
@@ -503,6 +503,7 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     def short_cite_str(reference):
         """Get "{first_author} ({year})" from reference, if possible."""
         # remove weird formating characters.
+        logger.debug(f"Reference {reference}")
         reference = normalise_text(reference)
         year = find_date(reference)
         auth = reference.split(',')[0]
@@ -510,25 +511,25 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
 
     # if there's no external data, and the details excel were put together with older template
     #   it's possible that we won't have a reference column in the whole table
-    if "reference" not in experiment_details_table.columns:
-        experiment_details_table.loc[:, 'reference'] = ''
+    if "Reference" not in experiment_details_table.columns:
+        experiment_details_table.loc[:, 'Reference'] = ''
 
     # should only be internal
     isinternal = lambda s: 'internal' in str(s).lower()
-    noref = experiment_details_table.reference.isna() | experiment_details_table.reference.apply(isinternal)
+    noref = experiment_details_table.Reference.isna() | experiment_details_table.Reference.apply(isinternal)
     # fill with exp ID which is the index
-    experiment_details_table.loc[noref, 'reference'] = experiment_details_table.loc[noref].index
-    experiment_details_table.loc[noref, 'citation'] = experiment_details_table.loc[noref].index
+    experiment_details_table.loc[noref, 'Reference'] = experiment_details_table.loc[noref].index
+    experiment_details_table.loc[noref, 'Citation'] = experiment_details_table.loc[noref].index
 
-    experiment_details_table.loc[~noref, 'citation'] = experiment_details_table.loc[~noref, 'reference'].apply(short_cite_str)
+    experiment_details_table.loc[~noref, 'Citation'] = experiment_details_table.loc[~noref, 'Reference'].apply(short_cite_str)
 
-    bad_cite = experiment_details_table.loc[experiment_details_table.citation.str.contains('?', regex=False), 'stringid'].values
+    bad_cite = experiment_details_table.loc[experiment_details_table.Citation.str.contains('?', regex=False), 'Experiment ID'].values
 
     if len(bad_cite) > 0:
         logger.warning(f"The following experiments have bad citation info:\n{'\n\t'.join(bad_cite)}")
 
     # deduplicate citations
-    cites = experiment_details_table['citation']
+    cites = experiment_details_table['Citation']
     if cites.duplicated().any():
         for ref, indicies in cites.groupby(cites).groups.items():
             if len(indicies) > 1:
@@ -551,20 +552,20 @@ def add_experiments(data_paths:list[AnalysisInfo], session:Session):
     insert_records(ExperimentTable,  table.to_dict(orient='records'), session)
 
 def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
-    comparison_column_mapping = {
-        'Treatment': 'treatment_label',
-        'Timepoint': 'timepoint',
-        'Cell line': 'cell',
-        'Ctrl samp': 'ctrl',
-        'Treat samp': 'treat',
-        'KO': 'ko',
-        'Dose': 'dose',
-        'Growth inhibition %': 'gi',
-        'Days grown': 'days_grown',
-        'Library': 'library',
-        'Experiment ID': 'experiment',
-        'Notes':'notes'
-    }
+    # comparison_column_mapping = {
+    #     'Treatment': 'treatment_label',
+    #     'Timepoint': 'timepoint',
+    #     'Cell line': 'cell',
+    #     'Ctrl samp': 'ctrl',
+    #     'Treat samp': 'treat',
+    #     'KO': 'ko',
+    #     'Dose': 'dose',
+    #     'Growth inhibition %': 'gi',
+    #     'Days grown': 'days_grown',
+    #     'Library': 'library',
+    #     'Experiment ID': 'experiment',
+    #     'Notes':'notes'
+    # }
     already_warned_of_missing_column = set()
     # this will become the returned table
     comparisons_metadata = []
@@ -575,7 +576,7 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
         # print(ctrl, treat)
         comp_row['control_sample'] = treat
         comp_row['test_sample'] = ctrl
-        comp_row['treatment_label'] = get_treatment_str(
+        comp_row['Treatment'] = get_treatment_str(
             analysis_wb.wb['Sample details'],
             ctrl, treat
         )
@@ -586,25 +587,25 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
         for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'KO', 'Notes'):
             # Deal with columns being dropped from the input data.
             if k in analysis_wb.samples.columns:
-                comp_row[comparison_column_mapping[k]] = analysis_wb.samples.loc[treat, k]
+                comp_row[k] = analysis_wb.samples.loc[treat, k]
             else:
                 if k not in already_warned_of_missing_column:
                     already_warned_of_missing_column.add(k)
                     logger.warning(f"Missing columns '{k}' in workbook for experiment {analysis_wb.expd['experiment_id']}")
-                comp_row[comparison_column_mapping[k]] = np.nan
+                comp_row[k] = np.nan
 
         exp_id = analysis_wb.expd['experiment_id']
-        comp_row['experiment'] = exp_id
-        comp_row['library'] = analysis_wb.experiment_details['Library']
+        comp_row['Experiment ID'] = exp_id
+        comp_row['Library'] = analysis_wb.experiment_details['Library']
         comp_row['stringid'] = f"{exp_id}.{ctrl}-{treat}"
 
         # format strings
-        if not pd.isna(comp_row['dose']):
-            comp_row['dose'] = str(comp_row['dose']).replace('uM', 'μM')
-        if pd.isna(comp_row['ko']) or (comp_row['ko'] == ''):
-            comp_row['ko'] = 'WT'
+        if not pd.isna(comp_row['Dose']):
+            comp_row['Dose'] = str(comp_row['Dose']).replace('uM', 'μM')
+        if pd.isna(comp_row['KO']) or (comp_row['KO'] == ''):
+            comp_row['KO'] = 'WT'
 
-        comp_row['timepoint'] = group_name.split('_')[0]
+        comp_row['Timepoint'] = group_name.split('_')[0]
 
         comparisons_metadata.append(comp_row)
 
@@ -812,20 +813,9 @@ def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
         inplace=True,
     )
 
-    # remove path information encoded into the experiment ids...
-    def fix_expid(xid):
-        if '/' in xid:
-            return xid.split('/')[1]
-        return xid
+    comparisons_metadata.set_index('Comparison ID', drop=False, inplace=True)
+    experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
 
-    experiments_metadata['Experiment ID'] = experiments_metadata['Experiment ID'].apply(fix_expid)
-    comparisons_metadata['Experiment ID'] = comparisons_metadata['Experiment ID'].apply(fix_expid)
-
-    def fix_compid(compid):
-        xpid, cmps = compid.split('.', maxsplit=1)
-        return f"{fix_expid(xpid)}.{cmps}"
-
-    comparisons_metadata['Comparison ID'] = comparisons_metadata['Comparison ID'].apply(fix_compid)
 
     comparisons_metadata.to_csv(outdir/'comparisons_metadata.csv.gz')
     experiments_metadata.to_csv(outdir/'experiments_metadata.csv.gz')
@@ -842,8 +832,8 @@ def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
     write_metadata_tables(analysesinfo, outdir)
 
     with Session(engine) as session:
-        add_experiments(analysesinfo, session) # note, only actual thing this is currently used for is doi and reference
-        add_comparisons(analysesinfo, session)
+        # add_experiments(analysesinfo, session) # note, only actual thing this is currently used for is doi and reference
+        # add_comparisons(analysesinfo, session)
         add_statistics(analysesinfo, session, query_refseq_by_symbol=query_refseq_by_symbol)
         logger.info("Commiting changes")
         session.commit()
@@ -881,10 +871,11 @@ def create_database(outdir, analysis_infos:list[AnalysisInfo],
         app = init_app(
             str(outdir),
             engine_url,
-            debug_messages=False
+            debug_messages=True,
+
         )
 
-        app.run_server(debug=False, host='0.0.0.0', port=port)
+        app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
 
@@ -904,7 +895,7 @@ def __run_test_server():
     engine_url = f'sqlite:////Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}/ddrcs.db'
     engine = create_engine_with_schema(engine_url, echo=True)
 
-    infos = get_paths_simons_structure_v1(
+    infos = get_paths_exorcise_structure_v1(
         ['/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/tests/test_data/exorcise_style/test1']
     )
     add_data_to_database(
@@ -933,7 +924,7 @@ def __run_test_server():
 
 
 def __create_database_20240228():
-    stemd = '2024-02-28'
+    stemd = '2024-02-28-test'
     outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
 
     xclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
@@ -945,9 +936,9 @@ def __create_database_20240228():
     drs = [src/d for d in os.listdir(src) if d not in xclude]
 
     # print(drs)
-    analysis_infos = get_paths_simons_structure_v1(drs)
+    analysis_infos = get_paths_exorcise_structure_v1(drs)
 
-    #create_database(outd, analysis_infos, refseq=False, run_server=True)
+    create_database(outd, analysis_infos[:], refseq=False, run_server=True)
 
 
 # def check_for_null_genes(analysis_infos:list[AnalysisInfo]):
@@ -956,10 +947,14 @@ def __create_database_20240228():
 #         if tab.gene_id.isna().any():
 #             print(a.experiment_id)
 
+
+
 if __name__ == '__main__':
-    __create_database_20240228()
-
-
+    #__create_database_20240228()
+    # exptab = tabulate_experiments_metadata(
+    #     [xp.analysis_workbook.wb for xp in get_paths_simons_structure_v1(['./tests/test_data/exorcise_style/test1'])]
+    # )
+    # print(exptab)
     pass
 
 
