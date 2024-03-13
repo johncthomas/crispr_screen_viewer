@@ -269,7 +269,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             Input('cluster-width', 'value'),
 
             Input('msgv-gene-selector', 'value'),
-            Input('msgv-fdr-threshold', 'value'),
+
         )
         def update_clustergrams(
                 fdr_threshold:float,
@@ -278,10 +278,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 selected_tab:str,
                 missing_method,
                 height, width,
-
                 selected_genes,
-                fdr_thresh,
-
         ):
 
             data_missing = False
@@ -296,12 +293,18 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
 
             logger.debug(f"{getfuncstr()} updating.")
 
-            filtered_scores = data_set.get_score_fdr(
+            score_fdr = data_set.get_score_fdr(
                 score_type,
                 genes=selected_genes,
                 comparisons=comps,
-                fdr_max=fdr_threshold,
-            )['score']
+            )
+
+            # drop genes/comps where there's no significant reading
+            sig:pd.DataFrame = score_fdr['fdr'] <= fdr_threshold
+            filtered_scores = score_fdr['score'].loc[
+                sig.any(axis=1),
+                sig.any(axis=0)
+            ]
 
             comp_label_dict = {c:l for c, l in
                 zip(
