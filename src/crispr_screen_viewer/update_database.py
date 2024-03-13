@@ -857,7 +857,7 @@ def create_database(outdir, analysis_infos:list[AnalysisInfo],
         for f in files:
             os.remove(f)
 
-    engine_url = f'sqlite:///{str(outdir)}/ddrcs.db'
+    engine_url = f'sqlite:///{str(outdir)}/database.db'
 
     sql_engin = create_engine_with_schema(
         engine_url

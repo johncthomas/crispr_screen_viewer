@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import os.path
 from argparse import ArgumentParser
 from urllib.parse import urlparse
 
@@ -217,8 +218,8 @@ def from_cli():
     launcher_parser.add_argument(
         '-d', '--data-path',
         dest='data_path',
-        help="Name of the directory or pickle file that contains the screens' data.",
-        required=True,
+        help="Name of the directory that contains the screens' data.",
+        required=True, default=None,
     )
     launcher_parser.add_argument(
         '--app-debug', action='store_true',
@@ -244,7 +245,7 @@ def from_cli():
         help='A SQL database URL, as understood by SQL Alchemy. '
              '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
              '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
-        default=None, required=True
+        default=None, required=False
     )
 
     parser = ArgumentParser(parents=[launcher_parser],
@@ -274,12 +275,15 @@ def init_app(
     from importlib import resources
     if data_path is None:
         data_path = resources.files("crispr_screen_viewer").joinpath("data").__str__()
-        database_url = f"sqlite:///{data_path}/database.db"
 
-    if database_url is not None:
-        db_engine = sqlalchemy.create_engine(database_url, echo=db_echo)
-    else:
-        db_engine = None
+    if database_url is None:
+        # Use absolute path cus
+        database_url = f"sqlite:///{os.path.abspath(data_path)}/database.db"
+        logger.info(f'Using datbase URL "{database_url}"')
+
+
+    db_engine = sqlalchemy.create_engine(database_url, echo=db_echo)
+
 
     data_set = load_dataset(data_path, db_engine=db_engine)
 
@@ -306,6 +310,7 @@ def get_server(**kwargs):
     app.run_server
 
     This function exists to be a handle for Gunicorn."""
+
     return init_app(**kwargs).server
 
 if __name__ == '__main__':
