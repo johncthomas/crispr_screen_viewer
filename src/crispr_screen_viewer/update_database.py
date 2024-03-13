@@ -726,7 +726,7 @@ def add_genes_from_symbols(
     # above queries will not add rows for genes that aren't in refseq
     new_current_symbols = get_gene_symbols_db(session)
     no_refseq_genes = symbols_to_add.difference(new_current_symbols)
-    logger.debug('ID-less genes being added: '+str(no_refseq_genes))
+    logger.debug('Num ID-less genes being added: '+str(len(no_refseq_genes)))
     empty_records = [dict(id=s, symbol=s, organism=organism) for s in no_refseq_genes]
     #logger.debug(empty_records)
     insert_records(GeneTable, empty_records, session)
