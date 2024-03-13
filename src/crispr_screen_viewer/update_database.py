@@ -1,5 +1,7 @@
 #!/usr/bin/env python
 import dataclasses
+from glob import glob
+
 import requests, json
 import os.path, typing
 import pathlib
@@ -18,7 +20,9 @@ from crispr_screen_viewer import functions_etc
 from crispr_screen_viewer.functions_etc import (
     df_rename_columns,
     normalise_text,
-    load_stats_csv
+    load_stats_csv,
+    get_resource_path,
+    set_loguru_level
 )
 from crispr_screen_viewer.dataset import ANALYSESTYPES, AnalysisType
 
@@ -693,7 +697,7 @@ def gene_info_from_refseq_by_symbols(
                 official_id = gn_res['nomenclature_authority']['identifier']
                 symonyms = gn_res['synonyms']
             except KeyError:
-                logger.info(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
+                logger.debug(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
                 continue
 
             gninfo = {
@@ -823,12 +827,17 @@ def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
     comparisons_metadata.to_csv(outdir/'comparisons_metadata.csv.gz')
     experiments_metadata.to_csv(outdir/'experiments_metadata.csv.gz')
 
-def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
-                         outdir:str|Path, overwrite=False, query_refseq_by_symbol=True):
+def add_data_to_database(
+        analysesinfo:list[AnalysisInfo],
+        engine:Engine,
+        outdir:str|Path,
+        overwrite=False,
+        query_refseq_by_symbol=True):
     #todo check for exant expid and skip if skipping
     #todo convert comparisons and experiment details to use SQL
-    if overwrite is True:
-        raise NotImplementedError("Not currently able to update the database in place")
+
+    # if overwrite is True:
+    #     raise NotImplementedError("Not currently able to update the database in place")
 
     outdir = Path(outdir)
 
@@ -841,19 +850,26 @@ def add_data_to_database(analysesinfo:list[AnalysisInfo], engine:Engine,
         logger.info("Commiting changes")
         session.commit()
 
-def create_database(outdir, analysis_infos:list[AnalysisInfo],
-                     refseq=True, run_server=False,
-                    port=8050, max_analyses_for_testing:int=None):
-
+def create_database(
+        outdir,
+        analysis_infos:list[AnalysisInfo],
+        refseq=True,
+        ask_before_deleting=True,
+        run_server=False,
+        port=8050,
+        max_analyses_for_testing:int=None,
+) -> None:
+    outdir = Path(outdir)
     import glob
 
     outdir.mkdir(exist_ok=True)
 
-    files = glob.glob(str(outdir) + '/*')
+    files = [fn for fn in glob.glob(str(outdir) + '/*') if os.path.isfile(fn)]
     filestr = '\n'.join(files)
     if files:
-        print(f"Output dir has files, these will be deleted: \n {filestr}")
-        input("Press enter to continue. Ctrl+C to cancel")
+        if ask_before_deleting:
+            print(f"Output dir has files, these will ALL be deleted: \n {filestr}")
+            input("Press enter to continue. Ctrl+C to cancel")
         for f in files:
             os.remove(f)
 
@@ -881,53 +897,18 @@ def create_database(outdir, analysis_infos:list[AnalysisInfo],
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
+def create_test_database(**kwargs):
+    outdir = get_resource_path('data/test_db')
+    g = glob(f'{get_resource_path("tests/test_data/exorcise_style")}/*')
+    logger.debug(g)
+    infos = get_paths_exorcise_structure_v1(g)
+    logger.debug(infos)
 
-
-def __run_test_server():
-    logger.level('DEBUG')
-    stemd = 'smol_2024-02-28'
-    outdir = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
-    outdir.mkdir(exist_ok=True)
-
-    # delete exant info
-    import glob
-    files = glob.glob(str(outdir)+'/*')
-    for f in files:
-        os.remove(f)
-
-    engine_url = f'sqlite:////Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}/ddrcs.db'
-    engine = create_engine_with_schema(engine_url, echo=True)
-
-    infos = get_paths_exorcise_structure_v1(
-        ['/Users/thomas03/python_projects/crispr_screen_viewer/src/crispr_screen_viewer/tests/test_data/exorcise_style/test1']
-    )
-    add_data_to_database(
-        infos,
-        engine,
-        outdir=outdir,
-        overwrite=False
-    )
-
-    from crispr_screen_viewer.dataset import DataSet
-    dataset = DataSet(
-        engine,
-        comparisons_path=os.path.join(outdir, 'comparisons_metadata.csv.gz'),
-        experiments_path=os.path.join(outdir, 'experiments_metadata.csv.gz')
-    )
-
-    all_all_mag = dataset.get_score_fdr('mageck', 'mageck')
-    all_all_drz = dataset.get_score_fdr('drugz', 'drugz')
-    some_cmp_drz = dataset.get_score_fdr('drugz', 'drugz', ['test1.TREAT-KO_TREAT'])
-    some_cmp_gn_drz = dataset.get_score_fdr(
-        'drugz',
-        'drugz',
-        ['test1.TREAT-KO_TREAT'],
-        genes=['A1CF', 'A2M']
-    )
-
+    actual_kwargs = dict(refseq=False, ask_before_deleting=False) | kwargs
+    create_database(outdir, infos, **actual_kwargs)
 
 def __create_database_20240228():
-    stemd = '2024-02-28-test'
+    stemd = '2024-02-28'
     outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
 
     xclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
@@ -941,7 +922,7 @@ def __create_database_20240228():
     # print(drs)
     analysis_infos = get_paths_exorcise_structure_v1(drs)
 
-    create_database(outd, analysis_infos[:], refseq=False, run_server=True)
+    create_database(outd, analysis_infos[:], refseq=True, run_server=False)
 
 
 # def check_for_null_genes(analysis_infos:list[AnalysisInfo]):
@@ -953,6 +934,8 @@ def __create_database_20240228():
 
 
 if __name__ == '__main__':
+    set_loguru_level(logger, 'INFO')
+    __create_database_20240228()
     #__create_database_20240228()
     # exptab = tabulate_experiments_metadata(
     #     [xp.analysis_workbook.wb for xp in get_paths_simons_structure_v1(['./tests/test_data/exorcise_style/test1'])]
