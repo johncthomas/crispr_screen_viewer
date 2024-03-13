@@ -309,7 +309,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                     list(get_numbered_tick_labels(filtered_scores.columns))
                 )
             }
-
+            logger.debug(f'Pre-filter for NaN:\n{filtered_scores}')
             # filter data if there are comps that don't have scores for genes
             if filtered_scores.isna().any().any():
                 data_missing = True
@@ -327,6 +327,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                     heatmap_only = True
                 else:
                     raise RuntimeError(f'Unknown missing_method: {missing_method}.')
+
+            logger.debug(f'Post-filter for NaN:\n{filtered_scores}')
 
             # deal with cases where we can't display any graphs.
             if not selected_genes or (len(selected_genes) < 2):
