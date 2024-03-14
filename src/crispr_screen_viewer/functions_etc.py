@@ -48,7 +48,7 @@ style_comparisons_card = {'padding-top':'98px',
 style_hidden = {'display':'none'}
 style_gene_selector_div = {}
 
-def set_loguru_level(logger:loguru.Logger, level='INFO'):
+def set_loguru_level(logger, level='INFO'):
     logger.remove(0)
     logger.add(sys.stderr, level=level)
 
