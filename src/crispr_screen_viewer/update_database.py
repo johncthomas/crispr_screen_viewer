@@ -907,6 +907,16 @@ def create_test_database(**kwargs):
     actual_kwargs = dict(refseq=False, ask_before_deleting=False) | kwargs
     create_database(outdir, infos, **actual_kwargs)
 
+def run_test_server(port=8050):
+    datadir = get_resource_path('data/test_db')
+    from crispr_screen_viewer.launch import init_app
+    app = init_app(
+        datadir,
+        debug_messages=False
+    )
+
+    app.run_server(debug=False, host='0.0.0.0', port=port, )
+
 def __create_database_20240228():
     stemd = '2024-02-28'
     outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
@@ -934,8 +944,9 @@ def __create_database_20240228():
 
 
 if __name__ == '__main__':
-    set_loguru_level(logger, 'INFO')
-    __create_database_20240228()
+    run_test_server()
+    #set_loguru_level(logger, 'INFO')
+    #__create_database_20240228()
     #__create_database_20240228()
     # exptab = tabulate_experiments_metadata(
     #     [xp.analysis_workbook.wb for xp in get_paths_simons_structure_v1(['./tests/test_data/exorcise_style/test1'])]
