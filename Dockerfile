@@ -4,6 +4,7 @@
 # If you need more help, visit the Dockerfile reference guide at
 # https://docs.docker.com/engine/reference/builder/
 ARG PYTHON_VERSION=3.12
+ARG DATASOURCE=./src/crispr_screen_viewer/data/test_db
 
 FROM python:${PYTHON_VERSION}-slim as base
 
@@ -49,5 +50,6 @@ WORKDIR /app
 ENV PATH="$PATH:/app/src/crispr_screen_viewer"
 
 COPY . .
+COPY ${DATASOURCE}/* /app/src/crispr_screen_viewer/data/test_db
 
 RUN python -m pip install ${DIR}
