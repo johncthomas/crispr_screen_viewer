@@ -292,7 +292,10 @@ def init_app(
         print('Debug messages on')
         werklog = logging.getLogger('werkzeug')
         werklog.setLevel(logging.ERROR)
-        logger.level('DEBUG')
+    else:
+        # loguru is debug by default.
+        from crispr_screen_viewer.functions_etc import set_loguru_level
+        set_loguru_level('INFO')
 
     server = flask.Flask(__name__)
 
