@@ -1,2 +1,2 @@
 import loguru
-loguru.logger.disable()
+loguru.logger.disable("crispr_screen_viewer")
