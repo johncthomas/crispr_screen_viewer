@@ -2,6 +2,8 @@ import copy
 import inspect
 import typing
 import unicodedata
+
+import loguru
 #from statsmodels.stats.multitest import multipletests
 import pandas as pd
 import numpy as np
@@ -46,8 +48,8 @@ style_comparisons_card = {'padding-top':'98px',
 style_hidden = {'display':'none'}
 style_gene_selector_div = {}
 
-def set_loguru_level(logger, level='INFO'):
-    logger.remove()
+def set_loguru_level(logger:loguru.Logger, level='INFO'):
+    logger.remove(0)
     logger.add(sys.stderr, level=level)
 
 def get_resource_path(relative_path):

@@ -295,7 +295,7 @@ def init_app(
     else:
         # loguru is debug by default.
         from crispr_screen_viewer.functions_etc import set_loguru_level
-        set_loguru_level('INFO')
+        set_loguru_level(logger)
 
     server = flask.Flask(__name__)
 
