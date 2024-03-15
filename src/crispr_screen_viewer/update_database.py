@@ -35,6 +35,11 @@ import numpy as np
 from loguru import logger
 
 
+COMP_CSV = 'comparisons_metadata.csv.gz'
+EXP_CSV = 'experiments_metata.csv.gz'
+DB_FILENAME = 'database.db'
+DB_FILES = (COMP_CSV, EXP_CSV, DB_FILENAME)
+
 def is_nt(s):
     nts = {'None', 'DMSO', '', 'WT', 'NT'}
     return pd.isna(s) or (s in nts)
@@ -616,8 +621,8 @@ def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
     experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
 
 
-    comparisons_metadata.to_csv(outdir/'comparisons_metadata.csv.gz')
-    experiments_metadata.to_csv(outdir/'experiments_metadata.csv.gz')
+    comparisons_metadata.to_csv(outdir/COMP_CSV)
+    experiments_metadata.to_csv(outdir/EXP_CSV)
 
 def add_data_to_database(
         analysesinfo:list[AnalysisInfo],
@@ -656,16 +661,17 @@ def create_database(
 
     outdir.mkdir(exist_ok=True)
 
-    files = [fn for fn in glob.glob(str(outdir) + '/*') if os.path.isfile(fn)]
-    filestr = '\n'.join(files)
-    if files:
+    old_files = [fn for fn in glob.glob(str(outdir) + '/*') if (Path(fn).name in DB_FILES)]
+
+    if old_files:
         if ask_before_deleting:
-            print(f"Output dir has files, these will ALL be deleted: \n {filestr}")
+
+            print(f"Output dir old database files, these will be deleted before continuing.")
             input("Press enter to continue. Ctrl+C to cancel")
-        for f in files:
+        for f in old_files:
             os.remove(f)
 
-    engine_url = f'sqlite:///{str(outdir)}/database.db'
+    engine_url = f'sqlite:///{str(outdir)}/{DB_FILENAME}'
 
     sql_engin = create_engine_with_schema(
         engine_url
