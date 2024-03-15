@@ -10,11 +10,9 @@ authors = [
   { name='John C. Thomas', email="jcthomas000@gmail.com" },
 ]
 description = "View and query the results of CRISPR screens."
-#readme = "README.md"
+
 requires-python = ">=3.10"
-#dependencies = ['dash', 'numpy','scipy', 'pandas', 'flask', 'plotly',
-#        'dash-core-components', 'dash-bootstrap-components', 'dash-bio',
-#        'sqlalchemy']
+
 classifiers = [
     "Programming Language :: Python :: 3",
 ]
