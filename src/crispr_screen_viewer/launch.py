@@ -205,7 +205,7 @@ def create_layout(app, data_set:DataSet, public_version=False, url_base='/') \
             return landing_page
 
 
-def from_cli():
+def from_cli(args):
     """Load dataset from command line options, return (dataset, port, debug)"""
     launcher_parser = ArgumentParser(add_help=False)
 
@@ -317,7 +317,8 @@ def get_server(**kwargs):
     return init_app(**kwargs).server
 
 if __name__ == '__main__':
-    from_cli()
+    import sys
+    from_cli(sys.argv[1:])
 
 
 

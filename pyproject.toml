@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "crispr_screen_viewer"
 dynamic = ["dependencies"]
-version = "0.10.0"
+version = "0.11.0"
 authors = [
   { name='John C. Thomas', email="jcthomas000@gmail.com" },
 ]
@@ -18,7 +18,7 @@ classifiers = [
 ]
 
 [project.scripts]
-launch-crsv = "crispr_screen_viewer:launch.from_cli"
+crispr-screen-viewer = "crispr_screen_viewer:cli.run"
 
 [tool.setuptools.packages.find]
 where = ["src"]
