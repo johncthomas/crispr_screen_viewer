@@ -735,7 +735,7 @@ def create_database(
     outdir = Path(outdir)
     import glob
 
-    outdir.mkdir(exist_ok=True)
+    outdir.mkdir(exist_ok=True, parents=True)
 
     old_files = [fn for fn in glob.glob(str(outdir) + '/*') if (Path(fn).name in DB_FILES)]
 
@@ -797,10 +797,95 @@ def __create_database_20240228():
     create_database(outd, analysis_infos[:],  run_server=False)
 
 
+def parse_cli_args(args):
+    from argparse import ArgumentParser
 
+    parser = ArgumentParser(
+        'CrSV database updater',
+        description='Write database files for launching the CRISPR Screen Explorer.'
+    )
+    parser.add_argument(
+        'indirs', metavar='DIRECTORIES',
+        nargs='+',
+        help='Input directories that contain data in Exorcise structure'
+    )
+    parser.add_argument(
+        '--dbdir', '-d', metavar='DIRECTORY',
+        help='Location to which output files will be written',
+        required=True
+    )
+    parser.add_argument(
+        '--new-db', '-n',
+        action='store_true',
+        help='Create a new database in the output directory. If database files are present '
+             'you will be asked before they are replaced, unless -f is also set.'
+    )
+    parser.add_argument(
+        '--update-existing', '-u',
+        action='store_true',
+        help='Experiment IDs already present in the database will be updated with new data. By default they are skipped.'
+    )
+    parser.add_argument(
+        '--force-overwrite', '-f',
+        action='store_true',
+        help='When creating new database, overwrite existing database files without asking.'
+    )
+    parser.add_argument(
+        '--verbosity', '-v', metavar='N',
+        type=int, default=1,
+        help='Set verbosity level: 0=warning, 1=info (default), 2=debug'
+    )
+
+    @dataclass
+    class CLIArgs:
+        indirs: list[str]
+        dbdir: str
+        update_existing: bool
+        new_db: bool
+        force_overwrite: bool
+        verbosity: int
+
+        def verbosity_str(self) -> str:
+            return ['WARNING', 'INFO', 'DEBUG'][self.verbosity]
+
+    args = CLIArgs(**vars(parser.parse_args(args)))
+
+    for d in args.indirs:
+        if not os.path.isdir(d):
+            raise ValueError(f"{d} is not a directory")
+    analysis_infos = get_paths_exorcise_structure_v1(args.indirs)
+
+    set_loguru_level(logger, args.verbosity_str())
+
+    if args.new_db:
+        create_database(
+            args.dbdir,
+            analysis_infos,
+            ask_before_deleting=not args.force_overwrite,
+        )
+        return 0
+
+    # else we're adding to existing DB
+    update_database(
+        args.dbdir,
+        analysis_infos,
+        refseq=False,
+        update_experiments=args.update_existing,
+    )
+
+def test_cli_args():
+    data_path = Path(get_resource_path('tests/exorcise_style/'))
+    paths = [data_path / d for d in os.listdir() if os.path.isdir(d)]
+    logger.debug(paths)
+    parse_cli_args(
+        *paths,
+
+
+    )
 
 if __name__ == '__main__':
+    import sys
+    parse_cli_args(sys.argv[1:])
 
-    pass
 
 
