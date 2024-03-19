@@ -3,49 +3,33 @@
 ## Installation
 `pip install .`
 
-## Dataset
+## Usage
+Main script available as `crispr-screen-viewer` with subcommands.
+
+## Manage database
+See `crispr-screen-viewer database -h`
+
 Input data is currently several CSV files and a SQL database. In the future this is likely to move to a single 
 database for everything. Example dataset is in the data directory.
 
-### Statistics database
-Created with crispr_screen_viewer.update_database.create_database(). There will be a command line interface soon.
-
-### Metadata tables
-`comparisons_metadata.csv`: Information about comparisons in statistics tables, e.g. treatments and cell types.
-`experiments_metadata.csv`: Information about experiments referenced in comparisons metadata, e.g. citation.
-`previous_and_id.csv`: Maps verious database IDs and previous symbols used to the symbols used in the statistics
-tables.
-
-See the files in the data directory for structure.
-
-### Database
-`database.db` is created from the statistics tables using the script `create_db.py`.
-
-## Running
+## Run the viewer
 ### via script
-After installing the package run the following for 
-`launch-crsv --help`
+See `crispr-screen-viewer launch -h`. Requires a database constructed by the above command.
 
 ### Gunicorn
 Create a python module to create the server object, called (for example) `test_crsv.py`
 ```python
-from crispr_screen_viewer import launch  
-from importlib import resources 
+from crispr_screen_viewer import launch
+from crispr_screen_viewer.functions_etc import get_resource_path
 
-# locate the included test data
-data_dir = resources.files("crispr_screen_viewer").joinpath("data").__str__()  
-db_url = f"sqlite:///{data_dir}/database.db"  
+# Use the provided example data
+db_path = get_resource_path('data/test_db')
+app = launch.get_server(data_path=db_path)
 
-app = launch.init_app(  
-    data_path=data_dir,  
-    database_url=db_url,  
-    debug_messages=True  
-)  
-
-server = app.server
+server = app
 ```
 
-Then  `gunicorn --bind 0.0.0.0:8050 test_crsv:server`
+Then call `gunicorn --bind 0.0.0.0:8050 test_crsv:server`
 
 ### Gunicorn via docker
 Put your data in the `src/crispr_screen_viewer/data` directory before building the image, then run 
