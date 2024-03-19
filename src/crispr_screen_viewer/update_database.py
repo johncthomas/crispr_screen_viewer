@@ -10,6 +10,8 @@ import unicodedata
 
 from typing import Literal, Tuple
 
+from argparse import ArgumentParser
+
 import pandas as pd
 import sqlalchemy
 from sqlalchemy import Engine, create_engine, select
@@ -33,8 +35,6 @@ from crispr_screen_viewer.dataset import (
     DB_FILES,
     get_db_url
 )
-
-
 
 from crispr_tools.data_classes import AnalysisWorkbook, CrisprCounts
 
