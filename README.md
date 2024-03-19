@@ -29,7 +29,10 @@ app = launch.get_server(data_path=db_path)
 server = app
 ```
 
-Then call `gunicorn --bind 0.0.0.0:8050 test_crsv:server`
+Then call (with your desired port):
+```shell
+gunicorn --bind 0.0.0.0:8050 test_crsv:server
+```
 
 ### Gunicorn via docker
 Put your data in the `src/crispr_screen_viewer/data` directory before building the image, then run 

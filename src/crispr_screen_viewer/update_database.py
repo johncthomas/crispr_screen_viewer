@@ -686,6 +686,18 @@ def remove_experiments(
 
     return MetadataTables(comparisons=comparisons, experiments=experiments)
 
+def remove_experiments_from_db(
+        db_dir:str|Path,
+        experiments_to_remove:list[str]
+):
+    db_dir = Path(db_dir)
+    metadata = MetadataTables.from_files(db_dir)
+    engine = create_engine(get_db_url(db_dir))
+    with Session(engine) as session:
+        mod_metadata = remove_experiments(metadata, experiments_to_remove, session)
+        session.commit()
+
+    mod_metadata.to_files(db_dir)
 
 def update_database(
         db_dir,
