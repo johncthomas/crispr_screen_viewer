@@ -54,6 +54,7 @@ def set_loguru_level(logger, level='INFO'):
 
 def get_resource_path(relative_path):
     fn = os.path.join(os.path.dirname(__file__), relative_path)
+    logger.debug(f"Resource path: {fn}")
     return fn
 
 def load_stats_csv(

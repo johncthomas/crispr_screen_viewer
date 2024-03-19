@@ -8,7 +8,7 @@ import sqlalchemy
 from sqlalchemy import (
     ForeignKey, ForeignKeyConstraint, select, insert, Engine
 )
-from sqlalchemy import orm
+from sqlalchemy import orm, create_engine
 from sqlalchemy.orm import Session, mapped_column, Mapped
 
 from crispr_screen_viewer.functions_etc import (
@@ -22,16 +22,70 @@ from crispr_screen_viewer.database import *
 
 from loguru import logger
 
+from dataclasses import dataclass
+
+COMP_CSV = 'comparisons_metadata.csv.gz'
+EXP_CSV = 'experiments_metadata.csv.gz'
+DB_FILENAME = 'database.db'
+DB_FILES = (COMP_CSV, EXP_CSV, DB_FILENAME)
+
 class ScoreFDR(TypedDict):
     score:pd.DataFrame
     fdr:pd.DataFrame
 
-#todo: Values to be changed on the fly...
-#   Null treatment "No Treatment"
-#   Null 'Cell line', 'Library', 'Source' to "Unspecified"
-#   Timepoint labels
-#   doi to http
-#
+@dataclass
+class MetadataTables:
+    comparisons: pd.DataFrame
+    experiments: pd.DataFrame
+
+    @classmethod
+    def from_files(cls, directory:Path|str) -> typing.Self:
+        directory = Path(directory)
+        cmp = pd.read_csv(
+            directory/COMP_CSV,
+        )
+        cmp.set_index(
+            'Comparison ID',
+            inplace=True,
+            drop=False
+        )
+        exp = pd.read_csv(
+            directory/EXP_CSV,
+        )
+        exp.set_index(
+            'Experiment ID',
+            inplace=True,
+            drop=False
+        )
+        return cls(comparisons=cmp, experiments=exp)
+
+    def to_files(self, directory):
+        self.comparisons.to_csv(
+            directory/COMP_CSV,
+            index=False
+        )
+        self.experiments.to_csv(
+            directory/EXP_CSV,
+            index=False
+        )
+
+    def join(self, other_metadata:typing.Self) -> typing.Self:
+        new_tbls = {}
+        for attr in ('comparisons', 'experiments'):
+            new_tbls[attr] = pd.concat(
+                [getattr(self, attr), getattr(other_metadata, attr)],
+                axis='index'
+            )
+
+        new_metad = MetadataTables(**new_tbls)
+        if new_metad.comparisons['Comparison ID'].duplicated().any():
+            logger.warning("Duplicate comparison IDs in comparisons metadata after joinging!")
+        if new_metad.experiments['Experiment ID'].duplicated().any():
+            logger.warning("Duplicate experiment IDs in experiments metadata after joinging!")
+        return new_metad
+
+def get_db_url(db_dir):
+    return f'sqlite:///{str(db_dir)}/{DB_FILENAME}'
 
 class DataSet:
     """Class for holding, retrieving screen data and metadata.

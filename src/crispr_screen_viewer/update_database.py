@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-import dataclasses
+from dataclasses import dataclass
 from glob import glob
 
 import requests, json
@@ -8,9 +8,10 @@ import pathlib
 from pathlib import Path
 import unicodedata
 
-from typing import Literal
+from typing import Literal, Tuple
 
 import pandas as pd
+import sqlalchemy
 from sqlalchemy import Engine, create_engine, select
 from sqlalchemy.orm import Session
 
@@ -22,11 +23,21 @@ from crispr_screen_viewer.functions_etc import (
     normalise_text,
     load_stats_csv,
     get_resource_path,
-    set_loguru_level
+    set_loguru_level,
+    get_ith_from_all
 )
-from crispr_screen_viewer.dataset import ANALYSESTYPES, AnalysisType
+from crispr_screen_viewer.dataset import (
+    ANALYSESTYPES,
+    AnalysisType,
+    MetadataTables,
+    DB_FILES,
+    get_db_url
+)
+
+
 
 from crispr_tools.data_classes import AnalysisWorkbook, CrisprCounts
+
 from crispr_tools.crispr_pipeline import analysis_tabulate
 analysis_tabulate:dict[str, typing.Callable]
 
@@ -34,15 +45,11 @@ import numpy as np
 
 from loguru import logger
 
-
-COMP_CSV = 'comparisons_metadata.csv.gz'
-EXP_CSV = 'experiments_metata.csv.gz'
-DB_FILENAME = 'database.db'
-DB_FILES = (COMP_CSV, EXP_CSV, DB_FILENAME)
-
 def is_nt(s):
     nts = {'None', 'DMSO', '', 'WT', 'NT'}
     return pd.isna(s) or (s in nts)
+
+
 
 def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
     """Return a string describing the treatment performed between the
@@ -57,7 +64,7 @@ def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
     Divides possible treatments into chemical or KO;
     outputs a string for a chemical treatment, a gene-KO
     treatment, a chemical treatment in a KO background,
-    or a KO in a chemical background. Depending o """
+    or a KO in a chemical background. """
 
     fatarrow = '➤'
 
@@ -110,6 +117,30 @@ def create_engine_with_schema(destination="sqlite://", echo=False) -> Engine:
     return engine
 
 
+def load_test_db_data(d='data/test_db') -> Tuple[Engine, MetadataTables]:
+    test_db_dir = get_resource_path(d)
+    url = get_db_url(test_db_dir)
+    engine = create_engine(url)
+    metadata = MetadataTables.from_files(test_db_dir)
+
+    return engine, metadata
+
+def create_test_database(**kwargs):
+    """Create a database from ./tests/test_data, output to ./data/test_db
+    by default. **kwargs passed to create_database()"""
+    outdir = get_resource_path('data/test_db')
+    g = glob(f'{get_resource_path("tests/test_data/exorcise_style")}/*')
+    logger.debug(g)
+    infos = get_paths_exorcise_structure_v1(g)
+    logger.debug(infos)
+
+    default_kwargs = dict(
+        outdir=outdir,
+        analysis_infos=infos,
+        #refseq=False,
+        ask_before_deleting=False)
+    create_database(**default_kwargs | kwargs)
+
 def prep_deets_columns(tbl:pd.DataFrame, cmap:dict):
     """drop not defined columns, rename columns.
 
@@ -141,7 +172,7 @@ def insert_records(tablecls, records:list[dict], session:Session):
     )
 
 
-@dataclasses.dataclass
+@dataclass
 class AnalysisInfo:
     experiment_id:str
     analysis_workbook: AnalysisWorkbook
@@ -378,15 +409,15 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     for group_name, (ctrl, treat) in analysis_wb.iter_comps():
         comp_row = {}
         # print(ctrl, treat)
-        comp_row['control_sample'] = treat
-        comp_row['test_sample'] = ctrl
+        comp_row['ControlSample'] = treat
+        comp_row['TestSample'] = ctrl
         comp_row['Treatment'] = get_treatment_str(
             analysis_wb.wb['Sample details'],
             ctrl, treat
         )
         ctrl_row = analysis_wb.samples.loc[ctrl]
-        comp_row['control_treatment'] = ctrl_row['Treatment']
-        comp_row['control_ko'] = ctrl_row['KO']
+        comp_row['ControlTreatment'] = ctrl_row['Treatment']
+        comp_row['ControlKO'] = ctrl_row['KO']
 
         for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'KO', 'Notes'):
             # Deal with columns being dropped from the input data.
@@ -401,7 +432,7 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
         exp_id = analysis_wb.expd['experiment_id']
         comp_row['Experiment ID'] = exp_id
         comp_row['Library'] = analysis_wb.experiment_details['Library']
-        comp_row['stringid'] = f"{exp_id}.{ctrl}-{treat}"
+        comp_row['Comparison ID'] = f"{exp_id}.{ctrl}-{treat}"
 
         # format strings
         if not pd.isna(comp_row['Dose']):
@@ -416,11 +447,11 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     return pd.DataFrame(comparisons_metadata)
 
 
-def add_comparisons(analyses_info:list[AnalysisInfo], session:Session):
-    for info in analyses_info:
-        comparisons_metadata = tabulate_comparisons(info.analysis_workbook)
-        logger.info(f"Adding {comparisons_metadata.shape[0]} rows to ComparisonTable from {info.experiment_id}")
-        insert_records(ComparisonTable, comparisons_metadata.to_dict(orient='records'), session)
+# def add_comparisons(analyses_info:list[AnalysisInfo], session:Session):
+#     for info in analyses_info:
+#         comparisons_metadata = tabulate_comparisons(info.analysis_workbook)
+#         logger.info(f"Adding {comparisons_metadata.shape[0]} rows to ComparisonTable from {info.experiment_id}")
+#         insert_records(ComparisonTable, comparisons_metadata.to_dict(orient='records'), session)
 
 
 def get_gene_symbols_db(session) -> set[str]:
@@ -472,8 +503,6 @@ def gene_info_from_refseq_by_symbols(
         )
 
         refseqres.raise_for_status()
-
-
 
         for r in refseqres.json()['reports']:
             gn_res = r['gene']
@@ -571,86 +600,133 @@ def add_statistics(analysesinfo:list[AnalysisInfo], session:Session, query_refse
             session
         )
 
-def write_metadata_tables(analysesinfo:list[AnalysisInfo], outdir):
-    # This is a bit messy currently - the tabulate functions are written with database names
-    #    for the columns, all lower case, no spaces, but currently the code expects dataframes
-    #    with the columns named as displayed on the website, so here we build the tables and
-    #    then rename the columns. Later all functions should be rewritten to use the SQL DB
-    outdir = Path(outdir)
+def create_metadata_tables(analysesinfo:list[AnalysisInfo]) \
+        -> MetadataTables:
+
+
     comparisons_metadata = []
     for info in analysesinfo:
         comparisons_metadata.append(tabulate_comparisons(info.analysis_workbook))
     comparisons_metadata = pd.concat(comparisons_metadata)
-    db_to_df_header = {
-        'treatment_label': 'Treatment',
-         'timepoint': 'Timepoint',
-         'cell': 'Cell line',
-         'ctrl': 'Ctrl samp',
-         'treat': 'Treat samp',
-         'ko': 'KO',
-         'dose': 'Dose',
-         'gi': 'Growth inhibition %',
-         'days_grown': 'Days grown',
-         'library': 'Library',
-         'experiment': 'Experiment ID',
-         'notes': 'Notes',
-        'stringid':'Comparison ID'
-    }
-
-    df_rename_columns(comparisons_metadata, db_to_df_header, inplace=True)
+    # db_to_df_header = {
+    #     'treatment_label': 'Treatment',
+    #      'timepoint': 'Timepoint',
+    #      'cell': 'Cell line',
+    #      'ctrl': 'Ctrl samp',
+    #      'treat': 'Treat samp',
+    #      'ko': 'KO',
+    #      'dose': 'Dose',
+    #      'gi': 'Growth inhibition %',
+    #      'days_grown': 'Days grown',
+    #      'library': 'Library',
+    #      'experiment': 'Experiment ID',
+    #      'notes': 'Notes',
+    #     'stringid':'Comparison ID'
+    # }
+    #
+    # df_rename_columns(comparisons_metadata, db_to_df_header, inplace=True)
 
     experiments_metadata = tabulate_experiments_metadata(
             [d.analysis_workbook.experiment_details for d in analysesinfo]
     )
 
-    df_rename_columns(
-        experiments_metadata,
-        {'stringid': 'Experiment ID',
-         'library': 'Library',
-         'moi': 'Multiplicity of infection',
-         'representation': 'Representation average',
-         'description': 'Experiment description',
-         'notes': 'Notes',
-         'doi': 'DOI',
-         'reference': 'Reference',
-         'date': 'Date published'},
-        inplace=True,
-    )
+    # df_rename_columns(
+    #     experiments_metadata,
+    #     {'stringid': 'Experiment ID',
+    #      'library': 'Library',
+    #      'moi': 'Multiplicity of infection',
+    #      'representation': 'Representation average',
+    #      'description': 'Experiment description',
+    #      'notes': 'Notes',
+    #      'doi': 'DOI',
+    #      'reference': 'Reference',
+    #      'date': 'Date published'},
+    #     inplace=True,
+    # )
 
     comparisons_metadata.set_index('Comparison ID', drop=False, inplace=True)
     experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
 
+    #
+    # comparisons_metadata.to_csv(outdir/COMP_CSV)
+    # experiments_metadata.to_csv(outdir/EXP_CSV)
+    return MetadataTables(comparisons=comparisons_metadata, experiments=experiments_metadata)
 
-    comparisons_metadata.to_csv(outdir/COMP_CSV)
-    experiments_metadata.to_csv(outdir/EXP_CSV)
-
-def add_data_to_database(
-        analysesinfo:list[AnalysisInfo],
-        engine:Engine,
+def write_db_files(
         outdir:str|Path,
-        overwrite=False,
-        query_refseq_by_symbol=True):
-    #todo check for exant expid and skip if skipping
-    #todo convert comparisons and experiment details to use SQL
+        analysis_infos:list[AnalysisInfo],
+        metadata:MetadataTables,
+        session:Session
+) -> None:
+    add_statistics(analysis_infos, session, )
+    logger.info("Commiting changes")
+    session.commit()
+    logger.info("Writing metadata tables")
+    metadata.to_files(outdir)
 
-    # if overwrite is True:
-    #     raise NotImplementedError("Not currently able to update the database in place")
+def remove_experiments(
+        metadata_tables:MetadataTables,
+        exp_ids: typing.Collection[str],
+        session:Session,
+) -> MetadataTables:
 
-    outdir = Path(outdir)
+    delete_stmt = sqlalchemy.delete(
+        StatTable
+    ).where(
+        StatTable.experiment_id.in_(exp_ids)
+    )
+    session.execute(delete_stmt)
 
-    write_metadata_tables(analysesinfo, outdir)
+    comparisons = metadata_tables.comparisons.loc[
+        ~metadata_tables.comparisons['Experiment ID'].isin(exp_ids)
+    ]
+    experiments = metadata_tables.experiments.loc[
+        ~metadata_tables.experiments['Experiment ID'].isin(exp_ids)
+    ]
+
+    return MetadataTables(comparisons=comparisons, experiments=experiments)
+
+
+def update_database(
+        db_dir,
+        analysis_infos: list[AnalysisInfo],
+        refseq:bool=False,
+        update_experiments=False,
+) -> None:
+    db_dir = Path(db_dir)
+    metadata = MetadataTables.from_files(db_dir)
+    engine = create_engine(get_db_url(db_dir))
+
+    # get exp already in the db,
+    new_expid = set([ans.experiment_id for ans in analysis_infos])
+    exant_expid = set(metadata.experiments['Experiment ID'].unique())
+    overlapping_expid = new_expid.intersection(exant_expid)
+    olxp_str = ', '.join(sorted(overlapping_expid))
 
     with Session(engine) as session:
-        # add_experiments(analysesinfo, session) # note, only actual thing this is currently used for is doi and reference
-        # add_comparisons(analysesinfo, session)
-        add_statistics(analysesinfo, session, query_refseq_by_symbol=query_refseq_by_symbol)
-        logger.info("Commiting changes")
-        session.commit()
+        #  if update_experiments==False, remove those experiments before adding,
+        #    otherwise, remove those exps (do not save metatadatas till the end
+        if not update_experiments:
+            logger.info(f"Experiments already in the database will be skipped: {olxp_str}")
+            analysis_infos = [ans for ans in analysis_infos if ans.experiment_id not in overlapping_expid]
+        else:
+            logger.info(f"Experiments already in the database will be removed and re-added: {olxp_str}")
+            modified_metadata = remove_experiments(
+                session=session,
+                metadata_tables=metadata,
+                exp_ids=list(overlapping_expid)
+            )
+            recreated_metadata = create_metadata_tables(analysis_infos)
+            metadata = modified_metadata.join(recreated_metadata)
+
+        write_db_files(db_dir, analysis_infos, metadata, session)
+
+
+
 
 def create_database(
         outdir,
         analysis_infos:list[AnalysisInfo],
-        refseq=True,
         ask_before_deleting=True,
         run_server=False,
         port=8050,
@@ -671,17 +747,17 @@ def create_database(
         for f in old_files:
             os.remove(f)
 
-    engine_url = f'sqlite:///{str(outdir)}/{DB_FILENAME}'
-
-    sql_engin = create_engine_with_schema(
+    engine_url = get_db_url(outdir)
+    engine = create_engine_with_schema(
         engine_url
     )
 
     analysis_infos=analysis_infos[:max_analyses_for_testing]
 
-    add_data_to_database(analysis_infos, sql_engin, outdir, query_refseq_by_symbol=refseq)
+    metadata = create_metadata_tables(analysis_infos)
 
-    write_metadata_tables(analysis_infos, outdir)
+    with Session(engine) as session:
+        write_db_files(outdir,  analysis_infos, metadata, session)
 
     if run_server:
         from crispr_screen_viewer.launch import init_app
@@ -689,21 +765,10 @@ def create_database(
             str(outdir),
             engine_url,
             debug_messages=True,
-
         )
 
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
-
-def create_test_database(**kwargs):
-    outdir = get_resource_path('data/test_db')
-    g = glob(f'{get_resource_path("tests/test_data/exorcise_style")}/*')
-    logger.debug(g)
-    infos = get_paths_exorcise_structure_v1(g)
-    logger.debug(infos)
-
-    actual_kwargs = dict(refseq=False, ask_before_deleting=False) | kwargs
-    create_database(outdir, infos, **actual_kwargs)
 
 def run_test_server(port=8050):
     datadir = get_resource_path('data/test_db')
@@ -712,7 +777,6 @@ def run_test_server(port=8050):
         datadir,
         debug_messages=False
     )
-
     app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 def __create_database_20240228():
@@ -730,7 +794,8 @@ def __create_database_20240228():
     # print(drs)
     analysis_infos = get_paths_exorcise_structure_v1(drs)
 
-    create_database(outd, analysis_infos[:], refseq=True, run_server=False)
+    create_database(outd, analysis_infos[:],  run_server=False)
+
 
 
 
