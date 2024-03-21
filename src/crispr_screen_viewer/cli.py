@@ -35,11 +35,11 @@ def run():
     if command == 'database':
         from crispr_screen_viewer.update_database import parse_cli_args
         parse_cli_args(cmd_args)
-    if command == 'launch':
+    elif command == 'launch':
         from crispr_screen_viewer.launch import from_cli
         from_cli(cmd_args)
 
-    if command == 'remove':
+    elif command == 'remove':
         if (not cmd_args) or (cmd_args[0] in ('-h', '--help')):
             print('''
     crispr-screen-viewer DATABASE_DIRECTORY EXP_ID [EXP_ID]
@@ -50,6 +50,9 @@ def run():
         else:
             from crispr_screen_viewer.update_database import remove_experiments_from_db
             remove_experiments_from_db(cmd_args[0], cmd_args[1:])
+
+    else:
+        print(f'Command {command} not recognised.')
 
 if __name__ == '__main__':
     run()

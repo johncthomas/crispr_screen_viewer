@@ -252,7 +252,7 @@ def from_cli(args):
                             description="Dash app for exploring CRISPR screen data.",
                             add_help=True,)
 
-    args = parser.parse_args()
+    args = parser.parse_args(args)
 
     app = init_app(
         data_path=args.data_path,
