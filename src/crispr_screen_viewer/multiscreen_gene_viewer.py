@@ -239,6 +239,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                     go.Box(**boxkw)
                 )
 
+            fig.update_xaxes(tickangle=45)
+
             # labels
             from crispr_screen_viewer.dataset import ANALYSESTYPES
             fig.update_layout(xaxis_title='Plot number',
