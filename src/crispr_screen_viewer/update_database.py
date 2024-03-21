@@ -409,12 +409,25 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     for group_name, (ctrl, treat) in analysis_wb.iter_comps():
         comp_row = {}
         # print(ctrl, treat)
-        comp_row['ControlSample'] = treat
-        comp_row['TestSample'] = ctrl
-        comp_row['Treatment'] = get_treatment_str(
-            analysis_wb.wb['Sample details'],
-            ctrl, treat
-        )
+        comp_row['ControlSample'] = ctrl
+        comp_row['TestSample'] = treat
+
+        # get treatment string
+        if (
+                ('Contrast' in comp_row.keys())
+                and (not pd.isna(comp_row['Contrast']))
+                and comp_row['Contrast']
+        ):
+            treatment = comp_row['Contrast']
+            logger.debug(f"Using given Contrast name '{treatment}'")
+
+        else:
+            treatment = get_treatment_str(
+                analysis_wb.wb['Sample details'],
+                ctrl, treat
+            )
+        comp_row['Treatment'] = treatment
+
         ctrl_row = analysis_wb.samples.loc[ctrl]
         comp_row['ControlTreatment'] = ctrl_row['Treatment']
         comp_row['ControlKO'] = ctrl_row['KO']
