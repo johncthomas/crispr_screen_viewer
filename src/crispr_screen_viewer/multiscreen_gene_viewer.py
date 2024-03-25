@@ -70,7 +70,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         graph = dcc.Graph(
             id='msgv-gene-boxplots',
             figure=go.Figure(),
-            style={'height':'800px', 'width':'1500px'}
+            style={'height':'1000px', 'width':'1500px'}
         )
 
         @app.callback(
