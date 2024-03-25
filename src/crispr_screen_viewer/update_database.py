@@ -406,56 +406,58 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     comparisons_metadata = []
 
     # iterate through comparisons, pull the sample data for controls/treatments and build the table
-    for group_name, (ctrl, treat) in analysis_wb.iter_comps():
-        comp_row = {}
+    #for group_name, (ctrl, treat) in analysis_wb.iter_comps():
+    for _, comprow in analysis_wb.control_groups.iterrows():
+
+        comparison_info = {}
         # print(ctrl, treat)
-        comp_row['ControlSample'] = ctrl
-        comp_row['TestSample'] = treat
+        comparison_info['ControlSample'] = ctrl = comprow['Control sample']
+        comparison_info['TestSample'] = treat =  comprow['Test sample']
 
         # get treatment string
-        if (
-                ('Contrast' in comp_row.keys())
-                and (not pd.isna(comp_row['Contrast']))
-                and comp_row['Contrast']
-        ):
-            treatment = comp_row['Contrast']
-            logger.debug(f"Using given Contrast name '{treatment}'")
+        treatment_label:str = None
+        if 'Contrast' in comprow.index:
+            contrast = comprow['Contrast']
+            if (not pd.isna(contrast)) and contrast:
+                treatment_label = contrast
+                logger.debug(f"Using given Contrast name '{treatment_label}'")
 
-        else:
-            treatment = get_treatment_str(
+        if treatment_label is None:
+            treatment_label = get_treatment_str(
                 analysis_wb.wb['Sample details'],
                 ctrl, treat
             )
-        comp_row['Treatment'] = treatment
+
+        comparison_info['Treatment'] = treatment_label
 
         ctrl_row = analysis_wb.samples.loc[ctrl]
-        comp_row['ControlTreatment'] = ctrl_row['Treatment']
-        comp_row['ControlKO'] = ctrl_row['KO']
+        comparison_info['ControlTreatment'] = ctrl_row['Treatment']
+        comparison_info['ControlKO'] = ctrl_row['KO']
 
         for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'KO', 'Notes'):
             # Deal with columns being dropped from the input data.
             if k in analysis_wb.samples.columns:
-                comp_row[k] = analysis_wb.samples.loc[treat, k]
+                comparison_info[k] = analysis_wb.samples.loc[treat, k]
             else:
                 if k not in already_warned_of_missing_column:
                     already_warned_of_missing_column.add(k)
                     logger.warning(f"Missing columns '{k}' in workbook for experiment {analysis_wb.expd['experiment_id']}")
-                comp_row[k] = np.nan
+                comparison_info[k] = np.nan
 
         exp_id = analysis_wb.expd['experiment_id']
-        comp_row['Experiment ID'] = exp_id
-        comp_row['Library'] = analysis_wb.experiment_details['Library']
-        comp_row['Comparison ID'] = f"{exp_id}.{ctrl}-{treat}"
+        comparison_info['Experiment ID'] = exp_id
+        comparison_info['Library'] = analysis_wb.experiment_details['Library']
+        comparison_info['Comparison ID'] = f"{exp_id}.{ctrl}-{treat}"
 
         # format strings
-        if not pd.isna(comp_row['Dose']):
-            comp_row['Dose'] = str(comp_row['Dose']).replace('uM', 'μM')
-        if pd.isna(comp_row['KO']) or (comp_row['KO'] == ''):
-            comp_row['KO'] = 'WT'
+        if not pd.isna(comparison_info['Dose']):
+            comparison_info['Dose'] = str(comparison_info['Dose']).replace('uM', 'μM')
+        if pd.isna(comparison_info['KO']) or (comparison_info['KO'] == ''):
+            comparison_info['KO'] = 'WT'
 
-        comp_row['Timepoint'] = group_name.split('_')[0]
+        comparison_info['Timepoint'] = comprow['Group'].split('_')[0]
 
-        comparisons_metadata.append(comp_row)
+        comparisons_metadata.append(comparison_info)
 
     return pd.DataFrame(comparisons_metadata)
 
