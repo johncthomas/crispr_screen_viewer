@@ -1,18 +1,12 @@
-import os
-import unittest, math
+import unittest
 from unittest import TestCase
+from glob import glob
 
-import pandas as pd
-import numpy as np
-
-from sqlalchemy.orm import Session
-
+from crispr_screen_viewer.tests.utils import create_test_database
 from crispr_screen_viewer.update_database import *
-from crispr_screen_viewer.dataset import ANALYSESTYPES, DataSet, MetadataTables
+from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
 from crispr_screen_viewer.database import *
-from crispr_screen_viewer.functions_etc import get_resource_path
-
-from loguru import logger
+from crispr_screen_viewer.functions_etc import get_resource_path, get_ith_from_all
 
 TEST_DB_DIR = get_resource_path('data/test_db')
 INFOS_exorcise = get_paths_exorcise_structure_v1(
@@ -28,7 +22,6 @@ class TestDatabaseExorciseV1(TestCase):
         outdir = get_resource_path('tests/test_data/exorcise_out')
 
         self.outdir = outdir
-        from glob import glob
 
         create_database(
             analysis_infos=INFOS_exorcise,
@@ -158,8 +151,6 @@ class TestUpdateExp(TestCase):
                 replace_expid in xpids,
                 f"Missing experiment ID {replace_expid} in {md} expids: {xpids}, replacing {replace_list}"
             )
-
-
 
 
 def test_add_genes_from_symbols():

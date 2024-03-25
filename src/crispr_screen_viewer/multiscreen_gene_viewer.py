@@ -74,7 +74,6 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         )
 
         @app.callback(
-
             Output('msgv-gene-boxplots', 'figure'),
             Output('msgv-order-by', 'options'),
             Output('ordered-comp-store', 'data'),
@@ -87,7 +86,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             Input('msgv-tabs', 'value'),
             Input('msgv-order-by', 'value'),
             Input('msgv-color-by', 'value'),
-            Input('msgv-gene-selector', 'value'),
+            Input('msgv-update-genes-button', 'n_clicks'),
+            State('msgv-gene-selector', 'value'),
         )
         def update_boxplot_figure(
                 fdr_threshold,
@@ -98,6 +98,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 selected_tab,
                 order_by,
                 color_by,
+                update_genes,
                 selected_genes,
         ):
             if (selected_tab != 'msgv-boxplot-tab') or (not selected_genes):
@@ -269,8 +270,8 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             Input('msgv-cluster-missing-method', 'value'),
             Input('cluster-height', 'value'),
             Input('cluster-width', 'value'),
-
-            Input('msgv-gene-selector', 'value'),
+            Input('msgv-update-genes-button', 'n_clicks'),
+            State('msgv-gene-selector', 'value'),
 
         )
         def update_clustergrams(
@@ -280,6 +281,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 selected_tab:str,
                 missing_method,
                 height, width,
+                update_genes_button,
                 selected_genes,
         ):
 
@@ -459,12 +461,22 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         children=[
             html.P('Select genes:', style=big_text_style),
 
-            dcc.Dropdown(id='msgv-gene-selector', placeholder='Select genes',
-                         value=[],
-                         options=get_gene_dropdown_lab_val(data_set, data_set.genes),
-                         multi=True),
+            Div([
+                dcc.Dropdown(
+                    id='msgv-gene-selector', placeholder='Select genes',
+                     value=[],
+                     options=get_gene_dropdown_lab_val(data_set, data_set.genes),
+                     multi=True
+                ),
+                html.Button(
+                    'Submit',
+                    id='msgv-update-genes-button',
+                    n_clicks=0,
+                ),
+            ])
         ],
-        style={'margin-bottom': '15px'})
+        style={'margin-bottom': '15px'}
+    )
 
     filter_cols = get_selector_table_filter_keys(public)['comp']
 
@@ -492,7 +504,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         stat_source_selectr = get_stat_source_selector('msgv', 'Analysis method:')
 
         # doing the full boxplots can be slow
-        default_max_boxplots = 20
+        default_max_boxplots = 12
         show_outliers_ctrl = dbc.Card(
             id='msgv-show-boxplots-card',
             children=[

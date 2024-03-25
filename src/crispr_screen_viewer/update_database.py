@@ -1,20 +1,15 @@
 #!/usr/bin/env python
 from dataclasses import dataclass
-from glob import glob
 
 import requests, json
 import os.path, typing
-import pathlib
 from pathlib import Path
-import unicodedata
 
 from typing import Literal, Tuple
 
-from argparse import ArgumentParser
-
 import pandas as pd
 import sqlalchemy
-from sqlalchemy import Engine, create_engine, select
+from sqlalchemy import Engine, create_engine
 from sqlalchemy.orm import Session
 
 from crispr_screen_viewer.database import *
@@ -25,8 +20,7 @@ from crispr_screen_viewer.functions_etc import (
     normalise_text,
     load_stats_csv,
     get_resource_path,
-    set_loguru_level,
-    get_ith_from_all
+    set_loguru_level
 )
 from crispr_screen_viewer.dataset import (
     ANALYSESTYPES,
@@ -36,9 +30,8 @@ from crispr_screen_viewer.dataset import (
     get_db_url
 )
 
-from crispr_tools.data_classes import AnalysisWorkbook, CrisprCounts
+from crispr_tools.data_classes import AnalysisWorkbook
 
-from crispr_tools.crispr_pipeline import analysis_tabulate
 analysis_tabulate:dict[str, typing.Callable]
 
 import numpy as np
@@ -125,21 +118,6 @@ def load_test_db_data(d='data/test_db') -> Tuple[Engine, MetadataTables]:
 
     return engine, metadata
 
-def create_test_database(**kwargs):
-    """Create a database from ./tests/test_data, output to ./data/test_db
-    by default. **kwargs passed to create_database()"""
-    outdir = get_resource_path('data/test_db')
-    g = glob(f'{get_resource_path("tests/test_data/exorcise_style")}/*')
-    logger.debug(g)
-    infos = get_paths_exorcise_structure_v1(g)
-    logger.debug(infos)
-
-    default_kwargs = dict(
-        outdir=outdir,
-        analysis_infos=infos,
-        #refseq=False,
-        ask_before_deleting=False)
-    create_database(**default_kwargs | kwargs)
 
 def prep_deets_columns(tbl:pd.DataFrame, cmap:dict):
     """drop not defined columns, rename columns.
@@ -797,15 +775,6 @@ def create_database(
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
-def run_test_server(port=8050):
-    datadir = get_resource_path('data/test_db')
-    from crispr_screen_viewer.launch import init_app
-    app = init_app(
-        datadir,
-        debug_messages=False
-    )
-    app.run_server(debug=False, host='0.0.0.0', port=port, )
-
 def __create_database_20240228():
     stemd = '2024-02-28'
     outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
@@ -900,15 +869,15 @@ def parse_cli_args(args):
         update_experiments=args.update_existing,
     )
 
-def test_cli_args():
-    data_path = Path(get_resource_path('tests/exorcise_style/'))
-    paths = [data_path / d for d in os.listdir() if os.path.isdir(d)]
-    logger.debug(paths)
-    parse_cli_args(
-        *paths,
+# def test_cli_args():
+#     data_path = Path(get_resource_path('tests/exorcise_style/'))
+#     paths = [data_path / d for d in os.listdir() if os.path.isdir(d)]
+#     logger.debug(paths)
+#     parse_cli_args(
+#         *paths,
+# )
 
 
-    )
 
 if __name__ == '__main__':
     import sys
