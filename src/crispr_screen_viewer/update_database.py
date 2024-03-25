@@ -110,7 +110,7 @@ def create_engine_with_schema(destination="sqlite://", echo=False) -> Engine:
     return engine
 
 
-def load_test_db_data(d='data/test_db') -> Tuple[Engine, MetadataTables]:
+def load_test_db_data(d='tests/test_data/test_db') -> Tuple[Engine, MetadataTables]:
     test_db_dir = get_resource_path(d)
     url = get_db_url(test_db_dir)
     engine = create_engine(url)
@@ -184,6 +184,10 @@ def get_paths_exorcise_structure_v1(
 
     def get_fn_or_crash(p:Path):
         fns = os.listdir(p)
+        fns = list(filter(
+            lambda x: not (x.startswith('.') or x.startswith('~$')),
+            fns
+        ))
         if len(fns) != 1:
             raise ValueError(f"Wrong number of files in {p}")
         return p/fns[0]
