@@ -8,7 +8,7 @@ from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
 from crispr_screen_viewer.database import *
 from crispr_screen_viewer.functions_etc import get_resource_path, get_ith_from_all
 
-TEST_DB_DIR = get_resource_path('data/test_db')
+TEST_DB_DIR = get_resource_path('tests/test_data/test_db')
 INFOS_exorcise = get_paths_exorcise_structure_v1(
     glob(get_resource_path('tests/test_data/exorcise_style/*'))
 )
@@ -64,11 +64,14 @@ class TestDatabaseExorciseV1(TestCase):
 
 
     def test_treatment_labels(self):
-        expected = {'ATR-KO',
-         'ATR-KO (with Drug)',
-         'Drug',
-         'Drug (in ATR-KO cells)',
-         'No treatment'}
+        expected = {
+            'ATR-KO',
+            'ATR-KO (with Drug)',
+            'Drug',
+            'Drug (in ATR-KO cells)',
+            'No treatment',
+            'Named contrast'
+        }
 
         # with Session(self.engine) as S:
         #     observed = S.query(ComparisonTable.treatment_label).distinct().all()
