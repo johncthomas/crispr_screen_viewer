@@ -14,7 +14,8 @@ def run():
     Use "crispr-screen-viewer COMMAND".
     
     Commands:
-        database: Create or manage databases
+        database: Create or manage results database
+        gene_db: Update genes from exorcise directory
         launch: Launch the viewer
         remove: Remove a list of experiments from a database.
     
@@ -50,6 +51,16 @@ def run():
         else:
             from crispr_screen_viewer.update_database import remove_experiments_from_db
             remove_experiments_from_db(cmd_args[0], cmd_args[1:])
+
+    elif command == 'gene_db':
+        from crispr_screen_viewer.update_database import (
+            cr
+        )
+        from crispr_screen_viewer.update_gene_table import upsert_genes
+        from crispr_screen_viewer.update_gene_table import tabulate_genes_from_exorcise
+
+
+
 
     else:
         print(f'Command {command} not recognised.')

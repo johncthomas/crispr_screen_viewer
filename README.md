@@ -9,8 +9,7 @@ Main script available as `crispr-screen-viewer` with subcommands.
 ## Manage database
 See `crispr-screen-viewer database -h`
 
-Input data is currently several CSV files and a SQL database. In the future this is likely to move to a single 
-database for everything. Example dataset is in the data directory.
+Construct database from input files. Example dataset is in the data directory.
 
 ## Run the viewer
 ### via script
@@ -23,7 +22,7 @@ from crispr_screen_viewer import launch
 from crispr_screen_viewer.functions_etc import get_resource_path
 
 # Use the provided example data
-db_path = get_resource_path('data/test_db')
+db_path = get_resource_path('tests/test_data')
 app = launch.get_server(data_path=db_path)
 
 server = app

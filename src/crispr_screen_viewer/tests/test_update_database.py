@@ -2,11 +2,15 @@ import unittest
 from unittest import TestCase
 from glob import glob
 
+from sqlalchemy.orm import Session
+
+from crispr_screen_viewer.database import GeneTable
 from crispr_screen_viewer.tests.utils import create_test_database
 from crispr_screen_viewer.update_database import *
 from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
 from crispr_screen_viewer.database import *
 from crispr_screen_viewer.functions_etc import get_resource_path, get_ith_from_all
+from crispr_screen_viewer.update_database import create_engine_with_schema, upsert_records
 
 TEST_DB_DIR = get_resource_path('tests/test_data/test_db')
 INFOS_exorcise = get_paths_exorcise_structure_v1(
@@ -156,6 +160,29 @@ class TestUpdateExp(TestCase):
             )
 
 
+class TestUpsert(TestCase):
+    def test_upsert(self):
+        engine = create_engine_with_schema()
+        with Session(engine) as session:
+            upsert_records(
+                [{'id': 'g1', 'symbol': 'symb1', }],
+                session,
+                GeneTable
+            )
+
+            upsert_records(
+                [
+                    {'id': 'g1', 'symbol': 'symb1b', },
+                    {'id': 'g2', 'symbol': 'symb2', }
+                ],
+                session,
+                GeneTable
+            )
+
+            symbols = set(get_ith_from_all(session.query(GeneTable.symbol).all()))
+
+            self.assertTrue(symbols == {'symb1b', 'symb2'})
+
 def test_add_genes_from_symbols():
     from crispr_screen_viewer.update_database import (
         create_engine_with_schema,
@@ -180,3 +207,6 @@ def test_add_genes_from_symbols():
 
 if __name__ == '__main__':
     unittest.main()
+
+
+

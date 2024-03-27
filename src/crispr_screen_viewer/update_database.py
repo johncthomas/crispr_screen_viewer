@@ -5,7 +5,7 @@ import requests, json
 import os.path, typing
 from pathlib import Path
 
-from typing import Literal, Tuple
+from typing import Literal, Tuple, Type
 
 import pandas as pd
 import sqlalchemy
@@ -105,7 +105,7 @@ def create_engine_with_schema(destination="sqlite://", echo=False) -> Engine:
     engine = create_engine(destination, echo=echo, connect_args={'timeout':4000})
 
     # create tables in the actual SQL database
-    Base.metadata.create_all(engine)
+    TableBase.metadata.create_all(engine)
 
     return engine
 
@@ -132,23 +132,38 @@ def prep_deets_columns(tbl:pd.DataFrame, cmap:dict):
     return tbl
 
 
-def insert_records(tablecls, records:list[dict], session:Session):
+def insert_records(table:Type[TableBase], records:list[dict], session:Session):
     """Insert rows into given table. Record dict.keys must be present in tablecls
     columns. Use DataFrame.to_dict(orient='records') to pass DF info.
 
-    NaN are skipped over.
+    Column values that are pd.nan are skipped over.
 
-    Fails if they've already been added.
-
-    Does not commit"""
-    # https://docs.sqlalchemy.org/en/20/tutorial/data_update.html
+    Fails if they've already been added."""
 
     # filter the records so key:value pairs of null value are removed
     session.add_all(
-        [tablecls(**{k: v for k, v in kw.items() if not pd.isna(v)})
+        [table(**{k: v for k, v in kw.items() if not pd.isna(v)})
          for kw in records]
     )
 
+def upsert_records(
+        records:list[dict],
+        session:Session,
+        table:Type[TableBase],
+        primary_key='id',
+) -> None:
+    """Update existing records, or add if primary_id not found in the table."""
+    for record in records:
+        try:
+            # Try to fetch the existing record by 'id'
+            existing_record = session.query(table).filter(getattr(table, primary_key) == record[primary_key]).one()
+            # If found, update the existing record
+            for key, value in record.items():
+                setattr(existing_record, key, value)
+        except sqlalchemy.exc.NoResultFound:
+            # If not found, create a new record
+            new_record = table(**record)
+            session.add(new_record)
 
 @dataclass
 class AnalysisInfo:
@@ -267,17 +282,10 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     column_renamer = {
         "Experiment name":"Experiment ID",
         'Analysis name': 'Experiment ID', # old label for experiment name
-        #'Library':'Library',
-        #'Multiplicity of infection':'MOI',
-        #'Representation average':'Representation',
         'Experiment description (a few sentances)': 'Experiment description',
         'Experiment description (a few sentences)':'Experiment description',
-        #'Experiment description': 'Experiment description',
-        # 'Notes':'notes',
-        # 'DOI':'doi',
         # Citation in the workbook is mislabeled. Citation in the app generated from this
         "Citation":"Reference",
-        # "Reference":'reference',
         'Date screen completed (yyyy-mm-dd)':'Date',
         'Date screen completed':'Date',
         'Date published':'Date',
@@ -290,12 +298,6 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
 
     experiment_details_table = pd.DataFrame(experiment_details)
     experiment_details_table = experiment_details_table.reset_index(drop=True)
-
-    # drop columns not in the mapper
-    #cols = list(set(column_renamer.values()))
-    #experiment_details_table = experiment_details_table.loc[:, cols]
-
-    #experiment_details_table.set_index('stringid', inplace=True, )
 
     # Short citation is generated from the full reference, automatic detection of clashing cites
     def find_date(reference):
@@ -366,23 +368,9 @@ def add_experiments(data_paths:list[AnalysisInfo], session:Session):
     experiment_details = [d.analysis_workbook.experiment_details for d in data_paths]
     table = tabulate_experiments_metadata(experiment_details)
     logger.info(f"Adding {table.shape[0]} rows to ExperimentTable")
-    insert_records(ExperimentTable,  table.to_dict(orient='records'), session)
+    insert_records(ExperimentTable, table.to_dict(orient='records'), session)
 
 def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
-    # comparison_column_mapping = {
-    #     'Treatment': 'treatment_label',
-    #     'Timepoint': 'timepoint',
-    #     'Cell line': 'cell',
-    #     'Ctrl samp': 'ctrl',
-    #     'Treat samp': 'treat',
-    #     'KO': 'ko',
-    #     'Dose': 'dose',
-    #     'Growth inhibition %': 'gi',
-    #     'Days grown': 'days_grown',
-    #     'Library': 'library',
-    #     'Experiment ID': 'experiment',
-    #     'Notes':'notes'
-    # }
     already_warned_of_missing_column = set()
     # this will become the returned table
     comparisons_metadata = []
@@ -444,16 +432,10 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     return pd.DataFrame(comparisons_metadata)
 
 
-# def add_comparisons(analyses_info:list[AnalysisInfo], session:Session):
-#     for info in analyses_info:
-#         comparisons_metadata = tabulate_comparisons(info.analysis_workbook)
-#         logger.info(f"Adding {comparisons_metadata.shape[0]} rows to ComparisonTable from {info.experiment_id}")
-#         insert_records(ComparisonTable, comparisons_metadata.to_dict(orient='records'), session)
-
-
 def get_gene_symbols_db(session) -> set[str]:
     gns = set([g[0] for g in session.query(GeneTable.symbol).distinct().all()])
     return gns
+
 
 def gene_info_from_refseq_by_symbols(
         symbols:list[str],
@@ -540,22 +522,13 @@ def add_genes_from_symbols(
         symbols: list[str],
         organism: Literal['Human'] | Literal['Mouse'] | int,
         session:Session,
-        query_refseq_by_symbol=False,
 ):
-    """Look up the symbol in refseq, get some IDs"""
+    """Adds records for genes in results that are not currently in the table. """
 
     symbols_to_add = set(symbols).difference(get_gene_symbols_db(session))
-    if query_refseq_by_symbol:
-        #logger.debug('Adding: '+str(symbols_to_add))
-        records = gene_info_from_refseq_by_symbols(list(symbols_to_add), organism)
-        insert_records(GeneTable, records, session)
 
-    # above queries will not add rows for genes that aren't in refseq
-    new_current_symbols = get_gene_symbols_db(session)
-    no_refseq_genes = symbols_to_add.difference(new_current_symbols)
-    logger.debug('Num ID-less genes being added: '+str(len(no_refseq_genes)))
-    empty_records = [dict(id=s, symbol=s, organism=organism) for s in no_refseq_genes]
-    #logger.debug(empty_records)
+    logger.debug('Num ID-less genes being added: '+str(len(symbols_to_add)))
+    empty_records = [dict(id=s, symbol=s, organism=organism) for s in symbols_to_add]
     insert_records(GeneTable, empty_records, session)
 
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
@@ -578,7 +551,7 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
             tables.append(table)
     return pd.concat(tables)
 
-def add_statistics(analysesinfo:list[AnalysisInfo], session:Session, query_refseq_by_symbol=False):
+def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
     """Take a table, as output by crispr_pipeline, add rows to StatTable."""
     for info in analysesinfo:
         table = tabulate_statistics(info)
@@ -587,7 +560,6 @@ def add_statistics(analysesinfo:list[AnalysisInfo], session:Session, query_refse
             table.gene_id,
             info.analysis_workbook.experiment_details.Organism,
             session,
-            query_refseq_by_symbol=query_refseq_by_symbol
         )
 
         logger.info(f"Adding {table.shape[0]} rows to StatTable from {info.experiment_id}")
@@ -605,48 +577,14 @@ def create_metadata_tables(analysesinfo:list[AnalysisInfo]) \
     for info in analysesinfo:
         comparisons_metadata.append(tabulate_comparisons(info.analysis_workbook))
     comparisons_metadata = pd.concat(comparisons_metadata)
-    # db_to_df_header = {
-    #     'treatment_label': 'Treatment',
-    #      'timepoint': 'Timepoint',
-    #      'cell': 'Cell line',
-    #      'ctrl': 'Ctrl samp',
-    #      'treat': 'Treat samp',
-    #      'ko': 'KO',
-    #      'dose': 'Dose',
-    #      'gi': 'Growth inhibition %',
-    #      'days_grown': 'Days grown',
-    #      'library': 'Library',
-    #      'experiment': 'Experiment ID',
-    #      'notes': 'Notes',
-    #     'stringid':'Comparison ID'
-    # }
-    #
-    # df_rename_columns(comparisons_metadata, db_to_df_header, inplace=True)
 
     experiments_metadata = tabulate_experiments_metadata(
             [d.analysis_workbook.experiment_details for d in analysesinfo]
     )
 
-    # df_rename_columns(
-    #     experiments_metadata,
-    #     {'stringid': 'Experiment ID',
-    #      'library': 'Library',
-    #      'moi': 'Multiplicity of infection',
-    #      'representation': 'Representation average',
-    #      'description': 'Experiment description',
-    #      'notes': 'Notes',
-    #      'doi': 'DOI',
-    #      'reference': 'Reference',
-    #      'date': 'Date published'},
-    #     inplace=True,
-    # )
-
     comparisons_metadata.set_index('Comparison ID', drop=False, inplace=True)
     experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
 
-    #
-    # comparisons_metadata.to_csv(outdir/COMP_CSV)
-    # experiments_metadata.to_csv(outdir/EXP_CSV)
     return MetadataTables(comparisons=comparisons_metadata, experiments=experiments_metadata)
 
 def write_db_files(
@@ -699,7 +637,7 @@ def remove_experiments_from_db(
 def update_database(
         db_dir,
         analysis_infos: list[AnalysisInfo],
-        refseq:bool=False,
+
         update_experiments=False,
 ) -> None:
     db_dir = Path(db_dir)
@@ -869,7 +807,7 @@ def parse_cli_args(args):
     update_database(
         args.dbdir,
         analysis_infos,
-        refseq=False,
+
         update_experiments=args.update_existing,
     )
 
@@ -882,10 +820,12 @@ def parse_cli_args(args):
 # )
 
 
-
 if __name__ == '__main__':
-    import sys
-    parse_cli_args(sys.argv[1:])
 
+    #import sys
+    #parse_cli_args(sys.argv[1:])
+    ngn = create_engine_with_schema(
+        get_db_url(get_resource_path('tests/test_data/test_db'))
+    )
 
 

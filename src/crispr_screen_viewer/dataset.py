@@ -115,8 +115,12 @@ class DataSet:
         self.exp_data = None
 
         with Session(db_engine) as S:
+            # GeneTable can contain genes not actually in any analysis
+            #   so this is the master list of relevant genes
             res_genes = S.query(StatTable.gene_id).distinct().all()
             self.genes = list(sorted(set([r[0] for r in res_genes])))
+
+            # Limit available analysis types to those with results in the database
             res_ans = S.query(StatTable.analysis_type_id).distinct().all()
             self.available_analyses = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
 

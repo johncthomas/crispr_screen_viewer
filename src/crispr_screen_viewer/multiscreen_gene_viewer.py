@@ -53,17 +53,19 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
     order_by_categories = ['Mean score', 'Treatment', 'Citation']
     colourable_categories = ['Treatment', 'Cell line', 'Citation', 'Library', 'KO']
 
-    def get_numbered_tick_labels(comps, just_numbers=False):
+    def get_numbered_tick_labels(comps, just_numbers=False) -> list[str]:
         """list of strings giving number, citation and treatment info for
         comps. If just_numbers, return only list of strings of numbers."""
 
-        trace_numbers = pd.Series([str(i) for i in range(1, len(comps) + 1)])
+        trace_numbers = [str(i) for i in range(1, len(comps) + 1)]
         if just_numbers:
             return trace_numbers
 
-        citations = data_set.comparisons.loc[comps, 'Citation']
-        treats = data_set.comparisons.loc[comps, 'Treatment'].fillna('')
-        return trace_numbers.values + '. ' + citations.values + ', ' + treats.values
+        cites_treats:list[tuple[str]] = data_set.get_comparisons_columns(
+            comps, ['citation', 'treatment_label']
+        )
+
+        return [f"{n}. {c}, {t}" for n, (c, t) in zip(trace_numbers, cites_treats)]
 
     def spawn_boxplot_graph() -> dcc.Graph:
 
@@ -160,7 +162,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 ordered_comps = hit_table_scores.mean().sort_values().index.values
             elif order_by in order_by_categories[1:]:
                 # subset the metadata to included comps and then sort by the order_by
-                ordered_comps = data_set.comparisons.loc[hit_table_scores.columns, order_by].sort_values().index
+                ordered_comps = data_set.get_comparisons_df(hit_table_scores.columns, order_by).sort_values().index
             else:  # this shouldn't happen, though maybe I should have a "whatever" order option
                 ordered_comps = hit_table_scores.columns.values
 
@@ -210,7 +212,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 boxlabels = pd.Series(x_tick_labels[trace_i], index=ys.index)
 
                 # Get the value by which the box will be coloured
-                colorable_value = data_set.comparisons.loc[comp, color_by]
+                colorable_value = data_set.get_comparisons_df(comp, color_by)
 
 
                 # key-word args for the box
@@ -313,7 +315,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             comp_label_dict = {c:l for c, l in
                 zip(
                     filtered_scores.columns,
-                    list(get_numbered_tick_labels(filtered_scores.columns))
+                    get_numbered_tick_labels(filtered_scores.columns)
                 )
             }
             logger.debug(f'Pre-filter for NaN:\n{filtered_scores}')
@@ -342,10 +344,10 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 return [html.P('Select at least 2 genes', className='no-data-paragraph')]
             elif (len(comps) == 0) and (selected_genes > 2):
                 if not data_missing:
-                    return [html.P(f"None of the selected genes have FDR <= {fdr_thresh}",
+                    return [html.P(f"None of the selected genes have FDR <= {fdr_threshold}",
                                    className='no-data-paragraph')]
                 else:
-                    return [html.P(f"None of the selected genes have FDR <= {fdr_thresh}\n"
+                    return [html.P(f"None of the selected genes have FDR <= {fdr_threshold}\n"
                                    f"Some samples don't have scores for some genes.",
                                    className='no-data-paragraph')]
             elif (0 in filtered_scores.shape) or (1 in filtered_scores.shape):
@@ -400,6 +402,17 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
             return output_div
 
         return clustergram_div
+
+    # data_table_columns = dict(
+    #     treatment_label='Treatment',
+    #     dose='Dose',
+    #     timepoint='Timepoint',
+    #     days_grown='Days grown',
+    #     cell_line='Cell linen',
+    #     ko='KO',
+    #     library='Library',
+    #     citation='Citation'
+    # )
 
     def spawn_datatable():
         table = Div(
@@ -484,7 +497,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
         PAGE_ID,
         'comp',
         filter_cols,
-        data_set.comparisons,
+        data_set,
         values={'Timepoint':['Matched time points']},
         card_header='Filter samples by categories below:'
     )

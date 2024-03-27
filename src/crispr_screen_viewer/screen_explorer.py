@@ -292,7 +292,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         Div(datatable, style={'padding-right':'20px'})
     ]
 
-    filter_dropdowns = {tabk:spawn_filter_dropdowns(PAGE_ID, tabk, filtercols, comparisons)
+    filter_dropdowns = {tabk:spawn_filter_dropdowns(PAGE_ID, tabk, filtercols, data_set)
                         for tabk, filtercols in filter_keys.items()}
 
     exptab, comptab = spawn_selector_tabs(

@@ -2,6 +2,7 @@
 import os.path
 from argparse import ArgumentParser
 from urllib.parse import urlparse
+from importlib import resources
 
 import sqlalchemy
 
@@ -272,7 +273,7 @@ def init_app(
         app_title='CRISPR screen viewer',
         db_echo=False,
 ):
-    from importlib import resources
+
     if data_path is None:
         data_path = resources.files("crispr_screen_viewer").joinpath("data").__str__()
 
@@ -280,7 +281,6 @@ def init_app(
         # Use absolute path cus
         database_url = f"sqlite:///{os.path.abspath(data_path)}/database.db"
         logger.info(f'Using datbase URL "{database_url}"')
-
 
     db_engine = sqlalchemy.create_engine(database_url, echo=db_echo)
 

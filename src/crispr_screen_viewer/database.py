@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session, mapped_column, Mapped
 
 
 
-__all__ = "ExperimentTable", 'ComparisonTable', 'StatTable',  "Base", 'GeneTable'
+__all__ = "ExperimentTable", 'ComparisonTable', 'StatTable', "TableBase", 'GeneTable'
 
 # function for creating columns
 mcol = mapped_column
@@ -30,23 +30,21 @@ MFloatN = orm.Mapped[Optional[float]]
 MStrN = orm.Mapped[Optional[str]]
 
 
-class Base(orm.DeclarativeBase):
+class TableBase(orm.DeclarativeBase):
     pass
 
 
-class GeneTable(Base):
+class GeneTable(TableBase):
     __tablename__ = "gene"
 
     id: MStr = mcol(primary_key=True)
     symbol: MStr = mcol(unique=True)
-    ensembl: MStrN
-    ncbi: MStrN
-    official_id: MStrN # i.e. MGI or HGNC
+    official_id: MStrN
+    symbol_with_ids: MStrN
     organism: MStrN
-    synonyms_str: MStrN
 
 
-class ExperimentTable(Base):
+class ExperimentTable(TableBase):
     __tablename__ = 'experiment'
 
     #id: MInt = mcol(primary_key=True)
@@ -63,7 +61,7 @@ class ExperimentTable(Base):
     citation: MStrN
 
 
-class ComparisonTable(Base):
+class ComparisonTable(TableBase):
     __tablename__ = 'comparison'
 
     #id: MInt = mcol(primary_key=True)
@@ -85,7 +83,7 @@ class ComparisonTable(Base):
 
 
 
-class StatTable(Base):
+class StatTable(TableBase):
     __tablename__ = 'stat'
     __table_args__ = (
         sqla.UniqueConstraint(
