@@ -5,7 +5,7 @@ from glob import glob
 from sqlalchemy.orm import Session
 
 from crispr_screen_viewer.database import GeneTable
-from crispr_screen_viewer.tests.utils import create_test_database
+from crispr_screen_viewer.tests.test_live import create_test_database
 from crispr_screen_viewer.update_database import *
 from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
 from crispr_screen_viewer.database import *
