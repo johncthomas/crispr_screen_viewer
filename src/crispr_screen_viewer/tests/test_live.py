@@ -7,8 +7,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session
 
 from crispr_screen_viewer.functions_etc import get_resource_path
-from crispr_screen_viewer.update_database import get_paths_exorcise_structure_v1, create_database, \
+from crispr_screen_viewer.update_database import (
+    get_paths_exorcise_structure_v1,
+    create_database,
     create_engine_with_schema
+)
 from crispr_screen_viewer.dataset import get_db_url
 from crispr_screen_viewer.update_gene_table import locate_exorcise_files, tabulate_genes_from_exorcise, upsert_genes
 
@@ -48,21 +51,20 @@ def run_test_server(port=8050):
 
 def test_update_gene_table():
     engine = create_engine_with_schema(test_db_url)
-    files = locate_exorcise_files('/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/test_data/exorcise_libs')
+    files = locate_exorcise_files(get_resource_path('tests/test_data/exorcise_libs_A'))
     table = tabulate_genes_from_exorcise(
         files,
-        '/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/hgnc_complete_set.txt'
+        get_resource_path('tests/test_data/hgnc_table_cutdown.tsv.gz')
     )
     with Session(engine) as session:
-        upsert_genes(table.to_dict(orient='records'), session)
+        upsert_genes(
+            table.to_dict(orient='records'),
+            session
+        )
         session.commit()
 
 
-
-
 if __name__ == '__main__':
-
-
     create_test_database()
     test_update_gene_table()
     run_test_server(8054)
