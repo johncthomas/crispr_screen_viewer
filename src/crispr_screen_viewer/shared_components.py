@@ -7,7 +7,7 @@ from crispr_screen_viewer.functions_etc import (
     style_gene_selector_div,
     datatable_column_dict
 )
-from crispr_screen_viewer.dataset import ANALYSESTYPES, DataSet
+from crispr_screen_viewer.dataset import ANALYSESTYPES
 from dash.exceptions import PreventUpdate
 Div = html.Div
 import pandas as pd
@@ -201,12 +201,13 @@ def spawn_gene_dropdown(app, id_prefix) -> Div:
     )
 
 def spawn_filter_dropdowns(
-        id_prefix, table_str, filter_cols:dict[str,str], dataset:DataSet, values:dict=None,
+        id_prefix, table_str, filter_cols:List[str], comparisons, values:dict=None,
         card_header='Filter table rows by their contents.',
 ) -> List[dbc.Card]:
     """Get Dropdown objects for layout. No callbacks registered.
 
-    filter_cols: dict giving database_column->label
+    filter_cols: list giving the columns for which filter boxes will be
+        spawned.
 
     values:
 
@@ -216,10 +217,10 @@ def spawn_filter_dropdowns(
 
     """
 
-    logger.debug(f" {values=}")
+    logger.debug(f"{comparisons=}, {values=}")
 
     filter_dropdowns = []
-    for col, label in filter_cols.items():
+    for col in filter_cols:
         idd = f"{id_prefix}-{table_str}-filter-{col}"
         logger.debug(f"Filter dropdown: register ID={idd}")
 
@@ -233,11 +234,11 @@ def spawn_filter_dropdowns(
                 dbc.CardBody([
                     dcc.Dropdown(
                         id=idd,
-                        placeholder='Filter by '+label,
+                        placeholder='Filter by '+col,
                         multi=True,
                         style={'min-height':'80px', 'width':'100%'},
                         value=value,
-                        options=[{'label':v, 'value':v} for v in dataset.get_comparisons_options(col)]
+                        options=[{'label':v, 'value':v} for v in sorted(comparisons[col].unique())]
                     ),
                 ])
             ],
@@ -246,7 +247,7 @@ def spawn_filter_dropdowns(
         filter_dropdowns.append(
             dbc.Tab(
                 drpdwn,
-                label=label,
+                label=col,
                 #className='filter-tab'
             )
         )

@@ -62,7 +62,7 @@ def initiate(app, data_set:DataSet, public):
     # Used to filterdown the rows of the experiment and comparisons tables.
     filter_keys = get_selector_table_filter_keys(public=public, )
 
-    filter_dropdowns = {tabk:spawn_filter_dropdowns(PAGE_ID, tabk, comptabk, data_set)
+    filter_dropdowns = {tabk:spawn_filter_dropdowns(PAGE_ID, tabk, comptabk, comparisons)
                         for tabk, comptabk in filter_keys.items()}
 
     selctr_tables = spawn_selector_tables(

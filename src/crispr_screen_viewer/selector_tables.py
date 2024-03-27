@@ -92,7 +92,7 @@ def register_filter_callbacks(app, id_prefix, exp_or_comp, filter_columns,
     logger.debug(
         f"Registering data selector table row filters with IDs:\n"
         f"   Output: {table_id}\n"
-        f"   Inputs: {id_prefix}-{exp_or_comp}-filter-{{col}} for col in {filter_columns.keys()}"
+        f"   Inputs: {id_prefix}-{exp_or_comp}-filter-{{col}} for col in {filter_columns}"
     )
 
     # cm-comp-table is a special case because the output should go via the X/Y
@@ -485,15 +485,15 @@ def test(testing_page='cm'):
     PAGE_ID = testing_page
     p = '/Users/johnc.thomas/Dropbox/crispr/DDRcs/app_data/toy_data'
     dataset = load_dataset(p)
-
+    comparisons = dataset.comparisons
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 
     # ** filter_dropdowns **
     # Used to filterdown the rows of the experiment and comparisons tables.
     filter_keys = get_selector_table_filter_keys(public=True, )
     filter_keys = copy.copy(filter_keys)
-
-    filter_dropdowns = {tabk: spawn_filter_dropdowns(PAGE_ID, tabk, comptabk, dataset)
+    filter_keys['comp'].append('Timepoint')
+    filter_dropdowns = {tabk: spawn_filter_dropdowns(PAGE_ID, tabk, comptabk, comparisons)
                         for tabk, comptabk in filter_keys.items()}
 
     selctr_tables = spawn_selector_tables(
