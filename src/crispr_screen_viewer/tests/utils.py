@@ -41,7 +41,7 @@ def run_test_server(port=8050):
     from crispr_screen_viewer.launch import init_app
     app = init_app(
         datadir,
-        debug_messages=False
+        debug_messages=True
     )
     app.run_server(debug=False, host='0.0.0.0', port=port, )
 
@@ -55,14 +55,16 @@ def test_update_gene_table():
     )
     with Session(engine) as session:
         upsert_genes(table.to_dict(orient='records'), session)
+        session.commit()
 
 
 
 
 if __name__ == '__main__':
-    delete_test_files()
-    test_update_gene_table()
+
+
     create_test_database()
+    test_update_gene_table()
     run_test_server(8054)
 
 

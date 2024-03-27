@@ -41,7 +41,7 @@ class GeneTable(TableBase):
     symbol: MStr = mcol(unique=True)
     official_id: MStrN
     symbol_with_ids: MStrN
-    organism: MStrN
+    organism: MStr
 
 
 class ExperimentTable(TableBase):

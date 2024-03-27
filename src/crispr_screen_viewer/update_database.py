@@ -153,13 +153,20 @@ def upsert_records(
         primary_key='id',
 ) -> None:
     """Update existing records, or add if primary_id not found in the table."""
+    logger.debug(f"First 5 records:\n{records[:5]}")
     for record in records:
         try:
             # Try to fetch the existing record by 'id'
-            existing_record = session.query(table).filter(getattr(table, primary_key) == record[primary_key]).one()
+            existing_record = session.query(
+                table
+            ).filter(
+                getattr(table, primary_key) == record[primary_key]
+            ).one()
+
             # If found, update the existing record
             for key, value in record.items():
                 setattr(existing_record, key, value)
+
         except sqlalchemy.exc.NoResultFound:
             # If not found, create a new record
             new_record = table(**record)
@@ -518,6 +525,7 @@ def gene_info_from_refseq_by_symbols(
 
     return gene_info
 
+
 def add_genes_from_symbols(
         symbols: list[str],
         organism: Literal['Human'] | Literal['Mouse'] | int,
@@ -530,6 +538,7 @@ def add_genes_from_symbols(
     logger.debug('Num ID-less genes being added: '+str(len(symbols_to_add)))
     empty_records = [dict(id=s, symbol=s, organism=organism) for s in symbols_to_add]
     insert_records(GeneTable, empty_records, session)
+
 
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
     experiment_id = info.experiment_id

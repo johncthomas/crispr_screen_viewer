@@ -33,7 +33,7 @@ view_color   = '#DFE865'
 get_lab_val = lambda arr: [{'label': v, 'value':v} for v in arr]
 
 def get_gene_dropdown_lab_val(data_set, genes):
-    return [{'label': data_set.dropdown_gene_label(gn), 'value': gn} for gn in genes]
+    raise DeprecationWarning("this function is no longer here >> DataSet.dropdown_gene_labels")
 
 styles = {'selector':{'display': 'inline-block', 'border-collapse': 'separate',
                       'border-spacing': '15px 50px', 'margin-bottom': '15px', 'width':'150px'},

@@ -362,22 +362,27 @@ class DataSet:
         return ScoreFDR(score=scores, fdr=fdrs)
 
 
-    def dropdown_gene_label(self, gn:str) -> str:
-        """Gene symbol plus HGNC ID and previous symbols, if available."""
-        try:
-            row = self.previous_and_id.loc[gn]
-        except:
-            return gn
+    def dropdown_gene_labels(self, genes) -> list[dict]:
+        """Return label/value dicts for populating dropdown option.
 
-        if not row.hgnc_id:
-            return gn
+        {'label':gene.symbol_with_ids, 'value':gene.symbol}"""
+        with Session(self.engine) as session:
+            res = session.query(
+                GeneTable.symbol, GeneTable.symbol_with_ids
+            ).where(
+                GeneTable.symbol.in_(genes)
+            )
 
-        s = f"{gn}  ({row.hgnc_id}"
-        s_end = ')'
-        if row.prev_symbol:
-            s_end = f"; {row.prev_symbol})"
+        options = []
+        for symbol, symb_ids in res:
+            if symb_ids is None:
+                symb_ids = symbol
+            options.append(
+                {'label': symb_ids, 'value': symbol}
+            )
+        logger.debug(f"First few options:\n{options[:5]}")
+        return options
 
-        return s + s_end
 
 def load_dataset(paff, db_engine:Engine=None):
     """If paff is a dir, the dataset is constructed from the files

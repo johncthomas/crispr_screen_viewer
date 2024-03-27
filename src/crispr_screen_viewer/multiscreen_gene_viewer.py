@@ -12,8 +12,6 @@ from loguru import logger
 from crispr_screen_viewer.shared_components import (
     create_datatable,
     get_lab_val,
-    get_gene_dropdown_lab_val,
-    #get_reg_stat_selectors,
     get_stat_source_selector,
     colours,
     big_text_style,
@@ -476,7 +474,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 dcc.Dropdown(
                     id='msgv-gene-selector', placeholder='Select genes',
                      value=[],
-                     options=get_gene_dropdown_lab_val(data_set, data_set.genes),
+                     options=data_set.dropdown_gene_labels(data_set.genes),
                      multi=True
                 ),
                 html.Button(

@@ -12,7 +12,7 @@ from crispr_screen_viewer import (
     comparison_maker,
     legal
 )
-
+from crispr_screen_viewer.functions_etc import set_loguru_level
 from crispr_screen_viewer.dataset import (
     DataSet,
     load_dataset
@@ -292,10 +292,9 @@ def init_app(
         print('Debug messages on')
         werklog = logging.getLogger('werkzeug')
         werklog.setLevel(logging.ERROR)
+        set_loguru_level(logger, 'DEBUG')
     else:
-        # loguru is debug by default.
-        from crispr_screen_viewer.functions_etc import set_loguru_level
-        set_loguru_level(logger)
+        set_loguru_level(logger, 'INFO')
 
     server = flask.Flask(__name__)
 

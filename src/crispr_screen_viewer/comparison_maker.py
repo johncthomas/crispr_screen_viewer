@@ -24,7 +24,6 @@ from crispr_screen_viewer.functions_etc import (
 )
 from crispr_screen_viewer.shared_components import (
     get_lab_val,
-    get_gene_dropdown_lab_val,
     get_annotation_dicts,
     register_gene_selection_processor,
     spawn_gene_dropdown,
@@ -189,7 +188,7 @@ def initiate(app, data_set:DataSet, public):
             logger.debug('\tOnly 0-1 comps selected, not making graph')
             return selected_comps, dash.no_update
         x, _ = get_xyscores_genes(xk, yk, 'drz')
-        return selected_comps, get_gene_dropdown_lab_val(data_set, x.index)
+        return selected_comps, data_set.dropdown_gene_labels(x.index)
 
     # enable selecting genes by interacting with the graph
     register_gene_selection_processor(
