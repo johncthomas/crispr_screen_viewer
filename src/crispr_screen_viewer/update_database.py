@@ -726,24 +726,6 @@ def create_database(
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
-def __create_database_20240228():
-    stemd = '2024-02-28'
-    outd = Path(f'/Users/thomas03/Library/CloudStorage/OneDrive-CRUKCambridgeInstitute/ddrcs/app_data/{stemd}')
-
-    xclude = ['ParrishBerger2021', 'SchleicherMoldovan2020_Ca', ]
-
-    src = Path(
-        '/Users/thomas03/Library/CloudStorage/OneDrive-SharedLibraries-UniversityofCambridge/Simon Lam - ddrcs/runs'
-    )
-
-    drs = [src/d for d in os.listdir(src) if d not in xclude]
-
-    # print(drs)
-    analysis_infos = get_paths_exorcise_structure_v1(drs)
-
-    create_database(outd, analysis_infos[:],  run_server=False)
-
-
 def parse_cli_args(args):
     from argparse import ArgumentParser
 
