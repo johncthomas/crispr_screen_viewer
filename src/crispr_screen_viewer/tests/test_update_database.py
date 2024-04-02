@@ -188,7 +188,7 @@ def test_add_genes_from_symbols():
         create_engine_with_schema,
         load_stats_csv,
         add_genes_from_symbols,
-        get_gene_symbols_db
+        get_gene_symbols_in_db
     )
     from importlib import resources
     ngn = create_engine_with_schema(echo=True)
@@ -198,9 +198,9 @@ def test_add_genes_from_symbols():
 
     with Session(ngn) as S:
         add_genes_from_symbols(test_table.index[:-5], 'Human', S)
-        assert len(get_gene_symbols_db(S)) == len(test_table.index)-5
+        assert len(get_gene_symbols_in_db(S)) == len(test_table.index) - 5
         add_genes_from_symbols(test_table.index, 'Human', S)
-        assert len(get_gene_symbols_db(S)) == len(test_table.index)
+        assert len(get_gene_symbols_in_db(S)) == len(test_table.index)
 
 
 

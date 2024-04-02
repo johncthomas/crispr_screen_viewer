@@ -439,7 +439,7 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     return pd.DataFrame(comparisons_metadata)
 
 
-def get_gene_symbols_db(session) -> set[str]:
+def get_gene_symbols_in_db(session) -> set[str]:
     gns = set([g[0] for g in session.query(GeneTable.symbol).distinct().all()])
     return gns
 
@@ -533,7 +533,7 @@ def add_genes_from_symbols(
 ):
     """Adds records for genes in results that are not currently in the table. """
 
-    symbols_to_add = set(symbols).difference(get_gene_symbols_db(session))
+    symbols_to_add = set(symbols).difference(get_gene_symbols_in_db(session))
 
     logger.debug('Num ID-less genes being added: '+str(len(symbols_to_add)))
     empty_records = [dict(id=s, symbol=s, organism=organism) for s in symbols_to_add]
