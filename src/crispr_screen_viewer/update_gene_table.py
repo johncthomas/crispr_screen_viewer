@@ -34,16 +34,19 @@ def locate_exorcise_files(d:str|Path) -> list[Path]:
 
     return paths
 
-def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path):
+def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path) -> pd.DataFrame:
+    """Create GeneTable input DataFrame from Exorcise tables and HGNC table."""
     extern_id_col = 'inherit.externalId'
     table_rows = []
 
     ids_added = set()
 
-    # iterate through file names
+    # First build table from
     for fn in exo_fn:
         logger.info(f"Parsing from {fn}")
         tab = pd.read_csv(fn, sep='\t', dtype=str)
+
+        # remove controls
         isctrl = tab.exo_symbol.str.contains('Non-targ') | tab.exo_symbol.str.contains('Cutting')
         tab = tab.loc[~isctrl]
 
@@ -63,6 +66,7 @@ def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path):
         else:
             organism = 'Mouse'
 
+        # Create table with one row for each unique exo_symbol, with columns required for the GeneTable
         tab:pd.DataFrame = tab.drop_duplicates('exo_symbol').loc[:, ['exo_symbol', extern_id_col]]
         tab.columns = ['symbol', 'official_id']
         tab.loc[:, 'organism'] = organism
@@ -78,8 +82,6 @@ def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path):
         logger.info(f'{tab.shape[0]} new genes added.')
 
     gene_table = pd.concat(table_rows, ignore_index=True, ).astype(str)
-
-
 
     assert not gene_table.symbol.duplicated().any()
 
