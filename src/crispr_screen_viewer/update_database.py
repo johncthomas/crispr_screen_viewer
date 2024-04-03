@@ -20,7 +20,10 @@ from crispr_screen_viewer.functions_etc import (
     normalise_text,
     load_stats_csv,
     get_resource_path,
-    set_loguru_level
+    set_loguru_level,
+    is_temp_file,
+    is_nt,
+    maybe_its_gz
 )
 from crispr_screen_viewer.dataset import (
     ANALYSESTYPES,
@@ -37,11 +40,6 @@ analysis_tabulate:dict[str, typing.Callable]
 import numpy as np
 
 from loguru import logger
-
-def is_nt(s):
-    nts = {'None', 'DMSO', '', 'WT', 'NT'}
-    return pd.isna(s) or (s in nts)
-
 
 
 def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
@@ -176,16 +174,16 @@ def upsert_records(
 class AnalysisInfo:
     experiment_id:str
     analysis_workbook: AnalysisWorkbook
-    #counts: Path|str
-    results_path: dict[AnalysisType, Path | str]
+    counts_path: str
+    results_paths: dict[AnalysisType, Path | str]
 
 
 
-def get_paths_exorcise_structure_v1(
+def get_paths_branched_structure_v1(
         source_dirs:list[str|Path],
         details_dir='./det',
         results_dir='./res',
-        #count_dir='./cts',
+        count_dir='./cts',
         analysis_filename_prefix='result.'
 ) -> list[AnalysisInfo]:
     """Return list of DataPaths.
@@ -272,14 +270,69 @@ def get_paths_exorcise_structure_v1(
             analysiswb.experiment_details['Experiment name'] = xpid
             analysiswb.expd['experiment_id'] = xpid
 
+        count_filepath = get_fn_or_crash( basepath/count_dir)
+
         d = AnalysisInfo(
             experiment_id=xpid,
             analysis_workbook=analysiswb,
-            results_path=resultspaths,
+            results_paths=resultspaths,
+            counts_path=count_filepath
         )
         data.append(d)
 
     return data
+
+def get_paths(
+        details_xlsx:list[str],
+        results_dir:str|Path,
+        count_dir:str|Path,
+        analysis_filename_prefix:str='result'
+) -> list[AnalysisInfo]:
+    """Get paths to files, assuming flat structure where files of same type of
+    the same type are placed together in directories.
+    """
+    infos = []
+    for fn in details_xlsx:
+        if is_temp_file(fn):
+            continue
+
+        analysiswb = AnalysisWorkbook(fn)
+
+        xpid = analysiswb.experiment_details['Experiment name']
+
+        cfns = analysiswb.analylses['Counts file'].dropna().unique()
+        if len(cfns) != 1:
+            raise RuntimeError(f"Only a single counts file is actually supported. Error in workbook {fn}, "
+                               f"multiple (or zero) counts files found: {cfns}")
+
+        # get path for counts file
+        counts_path = maybe_its_gz(
+            os.path.join(count_dir, cfns[0])
+        )
+        assert os.path.isfile(counts_path), f"Counts file for experiment {xpid} not found, {counts_path}"
+
+        # get paths for results tables
+        resultspaths = {}
+        for ans in ANALYSESTYPES:
+            tabfn = maybe_its_gz(os.path.join(
+                results_dir, xpid, 'tables', f"{analysis_filename_prefix}.{ans.name}_table.csv"
+            ))
+            resultspaths[ans] = tabfn
+            assert os.path.isfile(tabfn), f"Results table file for experiment {xpid} not found, {tabfn}"
+
+        infos.append(
+            AnalysisInfo(
+                experiment_id=xpid,
+                analysis_workbook=analysiswb,
+                counts_path=counts_path,
+                results_paths=resultspaths
+            )
+        )
+
+    return infos
+
+
+
 
 def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         -> pd.DataFrame:
@@ -543,7 +596,7 @@ def add_genes_from_symbols(
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
     experiment_id = info.experiment_id
     tables = []
-    for analysis_type, fn in info.results_path.items():
+    for analysis_type, fn in info.results_paths.items():
         logger.debug(f"tabulating from {fn}")
         stats_table = load_stats_csv(fn)
         stats_table.index.name = 'gene_id'
@@ -726,7 +779,7 @@ def create_database(
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
-def parse_cli_args(args):
+def run_from_cli(args):
     from argparse import ArgumentParser
 
     parser = ArgumentParser(
@@ -734,14 +787,28 @@ def parse_cli_args(args):
         description='Write database files for launching the CRISPR Screen Explorer.'
     )
     parser.add_argument(
-        'indirs', metavar='DIRECTORIES',
-        nargs='+',
-        help='Input directories that contain data in Exorcise structure'
+        'details_xlsx', nargs='+', metavar='DETAILS_XLSX',
+        required=True
     )
     parser.add_argument(
-        '--dbdir', '-d', metavar='DIRECTORY',
+        '--out-dir', '-o', metavar='DIRECTORY',
         help='Location to which output files will be written',
         required=True
+    )
+    parser.add_argument(
+        '--results-dir', '-r', metavar='DIRECTORY',
+        help='Directory containing output results',
+        default='results',
+    )
+    parser.add_argument(
+        '--counts-dir', '-c', metavar='DIRECTORY',
+        help='Directory containing counts files',
+        default='counts'
+    )
+    parser.add_argument(
+        '--filename-prefix', '-p',
+        help='String prepended to input files.',
+        default='result',
     )
     parser.add_argument(
         '--new-db', '-n',
@@ -762,15 +829,18 @@ def parse_cli_args(args):
     parser.add_argument(
         '--verbosity', '-v', metavar='N',
         type=int, default=1,
-        help='Set verbosity level: 0=warning, 1=info (default), 2=debug'
+        help='Set verbosity level: 0 = warnings only, 1 = info (default), 2 = debug'
     )
 
     @dataclass
     class CLIArgs:
-        indirs: list[str]
-        dbdir: str
-        update_existing: bool
+        details_xlsx: list[str]
+        out_dir: str
+        results_dir: str
+        counts_dir: str
+        filename_prefix: str
         new_db: bool
+        update_existing: bool
         force_overwrite: bool
         verbosity: int
 
@@ -779,16 +849,21 @@ def parse_cli_args(args):
 
     args = CLIArgs(**vars(parser.parse_args(args)))
 
-    for d in args.indirs:
-        if not os.path.isdir(d):
-            raise ValueError(f"{d} is not a directory")
-    analysis_infos = get_paths_exorcise_structure_v1(args.indirs)
+    for d in args.details_xlsx:
+        if not os.path.isfile(d):
+            raise ValueError(f"Input directory {d} does not exist")
+    analysis_infos = get_paths(
+        details_xlsx=args.details_xlsx,
+        results_dir=args.results_dir,
+        count_dir=args.counts_dir,
+        analysis_filename_prefix=args.filename_prefix
+    )
 
     set_loguru_level(logger, args.verbosity_str())
 
     if args.new_db:
         create_database(
-            args.dbdir,
+            args.out_dir,
             analysis_infos,
             ask_before_deleting=not args.force_overwrite,
         )
@@ -796,14 +871,13 @@ def parse_cli_args(args):
 
     # else we're adding to existing DB
     update_database(
-        args.dbdir,
+        args.out_dir,
         analysis_infos,
-
         update_experiments=args.update_existing,
     )
 
 # def test_cli_args():
-#     data_path = Path(get_resource_path('tests/exorcise_style/'))
+#     data_path = Path(get_resource_path('tests/branched_style/'))
 #     paths = [data_path / d for d in os.listdir() if os.path.isdir(d)]
 #     logger.debug(paths)
 #     parse_cli_args(
@@ -812,11 +886,8 @@ def parse_cli_args(args):
 
 
 if __name__ == '__main__':
+    import sys
+    run_from_cli(sys.argv[1:])
 
-    #import sys
-    #parse_cli_args(sys.argv[1:])
-    ngn = create_engine_with_schema(
-        get_db_url(get_resource_path('tests/test_data/test_db'))
-    )
 
 
