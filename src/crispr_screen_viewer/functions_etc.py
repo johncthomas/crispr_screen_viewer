@@ -364,3 +364,24 @@ def get_ith_from_all(arr:Sequence[Sequence], index=0):
     Literally: [a[index] for a in arr]
     """
     return [a[index] for a in arr]
+
+
+def is_temp_file(fn:str|Path):
+    fn = str(fn)
+    if fn.startswith('.') or fn.startswith('~'):
+        return True
+    return False
+
+
+def is_nt(s):
+    nts = {'None', 'DMSO', '', 'WT', 'NT'}
+    return pd.isna(s) or (s in nts)
+
+
+def maybe_its_gz(filename) -> str:
+    filename = str(filename)
+    if not os.path.isfile(filename):
+        filegz = filename+'.gz'
+        if os.path.isfile(filegz):
+            return filegz
+    return filename
