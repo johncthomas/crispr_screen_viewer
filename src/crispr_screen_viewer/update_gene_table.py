@@ -104,7 +104,8 @@ def get_symbol_ids_from_hgnc(gene_table:pd.DataFrame, hgnc_fn:str|Path) -> pd.Da
     ishgnc = gene_table.official_id.str.startswith('HGNC:')
     hids = gene_table.loc[ishgnc, 'official_id'].unique()
 
-    hgnc = hgnc.loc[hids]
+    hgnc = hgnc.reindex(hids)
+    hgnc.fillna('', inplace=True)
 
     hgnc.entrez_id = hgnc.entrez_id.map(lambda i: f"NCBI:{i}")
 
