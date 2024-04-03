@@ -351,7 +351,8 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         'Date published':'Date',
     }
 
-    experiment_details = [xpmet.copy() for xpmet in experiment_details]
+    experiment_details = [xpmet.copy().drop(np.nan) for xpmet in experiment_details]
+
     logger.debug(experiment_details)
     for expmet in experiment_details:
         df_rename_columns(expmet, column_renamer, inplace=True, axis='index')
@@ -431,6 +432,7 @@ def add_experiments(data_paths:list[AnalysisInfo], session:Session):
     insert_records(ExperimentTable, table.to_dict(orient='records'), session)
 
 def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
+    logger.debug(f"Tabulating comps of {analysis_wb.experiment_details['Experiment name']}")
     already_warned_of_missing_column = set()
     # this will become the returned table
     comparisons_metadata = []
@@ -445,14 +447,14 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
         comparison_info['TestSample'] = treat =  comprow['Test sample']
 
         # get treatment string
-        treatment_label:str = None
+        treatment_label = 'UNDEFINED'
         if 'Contrast' in comprow.index:
             contrast = comprow['Contrast']
             if (not pd.isna(contrast)) and contrast:
                 treatment_label = contrast
                 logger.debug(f"Using given Contrast name '{treatment_label}'")
 
-        if treatment_label is None:
+        if treatment_label == 'UNDEFINED':
             treatment_label = get_treatment_str(
                 analysis_wb.wb['Sample details'],
                 ctrl, treat
@@ -553,11 +555,6 @@ def gene_info_from_refseq_by_symbols(
             if not symbol == query:
                 continue
 
-            if 'synonyms' in gn_res:
-                symonyms = gn_res['synonyms']
-            else:
-                symonyms = []
-
             try:
                 official_id = gn_res['nomenclature_authority']['identifier']
                 symonyms = gn_res['synonyms']
@@ -634,7 +631,6 @@ def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
 def create_metadata_tables(analysesinfo:list[AnalysisInfo]) \
         -> MetadataTables:
 
-
     comparisons_metadata = []
     for info in analysesinfo:
         comparisons_metadata.append(tabulate_comparisons(info.analysis_workbook))
@@ -699,7 +695,6 @@ def remove_experiments_from_db(
 def update_database(
         db_dir,
         analysis_infos: list[AnalysisInfo],
-
         update_experiments=False,
 ) -> None:
     db_dir = Path(db_dir)
@@ -729,9 +724,6 @@ def update_database(
             metadata = modified_metadata.join(recreated_metadata)
 
         write_db_files(db_dir, analysis_infos, metadata, session)
-
-
-
 
 def create_database(
         outdir,
