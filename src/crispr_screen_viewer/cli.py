@@ -34,8 +34,8 @@ def run():
     # Before you add a new command, update the help string.
 
     if command == 'database':
-        from crispr_screen_viewer.update_database import parse_cli_args
-        parse_cli_args(cmd_args)
+        from crispr_screen_viewer.update_database import run_from_cli
+        run_from_cli(cmd_args)
     elif command == 'launch':
         from crispr_screen_viewer.launch import from_cli
         from_cli(cmd_args)
@@ -53,11 +53,8 @@ def run():
             remove_experiments_from_db(cmd_args[0], cmd_args[1:])
 
     elif command == 'gene_db':
-        from crispr_screen_viewer.update_database import (
-            cr
-        )
-        from crispr_screen_viewer.update_gene_table import upsert_genes
-        from crispr_screen_viewer.update_gene_table import tabulate_genes_from_exorcise
+        from crispr_screen_viewer.update_gene_table import run_from_cli
+        run_from_cli(cmd_args)
 
 
 

@@ -5,16 +5,18 @@ from glob import glob
 from sqlalchemy.orm import Session
 
 from crispr_screen_viewer.database import GeneTable
-from crispr_screen_viewer.tests.test_live import create_test_database
+
 from crispr_screen_viewer.update_database import *
 from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
 from crispr_screen_viewer.database import *
 from crispr_screen_viewer.functions_etc import get_resource_path, get_ith_from_all
 from crispr_screen_viewer.update_database import create_engine_with_schema, upsert_records
-
-TEST_DB_DIR = get_resource_path('tests/test_data/test_db')
-INFOS_exorcise = get_paths_exorcise_structure_v1(
-    glob(get_resource_path('tests/test_data/exorcise_style/*'))
+from crispr_screen_viewer.tests.utilities import (
+    create_test_database,
+    TEST_DB_DIR,
+    INFOS,
+    INFOS_branched,
+    DATA_DIR
 )
 
 create_test_database()
@@ -23,12 +25,12 @@ class TestDatabaseExorciseV1(TestCase):
     """Tests using input in Exorcise output structure."""
     def setUp(self):
 
-        outdir = get_resource_path('tests/test_data/exorcise_out')
+        outdir = get_resource_path('tests/test_data/tmp')
 
         self.outdir = outdir
 
         create_database(
-            analysis_infos=INFOS_exorcise,
+            analysis_infos=INFOS_branched,
             outdir=outdir,
             ask_before_deleting=False,
         )
@@ -44,7 +46,7 @@ class TestDatabaseExorciseV1(TestCase):
         sample = 'CTRL-TREAT'
         for ans in ANALYSESTYPES:
             df = pd.read_csv(
-                f'./test_data/exorcise_style/test1/re/res/tables/result.{ans.name}_table.csv',
+                f'test_data/branched_style/test1/re/res/tables/result.{ans.name}_table.csv',
                 index_col=0, header=[0,1]
             ).sort_index()
             fdrs = df.loc[:, (sample, 'fdr')]
@@ -136,7 +138,7 @@ class TestDBManipulations(TestCase):
 
 class TestUpdateExp(TestCase):
     def test(self):
-        replace_list = INFOS_exorcise[-1:] # get last exp, as a list
+        replace_list = INFOS_branched[-1:] # get last exp, as a list
         replace_expid = replace_list[0].experiment_id
         engine, metadata = load_test_db_data()
 
@@ -146,7 +148,6 @@ class TestUpdateExp(TestCase):
         update_database(
             TEST_DB_DIR,
             replace_list,
-            refseq=False,
             update_experiments=True,
         )
 
@@ -165,15 +166,15 @@ class TestUpsert(TestCase):
         engine = create_engine_with_schema()
         with Session(engine) as session:
             upsert_records(
-                [{'id': 'g1', 'symbol': 'symb1', }],
+                [{'id': 'g1', 'symbol': 'symb1', 'organism':'Human'}],
                 session,
                 GeneTable
             )
 
             upsert_records(
                 [
-                    {'id': 'g1', 'symbol': 'symb1b', },
-                    {'id': 'g2', 'symbol': 'symb2', }
+                    {'id': 'g1', 'symbol': 'symb1b', 'organism':'Human'},
+                    {'id': 'g2', 'symbol': 'symb2', 'organism':'Human' }
                 ],
                 session,
                 GeneTable
@@ -193,7 +194,7 @@ def test_add_genes_from_symbols():
     from importlib import resources
     ngn = create_engine_with_schema(echo=True)
 
-    fn = resources.files("crispr_screen_viewer").joinpath("tests/test_data/exorcise_style/test1/re/res/tables/result.drugz_table.csv").__str__()
+    fn = resources.files("crispr_screen_viewer").joinpath("tests/test_data/branched_style/test1/re/res/tables/result.drugz_table.csv").__str__()
     test_table = load_stats_csv(fn)
 
     with Session(ngn) as S:
