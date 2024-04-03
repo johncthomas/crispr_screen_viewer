@@ -100,7 +100,7 @@ def get_symbol_ids_from_hgnc(gene_table:pd.DataFrame, hgnc_fn:str|Path) -> pd.Da
     hgnc.fillna('', inplace=True)
 
     ishgnc = gene_table.official_id.str.startswith('HGNC:')
-    hids = gene_table.loc[ishgnc, 'official_id'].values
+    hids = gene_table.loc[ishgnc, 'official_id'].unique()
 
     hgnc = hgnc.loc[hids]
 
@@ -125,7 +125,7 @@ def upsert_genes(records:list[dict], session:Session):
         primary_key='id'
     )
 
-def run_from_commandline(args):
+def run_from_cli(args):
     from argparse import ArgumentParser
 
     parser = ArgumentParser(
@@ -151,9 +151,8 @@ def run_from_commandline(args):
         required=True,
     )
 
-
-
-    return parser.parse_args(args)
+    args =  parser.parse_args(args)
+    update_gene_table_hgnc(args.exorcise_tables, args.hgnc_table, args.database_path)
 
 
 def update_gene_table_hgnc(exorcise_location:str|Path,
@@ -173,5 +172,4 @@ def update_gene_table_hgnc(exorcise_location:str|Path,
 if __name__ == '__main__':
 
     import sys
-    args = run_from_commandline(sys.argv[1:])
-    update_gene_table_hgnc(args.exorcise_tables, args.hgnc_table, args.database_path)
+    run_from_cli(sys.argv[1:])
