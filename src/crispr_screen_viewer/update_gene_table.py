@@ -34,7 +34,7 @@ def locate_exorcise_files(d:str|Path) -> list[Path]:
 
     return paths
 
-def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path) -> pd.DataFrame:
+def tabulate_genes_with_ids_from_excorcise(exo_fn:list[str | Path], hgnc_fn: str | Path) -> pd.DataFrame:
     """Create GeneTable input DataFrame from Exorcise tables and HGNC table."""
     extern_id_col = 'inherit.externalId'
     table_rows = []
@@ -173,7 +173,7 @@ def update_gene_table_hgnc(exorcise_location:str|Path,
     db_url = get_db_url(database_path)
     engine = create_engine_with_schema(db_url, echo=False)
     files = locate_exorcise_files(exorcise_location)
-    table = tabulate_genes_from_exorcise(files, hgnc_path)
+    table = tabulate_genes_with_ids_from_excorcise(files, hgnc_path)
     with Session(engine) as session:
         upsert_genes(table.to_dict(orient='records'), session)
         session.commit()

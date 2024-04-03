@@ -16,7 +16,7 @@ from crispr_screen_viewer.update_database import (
 from crispr_screen_viewer.dataset import get_db_url
 from crispr_screen_viewer.update_gene_table import (
     locate_exorcise_files,
-    tabulate_genes_from_exorcise,
+    tabulate_genes_with_ids_from_excorcise,
     upsert_genes,
 )
 
@@ -71,7 +71,7 @@ def run_test_server(port=8050):
 def test_update_gene_table():
     engine = create_engine_with_schema(test_db_url)
     files = locate_exorcise_files(get_resource_path('tests/test_data/exorcise_libs_A'))
-    table = tabulate_genes_from_exorcise(
+    table = tabulate_genes_with_ids_from_excorcise(
         files,
         get_resource_path('tests/test_data/hgnc_table_cutdown.tsv.gz')
     )
