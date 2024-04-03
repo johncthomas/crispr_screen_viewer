@@ -85,15 +85,13 @@ def tabulate_genes_from_exorcise(exo_fn:list[str|Path], hgnc_fn: str|Path) -> pd
 
     assert not gene_table.symbol.duplicated().any()
 
-    gene_table = get_symbol_ids_from_hgnc(gene_table, hgnc_fn)
-
-    ismgi = gene_table.official_id.str.startswith('MGI:')
-    gene_table.loc[ismgi, 'symbol_with_ids'] = gene_table.loc[ismgi, 'official_id'].map(lambda s: f"({s})")
+    gene_table = human_symbol_with_ids(gene_table, hgnc_fn)
+    gene_table = mouse_symbol_with_id(gene_table)
 
     return gene_table
 
 
-def get_symbol_ids_from_hgnc(gene_table:pd.DataFrame, hgnc_fn:str|Path) -> pd.DataFrame:
+def human_symbol_with_ids(gene_table:pd.DataFrame, hgnc_fn: str | Path) -> pd.DataFrame:
     """Add symbol_with_ids column for every row where row.official_id contains 'HGNC:".
 
     Modifies in place, and returns gene_table."""
@@ -116,6 +114,15 @@ def get_symbol_ids_from_hgnc(gene_table:pd.DataFrame, hgnc_fn:str|Path) -> pd.Da
         return row.symbol + prev_id
 
     gene_table.loc[ishgnc.values, 'symbol_with_ids'] = hgnc.apply(hgnc_row_to_long, axis=1).values
+    return gene_table
+
+
+def mouse_symbol_with_id(gene_table:pd.DataFrame) -> pd.DataFrame:
+    """Adds column 'symbol with_ids' witih value '{symbol} ({mgi})'"""
+    ismgi = gene_table.official_id.str.startswith('MGI:')
+    mgi_table = gene_table.loc[ismgi]
+    symbwithid = mgi_table.symbol + mgi_table.official_id.apply(lambda s: f" ({s})")
+    gene_table.loc[mgi_table.index, 'symbol_with_ids'] = symbwithid
     return gene_table
 
 
