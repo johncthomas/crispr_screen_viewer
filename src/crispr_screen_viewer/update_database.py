@@ -780,7 +780,6 @@ def run_from_cli(args):
     )
     parser.add_argument(
         'details_xlsx', nargs='+', metavar='DETAILS_XLSX',
-        required=True
     )
     parser.add_argument(
         '--out-dir', '-o', metavar='DIRECTORY',
