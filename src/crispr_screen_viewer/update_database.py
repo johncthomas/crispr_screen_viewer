@@ -351,7 +351,7 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         'Date published':'Date',
     }
 
-    experiment_details = [xpmet.copy().drop(np.nan) for xpmet in experiment_details]
+    experiment_details = [xpmet.copy().drop(np.nan, errors='ignore') for xpmet in experiment_details]
 
     logger.debug(experiment_details)
     for expmet in experiment_details:
