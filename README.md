@@ -23,9 +23,7 @@ from crispr_screen_viewer.functions_etc import get_resource_path
 
 # Use the provided example data
 db_path = get_resource_path('tests/test_data')
-app = launch.get_server(data_path=db_path)
-
-server = app
+server = launch.get_server(data_path=db_path)
 ```
 
 Then call (with your desired port):
