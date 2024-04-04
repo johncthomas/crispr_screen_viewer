@@ -474,7 +474,7 @@ def initiate(app, data_set:DataSet, public=True) -> Div:
                 dcc.Dropdown(
                     id='msgv-gene-selector', placeholder='Select genes',
                      value=[],
-                     options=data_set.dropdown_gene_labels(data_set.genes),
+                     options=data_set.gene_dropdown_options(data_set.genes),
                      multi=True
                 ),
                 html.Button(

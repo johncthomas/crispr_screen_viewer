@@ -115,7 +115,10 @@ class DataSet:
             self.available_analyses:_AnalysesTypes = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
 
         # cache options
-        self.gene_dropdown_options = self._cache_dropdown_gene_labels()
+        self._dropdown_options_by_gene = self._cache_gene_dropdown_options()
+        # note: this doesn't actually help much, it's Dash being slow because of the size of the options
+        #   rather than generating the options being slow.
+        self._all_gene_dropdown_options = list(self._dropdown_options_by_gene.values())
 
         # todo all this processing should be in update_database and applied to the SQL table
         #   obviously to be done along side dropping use of CSV tables.
@@ -338,7 +341,7 @@ class DataSet:
         return ScoreFDR(score=scores, fdr=fdrs)
 
 
-    def _cache_dropdown_gene_labels(self, ) -> dict[str, dict]:
+    def _cache_gene_dropdown_options(self, ) -> dict[str, dict]:
         """Dropdown options keyed by gene for all genes in the dataset."""
         with Session(self.engine) as session:
             res = session.query(
@@ -358,7 +361,7 @@ class DataSet:
         return options
 
 
-    def dropdown_gene_labels(self, genes:set[str]=None) -> list[dict]:
+    def gene_dropdown_options(self, genes:set[str]=None) -> list[dict]:
         """Return label/value dicts for populating dropdown option.
 
         {'label':gene.symbol_with_ids, 'value':gene.symbol}
@@ -366,14 +369,15 @@ class DataSet:
         Defaults to all genes with results."""
 
         if genes is None:
-            return list(self.gene_dropdown_options.values())
+            return self._all_gene_dropdown_options
 
         options = [
-            opt for g, opt in self.gene_dropdown_options.items()
+            opt for g, opt in self._dropdown_options_by_gene.items()
             if g in genes
         ]
 
         return options
+
 
 def load_dataset(paff, db_engine:Engine=None):
     """If paff is a dir, the dataset is constructed from the files

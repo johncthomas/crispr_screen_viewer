@@ -188,7 +188,7 @@ def initiate(app, data_set:DataSet, public):
             logger.debug('\tOnly 0-1 comps selected, not making graph')
             return selected_comps, dash.no_update
         x, _ = get_xyscores_genes(xk, yk, 'drz')
-        return selected_comps, data_set.dropdown_gene_labels(x.index)
+        return selected_comps, data_set.gene_dropdown_options(x.index)
 
     # enable selecting genes by interacting with the graph
     register_gene_selection_processor(
