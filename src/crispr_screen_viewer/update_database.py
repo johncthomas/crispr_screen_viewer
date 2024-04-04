@@ -151,7 +151,7 @@ def upsert_records(
         primary_key='id',
 ) -> None:
     """Update existing records, or add if primary_id not found in the table."""
-    logger.debug(f"First 5 records:\n{records[:5]}")
+    logger.debug("First 5 records:\n" + f"{records[:5]}")
     for record in records:
         try:
             # Try to fetch the existing record by 'id'
@@ -406,7 +406,8 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     bad_cite = experiment_details_table.loc[experiment_details_table.Citation.str.contains('?', regex=False), 'Experiment ID'].values
 
     if len(bad_cite) > 0:
-        logger.warning(f"The following experiments have bad citation info:\n{'\n\t'.join(bad_cite)}")
+        s = '\n\t'.join(bad_cite)
+        logger.warning("The following experiments have bad citation info:\n"+s)
 
     # deduplicate citations
     cites = experiment_details_table['Citation']
