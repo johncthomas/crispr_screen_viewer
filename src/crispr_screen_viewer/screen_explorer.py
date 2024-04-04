@@ -405,7 +405,7 @@ def initiate(app, data_set:DataSet, public=False) -> Div:
         score,fdr = [xy.reindex(unified_index) for xy in (score,fdr)]
 
         volcano_data = {'score': score, 'fdr': fdr, 'genes': score.index}
-        gene_options = data_set.dropdown_gene_labels(score.index)
+        gene_options = data_set.dropdown_gene_labels(set(score.index))
 
         logger.debug(f'End of update_volcano_data with:')
         logger.debug('     datatable:  ' + '\n'.join([f"{k}={volcano_data[k].head()}" for k in ('score', 'fdr')]))

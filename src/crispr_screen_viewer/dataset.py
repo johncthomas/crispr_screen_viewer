@@ -1,3 +1,4 @@
+from functools import lru_cache
 from pathlib import Path
 import pandas as pd
 import os, pickle, typing
@@ -90,19 +91,10 @@ def get_db_url(db_dir):
 class DataSet:
     """Class for holding, retrieving screen data and metadata.
 
-    Storage and retreval of amalgamated results tables. Experiment tables as
-    single analysis type/statistic with filename {ans_type}_{stat}.csv
-    Currently supports MAGeCK ('mag') and DrugZ ('drz').
-
-    Attributes:
-        exp_data: data tables keyed first by analysis type then 'score'|'fdr'
-        comparisons: descriptions of exp_data samples. Indexed by comparison keys
-        score/analysis_labels: text labels for supported analysis types
-        genes: Index used in tables in exp_data
-
     Methods:
-        get_results: get dict of score and fdr for specified analysis types and
-            datasets."""
+        get_score_fdr: Get stats for specific analysis|comparison|genes
+        dropdown_gene_labels: get dropdown options for selecting genes
+    """
     def __init__(
             self,
             db_engine:Engine,
@@ -112,17 +104,18 @@ class DataSet:
 
         self.engine = db_engine
 
-        self.exp_data = None
-
         with Session(db_engine) as S:
             # GeneTable can contain genes not actually in any analysis
             #   so this is the master list of relevant genes
             res_genes = S.query(StatTable.gene_id).distinct().all()
-            self.genes = list(sorted(set([r[0] for r in res_genes])))
+            self.genes:set[str] = set(sorted(set([r[0] for r in res_genes])))
 
             # Limit available analysis types to those with results in the database
             res_ans = S.query(StatTable.analysis_type_id).distinct().all()
-            self.available_analyses = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
+            self.available_analyses:_AnalysesTypes = _AnalysesTypes([ANALYSESTYPES[i[0]] for i in res_ans])
+
+        # cache options
+        self.gene_dropdown_options = self._cache_dropdown_gene_labels()
 
         # todo all this processing should be in update_database and applied to the SQL table
         #   obviously to be done along side dropping use of CSV tables.
@@ -221,13 +214,6 @@ class DataSet:
                     f"{', '.join(list(missing_ids))}"
                 )
 
-    def validate_previous_and_id(self):
-        """Check all stats index in datasets are in previous_and_id"""
-        for ans in self.available_analyses:
-            score_index = self.exp_data[ans]['score'].index
-            m = score_index.isin(self.previous_and_id.index)
-            print(m.sum(), 'of', len(m), f'gene symbols have record in previous_and_id.csv, in file {ans}_score.csv')
-
 
     def comparisons_with_hit(
             self, fdr_max: float,
@@ -251,6 +237,7 @@ class DataSet:
             ).distinct().all()
 
         return get_ith_from_all(comp_ids, 0)
+
 
 
     def get_score_fdr(
@@ -312,17 +299,6 @@ class DataSet:
                     *constraints
                 )
 
-                # if timepoints:
-                #     query = query.filter(
-                #         StatTable.comparison_id.in_(
-                #             session.query(
-                #                 ComparisonTable.stringid
-                #             ).where(
-                #                 ComparisonTable.timepoint.in_(timepoints)
-                #             )
-                #         )
-                #     )
-
                 logger.debug(query)
                 results = query.all()
 
@@ -362,27 +338,42 @@ class DataSet:
         return ScoreFDR(score=scores, fdr=fdrs)
 
 
-    def dropdown_gene_labels(self, genes) -> list[dict]:
-        """Return label/value dicts for populating dropdown option.
-
-        {'label':gene.symbol_with_ids, 'value':gene.symbol}"""
+    def _cache_dropdown_gene_labels(self, ) -> dict[str, dict]:
+        """Dropdown options keyed by gene for all genes in the dataset."""
         with Session(self.engine) as session:
             res = session.query(
-                GeneTable.symbol, GeneTable.symbol_with_ids
-            ).where(
-                GeneTable.symbol.in_(genes)
+                GeneTable.id, GeneTable.symbol, GeneTable.symbol_with_ids
             )
 
-        options = []
-        for symbol, symb_ids in res:
+        options = {}
+        for gid, symbol, symb_ids in res:
+            if symbol not in self.genes:
+                continue
             if symb_ids is None:
                 symb_ids = symbol
-            options.append(
-                {'label': symb_ids, 'value': symbol}
-            )
-        logger.debug(f"First few options:\n{options[:5]}")
+            options[gid] = {'label': symb_ids, 'value': symbol}
+
+        logger.debug(f"First few options:\n{[(k, v) for k, v in options.items()][:5]}")
+
         return options
 
+
+    def dropdown_gene_labels(self, genes:set[str]=None) -> list[dict]:
+        """Return label/value dicts for populating dropdown option.
+
+        {'label':gene.symbol_with_ids, 'value':gene.symbol}
+
+        Defaults to all genes with results."""
+
+        if genes is None:
+            return list(self.gene_dropdown_options.values())
+
+        options = [
+            opt for g, opt in self.gene_dropdown_options.items()
+            if g in genes
+        ]
+
+        return options
 
 def load_dataset(paff, db_engine:Engine=None):
     """If paff is a dir, the dataset is constructed from the files
