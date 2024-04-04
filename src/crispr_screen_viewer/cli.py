@@ -36,6 +36,11 @@ def run():
     if command == 'database':
         from crispr_screen_viewer.update_database import run_from_cli
         run_from_cli(cmd_args)
+
+    elif command == 'gene_db':
+        from crispr_screen_viewer.update_gene_table import run_from_cli
+        run_from_cli(cmd_args)
+
     elif command == 'launch':
         from crispr_screen_viewer.launch import from_cli
         from_cli(cmd_args)
@@ -51,13 +56,6 @@ def run():
         else:
             from crispr_screen_viewer.update_database import remove_experiments_from_db
             remove_experiments_from_db(cmd_args[0], cmd_args[1:])
-
-    elif command == 'gene_db':
-        from crispr_screen_viewer.update_gene_table import run_from_cli
-        run_from_cli(cmd_args)
-
-
-
 
     else:
         print(f'Command {command} not recognised.')
