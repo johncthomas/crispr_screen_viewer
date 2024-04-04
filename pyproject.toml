@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "crispr_screen_viewer"
 dynamic = ["dependencies"]
-version = "0.11.0"
+version = "0.12.0"
 authors = [
   { name='John C. Thomas', email="jcthomas000@gmail.com" },
 ]
