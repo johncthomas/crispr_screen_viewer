@@ -35,7 +35,9 @@ class TestDatabaseValues(TestCase):
         sample = 'CTRL-TREAT'
         for ans in ANALYSESTYPES:
             df = pd.read_csv(
-                f'test_data/branched_style/test1/re/res/tables/result.{ans.name}_table.csv',
+                get_resource_path(
+                    f'tests/test_data/flat_style/results/test1/tables/result.{ans.name}_table.csv',
+                ),
                 index_col=0, header=[0,1]
             ).sort_index()
             fdrs = df.loc[:, (sample, 'fdr')]
