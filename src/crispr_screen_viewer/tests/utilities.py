@@ -43,7 +43,7 @@ def delete_test_files():
     for f in fn:
         os.remove(f)
 
-def create_test_database(**kwargs):
+def create_test_database(create_gene_table=True, **kwargs):
     """Create a database from ./tests/test_data, output to ./data/test_db
     by default. **kwargs passed to create_database()"""
 
@@ -57,7 +57,8 @@ def create_test_database(**kwargs):
         analysis_infos=INFOS,
         ask_before_deleting=False)
     create_database(**default_kwargs | kwargs)
-
+    if create_gene_table:
+        test_update_gene_table()
 
 def run_test_server(port=8050):
     datadir = get_resource_path('tests/test_data/test_db')
@@ -86,7 +87,6 @@ def test_update_gene_table():
 
 if __name__ == '__main__':
     create_test_database()
-    test_update_gene_table()
     run_test_server(8054)
 
 
