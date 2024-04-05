@@ -21,21 +21,10 @@ from crispr_screen_viewer.tests.utilities import (
 
 create_test_database()
 
-class TestDatabaseExorciseV1(TestCase):
-    """Tests using input in Exorcise output structure."""
+class TestDatabaseValues(TestCase):
+    """Create database and check some values"""
     def setUp(self):
-
-        outdir = get_resource_path('tests/test_data/tmp')
-
-        self.outdir = outdir
-
-        create_database(
-            analysis_infos=INFOS_branched,
-            outdir=outdir,
-            ask_before_deleting=False,
-        )
-
-        engine, metadata = load_test_db_data(outdir)
+        engine, metadata = load_test_db_data()
 
         self.engine = engine
         self.metadata = metadata
