@@ -78,6 +78,28 @@ class TestDatabaseValues(TestCase):
 
         self.assertTrue(observed == expected)
 
+    def test_gene_labels(self):
+
+        for libd, gene in [('lib1_brunello', 'ATR',), ('lib2_mouse','Adgrl2')]:
+
+            fn_exo = get_resource_path(f'tests/test_data/exorcise_libs_A/{libd}/exorcise.tsv.gz')
+            exo_table = pd.read_csv(fn_exo, sep='\t', index_col=0)
+
+            # Don't want to hardcode the correct values since the tables could change,
+            #   so just do a quick check for a matching value
+            external_id = exo_table.loc[exo_table.exo_symbol == gene, 'inherit.externalId'].values[0]
+            with Session(self.engine) as session:
+                res = session.query(
+                    GeneTable.symbol_with_ids
+                ).where(
+                    GeneTable.symbol == gene
+                ).one()
+            gene_label = res[0]
+            self.assertTrue(
+                external_id in gene_label,
+                f"External ID not found in gene label: {gene=}, {external_id=}, {gene_label=}"
+            )
+
 
 class TestDBManipulations(TestCase):
     def setUp(self):
