@@ -53,6 +53,7 @@ def set_loguru_level(logger, level='INFO'):
     logger.add(sys.stderr, level=level)
 
 def get_resource_path(relative_path):
+    """Get an absolute path with a path relative to the package directory"""
     fn = os.path.join(os.path.dirname(__file__), relative_path)
     logger.debug(f"Resource path: {fn}")
     return fn
