@@ -49,7 +49,11 @@ style_hidden = {'display':'none'}
 style_gene_selector_div = {}
 
 def set_loguru_level(logger, level='INFO'):
-    logger.remove(0)
+    try:
+        logger.remove(0)
+    except:
+        pass
+
     logger.add(sys.stderr, level=level)
 
 def get_resource_path(relative_path):
