@@ -108,7 +108,8 @@ class DataSet:
             # GeneTable can contain genes not actually in any analysis
             #   so this is the master list of relevant genes
             res_genes = S.query(StatTable.gene_id).distinct().all()
-            self.genes:set[str] = set(sorted(set([r[0] for r in res_genes])))
+            self.genes:list[str] = sorted(set([r[0] for r in res_genes]))
+            self._geneset:set[str] = set(self.genes)
 
             # Limit available analysis types to those with results in the database
             res_ans = S.query(StatTable.analysis_type_id).distinct().all()
@@ -350,7 +351,7 @@ class DataSet:
 
         options = {}
         for gid, symbol, symb_ids in res:
-            if symbol not in self.genes:
+            if symbol not in self._geneset:
                 continue
             if symb_ids is None:
                 symb_ids = symbol
