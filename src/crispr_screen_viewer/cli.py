@@ -14,10 +14,11 @@ def run():
     Use "crispr-screen-viewer COMMAND".
     
     Commands:
-        database: Create or manage results database
+        database: Create or update results database
         gene_db: Update genes from exorcise directory
         launch: Launch the viewer
-        remove: Remove a list of experiments from a database.
+        remove: Remove experiments from a database.
+        test: Run test server, default port 8054.
     
     See "crispr-screen-viewer COMMAND --help" for more information on each command.
     ''')
@@ -52,10 +53,19 @@ def run():
     
     Provide a path to the database you wish to alter, then a list of Experiment IDs to remove. 
     If you don't know the IDs, they can be found in experiments_metadata.csv.gz.
-            ''')
+''')
         else:
             from crispr_screen_viewer.update_database import remove_experiments_from_db
             remove_experiments_from_db(cmd_args[0], cmd_args[1:])
+
+    elif command == 'test':
+        try:
+            port = int(cmd_args[0])
+        except:
+            port = 8054
+        from crispr_screen_viewer.tests.utilities import create_test_database, run_test_server
+        create_test_database()
+        run_test_server(port)
 
     else:
         print(f'Command {command} not recognised.')
