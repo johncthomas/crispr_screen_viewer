@@ -1,5 +1,7 @@
 from pathlib import Path
 import os
+from typing import Sequence
+
 import pandas as pd
 
 from sqlalchemy.orm import Session
@@ -9,7 +11,7 @@ from crispr_screen_viewer.update_database import upsert_records, create_engine_w
 
 from loguru import logger
 
-EXORCISEFN = 'exorcise.tsv.gz'
+from crispr_screen_viewer.cli import EXORCISEFN
 
 def locate_exorcise_files(d:str|Path) -> list[Path]:
     d = Path(d)
@@ -135,33 +137,10 @@ def upsert_genes(records:list[dict], session:Session):
         primary_key='id'
     )
 
-def run_from_cli(args):
-    from argparse import ArgumentParser
 
-    parser = ArgumentParser(
-        'CrSV gene table updater',
-        description='Update gene table `symbol_with_ids` column, used for disambiguation when searching for a gene.'
-    )
-
-    parser.add_argument(
-        '--exorcise-tables', '-x',
-        help=f'Location of output of Exorcise. Either a single file, a directory containing "{EXORCISEFN}" '
-             f'or a directory containing directories at least some of which contain a file called "{EXORCISEFN}',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--database-path', '-d',
-        required=True,
-    )
-
-    parser.add_argument(
-        '--hgnc-table', '-H',
-        help='Table from https://www.genenames.org/download/archive/, "tab separated hgnc_complete_set file"',
-        required=True,
-    )
-
-    args =  parser.parse_args(args)
+def run_from_cli(args:Sequence[str]):
+    from crispr_screen_viewer.cli import parse_gene_table_args
+    args = parse_gene_table_args(args)
     update_gene_table_hgnc(args.exorcise_tables, args.hgnc_table, args.database_path)
 
 

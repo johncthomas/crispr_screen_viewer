@@ -33,6 +33,8 @@ from crispr_screen_viewer.dataset import (
     get_db_url
 )
 
+from crispr_screen_viewer.cli import ArgsUpdateDB
+
 from crispr_tools.data_classes import AnalysisWorkbook
 
 analysis_tabulate:dict[str, typing.Callable]
@@ -772,109 +774,36 @@ def create_database(
         app.run_server(debug=False, host='0.0.0.0', port=port, )
 
 
-def run_from_cli(args):
-    from argparse import ArgumentParser
+def run_from_cli(args: typing.Sequence[str]):
+    from crispr_screen_viewer.cli import parse_update_database_args
+    pargs = parse_update_database_args(args)
 
-    parser = ArgumentParser(
-        'CrSV database updater',
-        description='Write database files for launching the CRISPR Screen Explorer.'
-    )
-    parser.add_argument(
-        'details_xlsx', nargs='+', metavar='DETAILS_XLSX',
-    )
-    parser.add_argument(
-        '--out-dir', '-o', metavar='DIRECTORY',
-        help='Location to which output files will be written',
-        required=True
-    )
-    parser.add_argument(
-        '--results-dir', '-r', metavar='DIRECTORY',
-        help='Directory containing output results',
-        default='results',
-    )
-    parser.add_argument(
-        '--counts-dir', '-c', metavar='DIRECTORY',
-        help='Directory containing counts files',
-        default='counts'
-    )
-    parser.add_argument(
-        '--filename-prefix', '-p',
-        help='String prepended to input files.',
-        default='result',
-    )
-    parser.add_argument(
-        '--new-db', '-n',
-        action='store_true',
-        help='Create a new database in the output directory. If database files are present '
-             'you will be asked before they are replaced, unless -f is also set.'
-    )
-    parser.add_argument(
-        '--update-existing', '-u',
-        action='store_true',
-        help='Experiment IDs already present in the database will be updated with new data. By default they are skipped.'
-    )
-    parser.add_argument(
-        '--force-overwrite', '-f',
-        action='store_true',
-        help='When creating new database, overwrite existing database files without asking.'
-    )
-    parser.add_argument(
-        '--verbosity', '-v', metavar='N',
-        type=int, default=1,
-        help='Set verbosity level: 0 = warnings only, 1 = info (default), 2 = debug'
-    )
-
-    @dataclass
-    class CLIArgs:
-        details_xlsx: list[str]
-        out_dir: str
-        results_dir: str
-        counts_dir: str
-        filename_prefix: str
-        new_db: bool
-        update_existing: bool
-        force_overwrite: bool
-        verbosity: int
-
-        def verbosity_str(self) -> str:
-            return ['WARNING', 'INFO', 'DEBUG'][self.verbosity]
-
-    args = CLIArgs(**vars(parser.parse_args(args)))
-
-    for d in args.details_xlsx:
+    for d in pargs.details_xlsx:
         if not os.path.isfile(d):
             raise ValueError(f"Input directory {d} does not exist")
     analysis_infos = get_paths(
-        details_xlsx=args.details_xlsx,
-        results_dir=args.results_dir,
-        count_dir=args.counts_dir,
-        analysis_filename_prefix=args.filename_prefix
+        details_xlsx=pargs.details_xlsx,
+        results_dir=pargs.results_dir,
+        count_dir=pargs.counts_dir,
+        analysis_filename_prefix=pargs.filename_prefix
     )
 
-    set_loguru_level(logger, args.verbosity_str())
+    set_loguru_level(logger, pargs.verbosity_str())
 
-    if args.new_db:
+    if pargs.new_db:
         create_database(
-            args.out_dir,
+            pargs.out_dir,
             analysis_infos,
-            ask_before_deleting=not args.force_overwrite,
+            ask_before_deleting=not pargs.force_overwrite,
         )
         return 0
 
     # else we're adding to existing DB
     update_database(
-        args.out_dir,
+        pargs.out_dir,
         analysis_infos,
-        update_experiments=args.update_existing,
+        update_experiments=pargs.update_existing,
     )
-
-# def test_cli_args():
-#     data_path = Path(get_resource_path('tests/branched_style/'))
-#     paths = [data_path / d for d in os.listdir() if os.path.isdir(d)]
-#     logger.debug(paths)
-#     parse_cli_args(
-#         *paths,
-# )
 
 
 if __name__ == '__main__':

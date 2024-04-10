@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import os.path
-from argparse import ArgumentParser
 from urllib.parse import urlparse
 from importlib import resources
 
@@ -12,6 +11,7 @@ from crispr_screen_viewer import (
     comparison_maker,
     legal
 )
+from crispr_screen_viewer.cli import parse_launch_args
 from crispr_screen_viewer.functions_etc import set_loguru_level
 from crispr_screen_viewer.dataset import (
     DataSet,
@@ -21,7 +21,8 @@ from crispr_screen_viewer.dataset import (
 from crispr_screen_viewer.shared_components import (
     logger
 )
-from dash import dash, html, dcc, Input, Output, State
+from dash import dash, html, dcc, Input, Output
+
 Div = html.Div
 import flask
 import dash_bootstrap_components as dbc
@@ -208,53 +209,8 @@ def create_layout(app, data_set:DataSet, public_version=False, url_base='/') \
 
 def from_cli(args):
     """Load dataset from command line options, return (dataset, port, debug)"""
-    launcher_parser = ArgumentParser(add_help=False)
 
-    launcher_parser.add_argument(
-        '-p', '--port', metavar='PORT',
-        help='Port used to serve the app',
-        required=True,
-    )
-
-    launcher_parser.add_argument(
-        '-d', '--data-path',
-        dest='data_path',
-        help="Name of the directory that contains the screens' data.",
-        required=True, default=None,
-    )
-    launcher_parser.add_argument(
-        '--app-debug', action='store_true',
-        help='Launch Dash app in debug mode, tends to break things, but allows you to look at the'
-             ' callback graph and JS debug messages.'
-    )
-    launcher_parser.add_argument(
-        '--debug-messages', action='store_true', default=False,
-        help='Set log level to debug – print messages describing the internal state of the app. '
-             'Also hide Werkzeug messages'
-    )
-    launcher_parser.add_argument(
-        '--public-version', action='store_true',
-        help="Don't hide the data-source and analysis-type selectors."
-             " In the future analysis-type might have its own option."
-    )
-    launcher_parser.add_argument(
-        '--url-pathname', default="/",
-        help="URL base pathname. Needs to end in a /."
-    )
-    launcher_parser.add_argument(
-        '-u', '--database-url',
-        help='A SQL database URL, as understood by SQL Alchemy. '
-             '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
-             '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
-        default=None, required=False
-    )
-
-    parser = ArgumentParser(parents=[launcher_parser],
-                            description="Dash app for exploring CRISPR screen data.",
-                            add_help=True,)
-
-    args = parser.parse_args(args)
-
+    args = parse_launch_args(args)
     app = init_app(
         data_path=args.data_path,
         database_url=args.database_url,
