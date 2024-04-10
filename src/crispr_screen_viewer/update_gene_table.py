@@ -156,7 +156,7 @@ def run_from_cli(args):
     )
 
     parser.add_argument(
-        '--hgnc-table', '-h',
+        '--hgnc-table', '-H',
         help='Table from https://www.genenames.org/download/archive/, "tab separated hgnc_complete_set file"',
         required=True,
     )
