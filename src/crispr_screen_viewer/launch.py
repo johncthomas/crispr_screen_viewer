@@ -228,7 +228,7 @@ def from_cli(args):
              ' callback graph and JS debug messages.'
     )
     launcher_parser.add_argument(
-        '--debug-messages', action='store_true', default=True,
+        '--debug-messages', action='store_true', default=False,
         help='Set log level to debug – print messages describing the internal state of the app. '
              'Also hide Werkzeug messages'
     )

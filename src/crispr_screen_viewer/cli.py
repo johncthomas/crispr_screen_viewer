@@ -66,7 +66,7 @@ def run():
         from crispr_screen_viewer.tests.utilities import create_test_database, run_test_server
         from loguru import logger
         from crispr_screen_viewer.functions_etc import set_loguru_level
-        set_loguru_level(logger, 'INFO')
+        set_loguru_level(logger, 'DEBUG')
         create_test_database()
         run_test_server(port)
 
