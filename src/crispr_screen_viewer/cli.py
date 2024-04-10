@@ -15,7 +15,7 @@ def run():
     
     Commands:
         database: Create or update results database
-        gene_db: Update genes from exorcise directory
+        genes: Update genes from exorcise directory
         launch: Launch the viewer
         remove: Remove experiments from a database.
         test: Run test server, default port 8054.
@@ -38,7 +38,7 @@ def run():
         from crispr_screen_viewer.update_database import run_from_cli
         run_from_cli(cmd_args)
 
-    elif command == 'gene_db':
+    elif command == 'genes':
         from crispr_screen_viewer.update_gene_table import run_from_cli
         run_from_cli(cmd_args)
 
