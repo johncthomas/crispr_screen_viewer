@@ -118,8 +118,9 @@ class DataSet:
         # cache options
         self._dropdown_options_by_gene = self._cache_gene_dropdown_options()
         # note: this doesn't actually help much, it's Dash being slow because of the size of the options
-        #   rather than generating the options being slow.
-        self._all_gene_dropdown_options = list(self._dropdown_options_by_gene.values())
+        #   rather than generating the options being slow. Presumably switching to an integer based gene
+        #   identity would help
+        self._all_gene_dropdown_options = self._dropdown_options_by_gene.values()
 
         # todo all this processing should be in update_database and applied to the SQL table
         #   obviously to be done along side dropping use of CSV tables.
@@ -151,14 +152,24 @@ class DataSet:
 
         # list of all datasources for filtering
         self.data_sources = comparisons.Source.fillna('Unspecified').unique()
-        # main metadata tables
+
         self.comparisons = comparisons
         self.experiments_metadata = pd.read_csv(experiments_path )
+
         # rename "Experiment name" to "Experiment ID" for consistency
         colmap = {k:k for k in self.experiments_metadata}
         colmap['Experiment name'] = 'Experiment ID'
         self.experiments_metadata.columns = self.experiments_metadata.columns.map(colmap)
         self.experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
+
+        # sort the metadata tables by citation
+        cmp_index_by_citation = self.comparisons['Experiment ID'].map(
+            lambda x: self.experiments_metadata.loc[x, 'Citation']
+        ).sort_values().index
+
+        self.comparisons = self.comparisons.reindex(index=cmp_index_by_citation)
+        self.experiments_metadata.sort_values('Citation', inplace=True)
+
 
         # add formated DOI to the comparisons metadata
         dois = self.experiments_metadata.loc[
@@ -187,9 +198,9 @@ class DataSet:
         #     self.previous_and_id = pidf.fillna('')
         #
         # except FileNotFoundError:
-        logger.warning("file 'previous_and_id.csv' is missing.")
-        # when .loc fails to find a name in the table it just uses the current name.
-        self.previous_and_id = pd.DataFrame()
+        # logger.warning("file 'previous_and_id.csv' is missing.")
+        # # when .loc fails to find a name in the table it just uses the current name.
+        # self.previous_and_id = pd.DataFrame()
 
     def validate_comparisons(self):
         """Print information that might be helpful in spotting data validity issues
@@ -348,6 +359,8 @@ class DataSet:
             res = session.query(
                 GeneTable.id, GeneTable.symbol, GeneTable.symbol_with_ids
             )
+        # sort by symbol
+        res = sorted(res, key=lambda x: x[1])
 
         options = {}
         for gid, symbol, symb_ids in res:
