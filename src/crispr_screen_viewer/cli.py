@@ -162,13 +162,7 @@ def parse_launch_args(args:Sequence[str]) -> Namespace:
 
 
 def run():
-    args = sys.argv[1:]
-
-    # I don't like how argparse subparsers work, handling it myself.
-
-    # print help
-    if (not args) or (args[0] in ('-h', '--help')):
-        print('''
+    help_str = '''
     CRISPR Screen Viewer
     
     Use "crispr-screen-viewer COMMAND".
@@ -181,7 +175,14 @@ def run():
         test: Run test server, default port 8054.
     
     See "crispr-screen-viewer COMMAND --help" for more information on each command.
-    ''')
+    '''
+    args = sys.argv[1:]
+
+    # I don't like how argparse subparsers work, handling it myself.
+
+    # print help
+    if (not args) or (args[0] in ('-h', '--help')):
+        print(help_str)
 
         exit(0)
 
@@ -195,7 +196,7 @@ def run():
     # Before you add a new command, update the help string.
 
     if command == 'database':
-        parse_update_database_args(cmd_args)
+        parse_update_database_args(cmd_args) # print help only
 
         from crispr_screen_viewer.update_database import run_from_cli
         run_from_cli(cmd_args)
@@ -237,7 +238,14 @@ def run():
         run_test_server(port)
 
     else:
-        print(f'Command {command} not recognised.')
+        print(f'Command {command} not recognised.\n')
+        print(help_str)
+
+
+    # **************
+    # ** Reminder **
+    # **************
+    # Before you add a new command, update the help string.
 
 if __name__ == '__main__':
     run()
