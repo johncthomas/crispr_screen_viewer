@@ -83,6 +83,7 @@ class MetadataTables:
             logger.warning("Duplicate experiment IDs in experiments metadata after joinging!")
         return new_metad
 
+
 def get_db_url(db_dir):
     return f'sqlite:///{str(db_dir)}/{DB_FILENAME}'
 

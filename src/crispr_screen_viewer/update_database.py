@@ -5,7 +5,7 @@ import requests, json
 import os.path, typing
 from pathlib import Path
 
-from typing import Literal, Tuple, Type
+from typing import Literal, Type
 
 import pandas as pd
 import sqlalchemy
@@ -19,7 +19,6 @@ from crispr_screen_viewer.functions_etc import (
     df_rename_columns,
     normalise_text,
     load_stats_csv,
-    get_resource_path,
     set_loguru_level,
     is_temp_file,
     is_nt,
@@ -43,11 +42,14 @@ import numpy as np
 from loguru import logger
 
 
-def doi_to_link(doi):
-    """Return string formated as a Markdown link to doi.org/{doi}"""
-    # should be formated to not be a hyperlink, but sometimes it is
+def doi_to_link(doi:str):
+    """Return string formated as a Markdown link to doi.org/{doi}.
+
+    Args:
+        doi: can be formatted as full URl or like 1.2.3/whatever"""
     if pd.isna(doi) or (not doi):
         return ''
+    # if the string is a proper URL, strip it down to the DOI
     doi = doi.replace('https', '').replace('http', '').replace('://', '').replace('doi.org/', '')
     return f"[{doi}](https://doi.org/{doi})"
 
@@ -104,6 +106,7 @@ def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
     return treatment_str
 
 def create_engine_with_schema(destination="sqlite://", echo=False) -> Engine:
+    """For creating a new database"""
     engine = create_engine(destination, echo=echo, connect_args={'timeout':4000})
 
     # create tables in the actual SQL database
@@ -112,35 +115,14 @@ def create_engine_with_schema(destination="sqlite://", echo=False) -> Engine:
     return engine
 
 
-def load_test_db_data(d='tests/test_data/test_db') -> Tuple[Engine, MetadataTables]:
-    test_db_dir = get_resource_path(d)
-    url = get_db_url(test_db_dir)
-    engine = create_engine(url)
-    metadata = MetadataTables.from_files(test_db_dir)
-
-    return engine, metadata
-
-
-def prep_deets_columns(tbl:pd.DataFrame, cmap:dict):
-    """drop not defined columns, rename columns.
-
-    args:
-        tbl: a comparison or experiment details dataframe
-        cmap: mapper for renaming columns
-    """
-    tbl = tbl[cmap.keys()]
-    cols = functions_etc.df_rename_columns(tbl, cmap)
-    tbl.columns = cols
-    return tbl
-
-
 def insert_records(table:Type[TableBase], records:list[dict], session:Session):
-    """Insert rows into given table. Record dict.keys must be present in tablecls
-    columns. Use DataFrame.to_dict(orient='records') to pass DF info.
+    """Insert rows into given database table.
+    Record dict.keys must be present in table columns.
+    DF to records: DataFrame.to_dict(orient='records')
 
     Column values that are pd.nan are skipped over.
 
-    Fails if they've already been added."""
+    Fails if they've already been added (i.e. primary key value exists)."""
 
     # filter the records so key:value pairs of null value are removed
     session.add_all(
@@ -174,13 +156,15 @@ def upsert_records(
             new_record = table(**record)
             session.add(new_record)
 
+
 @dataclass
 class AnalysisInfo:
+    """Collection of information used to create tables,
+    analysis_workbook and paths."""
     experiment_id:str
     analysis_workbook: AnalysisWorkbook
     counts_path: str
     results_paths: dict[AnalysisType, Path | str]
-
 
 
 def get_paths_branched_structure_v1(
@@ -336,8 +320,6 @@ def get_paths(
     return infos
 
 
-
-
 def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         -> pd.DataFrame:
     """Takes information from the "Experiment details" sheet, returns DF formated
@@ -348,7 +330,9 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
         'Analysis name': 'Experiment ID', # old label for experiment name
         'Experiment description (a few sentances)': 'Experiment description',
         'Experiment description (a few sentences)':'Experiment description',
-        # Citation in the workbook is mislabeled. Citation in the app generated from this
+        # Reference information used to be in a field called Citation.
+        #   I leave this here for backwards compat, but it could cause issues
+        #   if we start specifying actual citation strings in experiment details.
         "Citation":"Reference",
         'Date screen completed (yyyy-mm-dd)':'Date',
         'Date screen completed':'Date',
@@ -432,13 +416,9 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
 
     return experiment_details_table
 
-# def add_experiments(data_paths:list[AnalysisInfo], session:Session):
-#     experiment_details = [d.analysis_workbook.experiment_details for d in data_paths]
-#     table = tabulate_experiments_metadata(experiment_details)
-#     logger.info(f"Adding {table.shape[0]} rows to ExperimentTable")
-#     insert_records(ExperimentTable, table.to_dict(orient='records'), session)
 
-def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
+def tabulate_comparisons(analysis_wb:AnalysisWorkbook) -> pd.DataFrame:
+    """Create DF of comparison information for a single experiment"""
     logger.debug(f"Tabulating comps of {analysis_wb.experiment_details['Experiment name']}")
     already_warned_of_missing_column = set()
     # this will become the returned table
@@ -519,91 +499,15 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     return comparisons
 
 
-def get_gene_symbols_in_db(session) -> set[str]:
+def get_gene_symbols_in_db(session:Session) -> set[str]:
+    """All distinct gene symbols in the database."""
     gns = set([g[0] for g in session.query(GeneTable.symbol).distinct().all()])
     return gns
 
 
-def gene_info_from_refseq_by_symbols(
-        symbols:list[str],
-        organism:Literal['Human']|Literal['Mouse']|int,
-) -> list[dict[str,str]]:
-    """Get list of information from RefSeq, formatted to pass to GeneTable."""
-    if type(organism) is int:
-        orgid = str(organism)
-    else:
-        orgid = {
-            'Human':"9606",
-            'Mouse':"10090",
-        }[organism]
-
-    #might be a set or something
-    symbols = list(symbols)
-
-    # seems to have ~1000 gene query limit
-    gene_info: list[dict[str, str]] = []
-    done = False
-    batch_size = 1000
-    chunk = 0
-    n_symbols = len(symbols)
-    logger.info(f"Querying refseq with {n_symbols} genes in batches of {batch_size}.")
-    while not done:
-        start, stop = batch_size*chunk, batch_size*(chunk+1)
-        chunk += 1
-        symb_chunk = symbols[start:stop]
-        if stop > n_symbols:
-            done = True
-
-        payload = {
-            "symbols_for_taxon": {
-                "symbols": symb_chunk,
-                "taxon": orgid}
-        }
-
-        logger.debug(payload)
-
-        refseqres = requests.request(
-            'POST',
-            'https://api.ncbi.nlm.nih.gov/datasets/v2alpha/gene',
-            data=json.dumps(payload),
-        )
-
-        refseqres.raise_for_status()
-
-        for r in refseqres.json()['reports']:
-            gn_res = r['gene']
-            symbol:str = gn_res['symbol']
-            query = r['query'][0]
-
-            # Skip synonyms.
-            # We are working with the assumption that the symbol comes from refseq
-            if not symbol == query:
-                continue
-
-            try:
-                official_id = gn_res['nomenclature_authority']['identifier']
-                symonyms = gn_res['synonyms']
-            except KeyError:
-                logger.debug(f"Key error getting information from refseq results, for gene symbol {gn_res['symbol']}.")
-                continue
-
-            gninfo = {
-                'id':symbol,
-                'symbol':symbol,
-                'ncbi':'NCBI: '+str(gn_res['gene_id']),
-                'official_id':official_id,
-                'synonyms_str':str(symonyms),
-                'organism':organism
-            }
-
-            gene_info.append(gninfo)
-
-    return gene_info
-
-
 def add_genes_from_symbols(
         symbols: list[str],
-        organism: Literal['Human'] | Literal['Mouse'] | int,
+        organism: Literal['Human'] | Literal['Mouse'],
         session:Session,
 ):
     """Adds records for genes in results that are not currently in the table. """
@@ -616,6 +520,8 @@ def add_genes_from_symbols(
 
 
 def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
+    """Create table of analysis statistics (normZ score, FDR etc) for given
+    experiment."""
     experiment_id = info.experiment_id
     tables = []
     for analysis_type, fn in info.results_paths.items():
@@ -634,6 +540,7 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
                                   'comparison_id', 'analysis_type_id', 'experiment_id']]
             tables.append(table)
     return pd.concat(tables)
+
 
 def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
     """Take a table, as output by crispr_pipeline, add rows to StatTable."""
@@ -655,7 +562,6 @@ def add_statistics(analysesinfo:list[AnalysisInfo], session:Session):
 
 def create_metadata_tables(analysesinfo:list[AnalysisInfo]) \
         -> MetadataTables:
-
     comparisons_metadata = []
     for info in analysesinfo:
         comparisons_metadata.append(tabulate_comparisons(info.analysis_workbook))
@@ -670,6 +576,7 @@ def create_metadata_tables(analysesinfo:list[AnalysisInfo]) \
 
     return MetadataTables(comparisons=comparisons_metadata, experiments=experiments_metadata)
 
+
 def write_db_files(
         outdir:str|Path,
         analysis_infos:list[AnalysisInfo],
@@ -682,11 +589,18 @@ def write_db_files(
     logger.info("Writing metadata tables")
     metadata.to_files(outdir)
 
+
 def remove_experiments(
         metadata_tables:MetadataTables,
         exp_ids: typing.Collection[str],
         session:Session,
 ) -> MetadataTables:
+    """Remove rows from DB and metadata tables associated with the given
+    experiment IDs.
+
+    This functions used as part of updating a database,
+    use remove_experiments_fromm_db to alter DB on disk if that's the
+    only thing you're doing."""
 
     delete_stmt = sqlalchemy.delete(
         StatTable
@@ -704,10 +618,12 @@ def remove_experiments(
 
     return MetadataTables(comparisons=comparisons, experiments=experiments)
 
+
 def remove_experiments_from_db(
         db_dir:str|Path,
         experiments_to_remove:list[str]
-):
+) -> None:
+    """Remove experiment from a database on disk. Commits and writes changes."""
     db_dir = Path(db_dir)
     metadata = MetadataTables.from_files(db_dir)
     engine = create_engine(get_db_url(db_dir))
@@ -717,11 +633,19 @@ def remove_experiments_from_db(
 
     mod_metadata.to_files(db_dir)
 
+
 def update_database(
-        db_dir,
+        db_dir:str|Path,
         analysis_infos: list[AnalysisInfo],
         update_experiments=False,
 ) -> None:
+    """Update an existing database, inserting new experiments.
+
+    Args:
+        db_dir: Path to database directory
+        analysis_infos: Info about experiments to be added
+        update_experiments: If true, existing experiments (determined by experiment ID)
+            will be removed from DB and replaced with new version."""
     db_dir = Path(db_dir)
     metadata = MetadataTables.from_files(db_dir)
     engine = create_engine(get_db_url(db_dir))
@@ -751,7 +675,7 @@ def update_database(
         write_db_files(db_dir, analysis_infos, metadata, session)
 
 def create_database(
-        outdir,
+        outdir:str|Path,
         analysis_infos:list[AnalysisInfo],
         ask_before_deleting=True,
         run_server=False,

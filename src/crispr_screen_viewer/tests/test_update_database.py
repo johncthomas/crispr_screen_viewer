@@ -1,10 +1,5 @@
 import unittest
 from unittest import TestCase
-from glob import glob
-
-from sqlalchemy.orm import Session
-
-from crispr_screen_viewer.database import GeneTable
 
 from crispr_screen_viewer.update_database import *
 from crispr_screen_viewer.dataset import ANALYSESTYPES, MetadataTables
@@ -14,9 +9,8 @@ from crispr_screen_viewer.update_database import create_engine_with_schema, upse
 from crispr_screen_viewer.tests.utilities import (
     create_test_database,
     TEST_DB_DIR,
-    INFOS,
     INFOS_branched,
-    DATA_DIR
+    load_test_db_data
 )
 
 create_test_database()

@@ -1,9 +1,10 @@
 import os
 from glob import glob
 from pathlib import Path
+from typing import Tuple
 
 from loguru import logger
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, Engine
 from sqlalchemy.orm import Session
 
 from crispr_screen_viewer.functions_etc import get_resource_path
@@ -13,7 +14,7 @@ from crispr_screen_viewer.update_database import (
     create_database,
     create_engine_with_schema
 )
-from crispr_screen_viewer.dataset import get_db_url
+from crispr_screen_viewer.dataset import get_db_url, MetadataTables
 from crispr_screen_viewer.update_gene_table import (
     locate_exorcise_files,
     tabulate_genes_with_ids_from_excorcise,
@@ -90,3 +91,10 @@ if __name__ == '__main__':
     run_test_server(8054)
 
 
+def load_test_db_data(d='tests/test_data/test_db') -> Tuple[Engine, MetadataTables]:
+    test_db_dir = get_resource_path(d)
+    url = get_db_url(test_db_dir)
+    engine = create_engine(url)
+    metadata = MetadataTables.from_files(test_db_dir)
+
+    return engine, metadata
