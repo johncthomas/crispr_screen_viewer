@@ -789,7 +789,6 @@ def create_database(
         from crispr_screen_viewer.launch import init_app
         app = init_app(
             str(outdir),
-            engine_url,
             debug_messages=True,
         )
 

@@ -15,7 +15,6 @@ from crispr_screen_viewer.cli import parse_launch_args
 from crispr_screen_viewer.functions_etc import set_loguru_level
 from crispr_screen_viewer.dataset import (
     DataSet,
-    load_dataset
 )
 
 from crispr_screen_viewer.shared_components import (
@@ -213,7 +212,6 @@ def from_cli(args):
     args = parse_launch_args(args)
     app = init_app(
         data_path=args.data_path,
-        database_url=args.database_url,
         debug_messages=args.debug_messages,
         public_version=args.public_version,
         url_base=args.url_pathname
@@ -223,25 +221,17 @@ def from_cli(args):
 
 
 def init_app(
-        data_path:str=None, database_url=None,
+        data_path:str=None,
         debug_messages=False,
         public_version=None, url_base='/',
         app_title='CRISPR screen viewer',
-        db_echo=False,
 ):
 
+    # use default dir, intended for docker install
     if data_path is None:
         data_path = resources.files("crispr_screen_viewer").joinpath("data").__str__()
 
-    if database_url is None:
-        # Use absolute path cus
-        database_url = f"sqlite:///{os.path.abspath(data_path)}/database.db"
-        logger.info(f'Using datbase URL "{database_url}"')
-
-    db_engine = sqlalchemy.create_engine(database_url, echo=db_echo)
-
-
-    data_set = load_dataset(data_path, db_engine=db_engine)
+    data_set = DataSet.from_dir(data_path)
 
     import logging
     if debug_messages:

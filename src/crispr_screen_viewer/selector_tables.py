@@ -31,7 +31,6 @@ import pandas as pd
 
 from crispr_screen_viewer.dataset import (
     DataSet,
-    load_dataset
 )
 
 import dash_bootstrap_components as dbc
@@ -484,7 +483,7 @@ def test(testing_page='cm'):
     """testing_page == 'cm' or 'se'"""
     PAGE_ID = testing_page
     p = '/Users/johnc.thomas/Dropbox/crispr/DDRcs/app_data/toy_data'
-    dataset = load_dataset(p)
+    dataset = DataSet.from_dir(p)
     comparisons = dataset.comparisons
     app = Dash(__name__, external_stylesheets=[dbc.themes.BOOTSTRAP])
 

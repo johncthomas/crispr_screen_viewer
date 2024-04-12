@@ -145,13 +145,13 @@ def parse_launch_args(args:Sequence[str]) -> Namespace:
         '--url-pathname', default="/",
         help="URL base pathname. Needs to end in a /."
     )
-    launcher_parser.add_argument(
-        '-u', '--database-url',
-        help='A SQL database URL, as understood by SQL Alchemy. '
-             '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
-             '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
-        default=None, required=False
-    )
+    # launcher_parser.add_argument(
+    #     '-u', '--database-url',
+    #     help='A SQL database URL, as understood by SQL Alchemy. '
+    #          '\nSee: https://docs.sqlalchemy.org/en/20/core/engines.html#database-urls.'
+    #          '\nE.g.: sqlite:////home/user/some/dir/databasefile.db',
+    #     default=None, required=False
+    # )
 
     parser = ArgumentParser(parents=[launcher_parser],
                             description="Dash app for exploring CRISPR screen data.",
