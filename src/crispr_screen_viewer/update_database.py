@@ -23,7 +23,8 @@ from crispr_screen_viewer.functions_etc import (
     set_loguru_level,
     is_temp_file,
     is_nt,
-    maybe_its_gz
+    maybe_its_gz,
+    timepoint_labels
 )
 from crispr_screen_viewer.dataset import (
     ANALYSESTYPES,
@@ -32,8 +33,6 @@ from crispr_screen_viewer.dataset import (
     DB_FILES,
     get_db_url
 )
-
-from crispr_screen_viewer.cli import ArgsUpdateDB
 
 from crispr_tools.data_classes import AnalysisWorkbook
 
@@ -44,6 +43,14 @@ import numpy as np
 from loguru import logger
 
 
+def doi_to_link(doi):
+    """Return string formated as a Markdown link to doi.org/{doi}"""
+    # should be formated to not be a hyperlink, but sometimes it is
+    if pd.isna(doi) or (not doi):
+        return ''
+    doi = doi.replace('https', '').replace('http', '').replace('://', '').replace('doi.org/', '')
+    return f"[{doi}](https://doi.org/{doi})"
+
 def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
     """Return a string describing the treatment performed between the
     control and test samples.
@@ -52,12 +59,7 @@ def get_treatment_str(samp_deets:pd.DataFrame, ctrl:str, treat:str):
         samp_deets: dataframe, rows indexed by samp IDs, giving sample
             metadata.
         ctrl, treat: Sample IDs of a comparison.
-
-
-    Divides possible treatments into chemical or KO;
-    outputs a string for a chemical treatment, a gene-KO
-    treatment, a chemical treatment in a KO background,
-    or a KO in a chemical background. """
+    """
 
     fatarrow = '➤'
 
@@ -424,15 +426,17 @@ def tabulate_experiments_metadata(experiment_details:list[pd.DataFrame]) \
     # d = experiment_details_table['date'].str.replace('/', '-')
     # experiment_details_table['date'] = pd.to_datetime(d, format='mixed', )
 
+    experiment_details_table.DOI = experiment_details_table.DOI.apply(doi_to_link).values
+
     experiment_details_table = experiment_details_table.infer_objects()
 
     return experiment_details_table
 
-def add_experiments(data_paths:list[AnalysisInfo], session:Session):
-    experiment_details = [d.analysis_workbook.experiment_details for d in data_paths]
-    table = tabulate_experiments_metadata(experiment_details)
-    logger.info(f"Adding {table.shape[0]} rows to ExperimentTable")
-    insert_records(ExperimentTable, table.to_dict(orient='records'), session)
+# def add_experiments(data_paths:list[AnalysisInfo], session:Session):
+#     experiment_details = [d.analysis_workbook.experiment_details for d in data_paths]
+#     table = tabulate_experiments_metadata(experiment_details)
+#     logger.info(f"Adding {table.shape[0]} rows to ExperimentTable")
+#     insert_records(ExperimentTable, table.to_dict(orient='records'), session)
 
 def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
     logger.debug(f"Tabulating comps of {analysis_wb.experiment_details['Experiment name']}")
@@ -494,7 +498,25 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook):
 
         comparisons_metadata.append(comparison_info)
 
-    return pd.DataFrame(comparisons_metadata)
+    comparisons = pd.DataFrame(comparisons_metadata)
+
+    # this is sometimes put in wrong...
+    m = comparisons['Timepoint'] == 'endpoint'
+    comparisons.loc[m, 'Timepoint'] = 'endpoints'
+
+    # fill in blank treatments
+    comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'No treatment'
+    # these cols could be blank and aren't essential to have values
+    for col in ['Cell line', 'Library', 'Source']:
+        if col not in comparisons.columns:
+            comparisons.loc[:, col] = 'Unspecified'
+        comparisons.loc[comparisons[col].isna(), col] = 'Unspecified'
+
+    # Replace e.g. "endpoints" with "Matched time-point"
+    for old, new in timepoint_labels.items():
+        comparisons.loc[comparisons.Timepoint == old, 'Timepoint'] = new
+
+    return comparisons
 
 
 def get_gene_symbols_in_db(session) -> set[str]:

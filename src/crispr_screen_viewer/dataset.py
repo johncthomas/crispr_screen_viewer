@@ -13,8 +13,6 @@ from sqlalchemy import orm, create_engine
 from sqlalchemy.orm import Session, mapped_column, Mapped
 
 from crispr_screen_viewer.functions_etc import (
-    timepoint_labels,
-    doi_to_link,
     index_of_true,
     get_ith_from_all,
 )
@@ -98,11 +96,12 @@ class DataSet:
     def __init__(
             self,
             db_engine:Engine,
-            comparisons_path: str | Path,
-            experiments_path:str|Path,
+            metadata_tables:MetadataTables,
     ):
 
         self.engine = db_engine
+        self.comparisons =  metadata_tables.comparisons
+        self.experiments_metadata =  metadata_tables.experiments
 
         with Session(db_engine) as S:
             # GeneTable can contain genes not actually in any analysis
@@ -122,46 +121,6 @@ class DataSet:
         #   identity would help
         self._all_gene_dropdown_options = self._dropdown_options_by_gene.values()
 
-        # todo all this processing should be in update_database and applied to the SQL table
-        #   obviously to be done along side dropping use of CSV tables.
-        comparisons = pd.read_csv(comparisons_path )
-        # this is sometimes put in wrong...
-        m = comparisons['Timepoint'] == 'endpoint'
-        comparisons.loc[m, 'Timepoint'] = 'endpoints'
-        # comparisons.loc[m, 'Control group'] = comparisons.loc[m, 'Control group'] \
-        #     .apply(lambda x: x.replace('endpoint', 'endpoints'))
-
-        comparisons = comparisons.set_index('Comparison ID', drop=False)
-        #comparisons.loc[:, 'Available analyses'] = comparisons['Available analyses'].str.split('|')
-        try:
-            comparisons = comparisons.drop('Available analyses', axis=1)
-        except KeyError:
-            pass
-
-        # fill in blank treatments
-        comparisons.loc[comparisons.Treatment.isna(), 'Treatment'] = 'No treatment'
-        # these cols could be blank and aren't essential to have values
-        for col in  ['Cell line', 'Library', 'Source']:
-            if col not in comparisons.columns:
-                comparisons.loc[:, col] = 'Unspecified'
-            comparisons.loc[comparisons[col].isna(), col] = 'Unspecified'
-
-        # replace some values with ones that read better
-        for old, new in timepoint_labels.items():
-            comparisons.loc[comparisons.Timepoint == old, 'Timepoint'] = new
-
-        # list of all datasources for filtering
-        self.data_sources = comparisons.Source.fillna('Unspecified').unique()
-
-        self.comparisons = comparisons
-        self.experiments_metadata = pd.read_csv(experiments_path )
-
-        # rename "Experiment name" to "Experiment ID" for consistency
-        colmap = {k:k for k in self.experiments_metadata}
-        colmap['Experiment name'] = 'Experiment ID'
-        self.experiments_metadata.columns = self.experiments_metadata.columns.map(colmap)
-        self.experiments_metadata.set_index('Experiment ID', drop=False, inplace=True)
-
         # sort the metadata tables by citation
         cmp_index_by_citation = self.comparisons['Experiment ID'].map(
             lambda x: self.experiments_metadata.loc[x, 'Citation']
@@ -170,12 +129,11 @@ class DataSet:
         self.comparisons = self.comparisons.reindex(index=cmp_index_by_citation)
         self.experiments_metadata.sort_values('Citation', inplace=True)
 
-
-        # add formated DOI to the comparisons metadata
+        # add DOI to the comparisons metadata
         dois = self.experiments_metadata.loc[
             self.comparisons['Experiment ID'],
             'DOI'
-        ].apply(doi_to_link).values
+        ]
         self.comparisons.insert(2, 'DOI', dois)
 
         # add citation to comparisons table
@@ -189,18 +147,15 @@ class DataSet:
             logger.warning('Citations column missing from exeriments_metadata')
             self.comparisons.loc[:, 'Citation'] = ''
 
+    @classmethod
+    def from_dir(cls, directory:str|Path):
+        metadata = MetadataTables.from_files(directory)
+        engine = create_engine(
+            get_db_url(directory)
+        )
 
-        # # DF of previous symbols and IDs for currently used.
-        # try:
-        #     pidf = pd.read_csv(
-        #         os.path.join(, 'previous_and_id.csv'), index_col=0
-        #     )
-        #     self.previous_and_id = pidf.fillna('')
-        #
-        # except FileNotFoundError:
-        # logger.warning("file 'previous_and_id.csv' is missing.")
-        # # when .loc fails to find a name in the table it just uses the current name.
-        # self.previous_and_id = pd.DataFrame()
+        return cls(engine, metadata)
+
 
     def validate_comparisons(self):
         """Print information that might be helpful in spotting data validity issues

@@ -102,13 +102,6 @@ def datatable_column_dict(c,):
     else:
         return {'name':c, 'id':c}
 
-def doi_to_link(doi):
-    """Return string formated as a Markdown link to doi.org/{doi}"""
-    # should be formated to not be a hyperlink, but sometimes it is
-    if pd.isna(doi) or (not doi):
-        return ''
-    doi = doi.replace('https', '').replace('http', '').replace('://', '').replace('doi.org/', '')
-    return f"[{doi}](https://doi.org/{doi})"
 
 def orthoregress(x, y):
     """Orthogonal Distance Regression.
@@ -189,6 +182,8 @@ def get_cmdline_options() -> typing.Tuple[str, str, bool]:
 
 import dash, pathlib
 import dash_bootstrap_components as dbc
+
+
 def launch_page(source:Union[pathlib.Path, str],
                 port:int,
                 debug:bool,
@@ -203,7 +198,8 @@ def launch_page(source:Union[pathlib.Path, str],
         logger.level('DEBUG')
     logger.debug(source)
     source_directory = pathlib.Path(source)
-    data_set = DataSet(source_directory) #todo update this
+
+    data_set = DataSet.from_dir(source_directory)
     app.layout = initiate(app, data_set, public=True)
     app.run_server(debug=debug, host='0.0.0.0', port=int(port), )
 
@@ -364,7 +360,7 @@ def df_rename_columns(df:pd.DataFrame, newcols=dict, inplace=False, axis='column
     setattr(df, axis, nucols)
     return nucols
 
-def get_ith_from_all(arr:Sequence[Sequence], index=0):
+def get_ith_from_all(arr:Sequence[Sequence], index=0) -> list:
     """
     Literally: [a[index] for a in arr]
     """
@@ -384,6 +380,7 @@ def is_nt(s):
 
 
 def maybe_its_gz(filename) -> str:
+    """Return "{filename}.gz" if filename isn't a file but filename.gz is."""
     filename = str(filename)
     if not os.path.isfile(filename):
         filegz = filename+'.gz'
