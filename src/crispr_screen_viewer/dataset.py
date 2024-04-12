@@ -134,7 +134,7 @@ class DataSet:
             self.comparisons['Experiment ID'],
             'DOI'
         ]
-        self.comparisons.insert(2, 'DOI', dois)
+        self.comparisons.insert(2, 'DOI', dois.values)
 
         # add citation to comparisons table
         try:
