@@ -225,7 +225,7 @@ def init_app(
         debug_messages=False,
         public_version=None, url_base='/',
         app_title='CRISPR screen viewer',
-):
+) -> dash.Dash:
 
     # use default dir, intended for docker install
     if data_path is None:
@@ -251,14 +251,16 @@ def init_app(
 
     app.title = app_title
 
+    logger.debug("Dash app created.")
+
     return app
 
-def get_server(**kwargs):
-    """Calls init_app and returns the app.server object, without calling
-    app.run_server
+def get_server(**kwargs) -> flask.Flask:
+    """Provide server handle for Gunicorn, disable loguru.
+    """
 
-    This function exists to be a handle for Gunicorn."""
-
+    import loguru
+    loguru.logger.disable("crispr_screen_viewer")
     return init_app(**kwargs).server
 
 if __name__ == '__main__':

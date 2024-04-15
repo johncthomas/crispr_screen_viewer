@@ -148,6 +148,8 @@ class DataSet:
             logger.warning('Citations column missing from exeriments_metadata')
             self.comparisons.loc[:, 'Citation'] = ''
 
+        logger.debug('Done initing DataSet')
+
     @classmethod
     def from_dir(cls, directory:str|Path):
         metadata = MetadataTables.from_files(directory)
