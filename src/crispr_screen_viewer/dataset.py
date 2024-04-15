@@ -357,12 +357,10 @@ def load_dataset(paff, db_engine:Engine=None):
         with open(paff, 'rb') as f:
             data_set = pickle.load(f)
     else:
-        paff = Path(paff)
-        exp_path = paff/'experiments_metadata.csv.gz'
-        cmp_path = paff/'comparisons_metadata.csv.gz'
+
+        tables = MetadataTables.from_files(paff)
         data_set = DataSet(
-            experiments_path=exp_path,
-            comparisons_path=cmp_path,
+            metadata_tables=tables,
             db_engine=db_engine
         )
 
