@@ -66,7 +66,8 @@ def run_test_server(port=8050):
     from crispr_screen_viewer.launch import init_app
     app = init_app(
         datadir,
-        debug_messages=True
+        debug_messages=True,
+        url_base='/ddrcs/',
     )
     app.run_server(debug=False, host='0.0.0.0', port=port, )
 
@@ -86,11 +87,6 @@ def test_update_gene_table():
         session.commit()
 
 
-if __name__ == '__main__':
-    create_test_database()
-    run_test_server(8054)
-
-
 def load_test_db_data(d='tests/test_data/test_db') -> Tuple[Engine, MetadataTables]:
     test_db_dir = get_resource_path(d)
     url = get_db_url(test_db_dir)
@@ -98,3 +94,10 @@ def load_test_db_data(d='tests/test_data/test_db') -> Tuple[Engine, MetadataTabl
     metadata = MetadataTables.from_files(test_db_dir)
 
     return engine, metadata
+
+if __name__ == '__main__':
+    create_test_database()
+    run_test_server(8054)
+
+
+
