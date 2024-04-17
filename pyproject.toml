@@ -23,7 +23,8 @@ crispr-screen-viewer = "crispr_screen_viewer:cli.run"
 [tool.setuptools.packages.find]
 where = ["src"]
 
-
+[tool.setuptools.package-data]
+crispr_screen_viewer = ["tests/*", "assets/*", "assets/images/*"]
 
 [tool.setuptools.dynamic]
 dependencies = {file = ["requirements.txt"]}
