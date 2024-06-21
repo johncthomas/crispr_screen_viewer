@@ -433,27 +433,23 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook) -> pd.DataFrame:
         comparison_info['ControlSample'] = ctrl = comprow['Control sample']
         comparison_info['TestSample'] = treat =  comprow['Test sample']
 
-        # get treatment string
-        treatment_label = 'UNDEFINED'
-        if 'Contrast' in comprow.index:
-            contrast = comprow['Contrast']
-            if (not pd.isna(contrast)) and contrast:
-                treatment_label = contrast
-                logger.debug(f"Using given Contrast name '{treatment_label}'")
-
-        if treatment_label == 'UNDEFINED':
-            treatment_label = get_treatment_str(
+        contrast = comprow['Contrast']
+        if len(contrast) == 0:
+            contrast = get_treatment_str(
                 analysis_wb.wb['Sample details'],
                 ctrl, treat
             )
+        comparison_info['Contrast'] = contrast
 
-        comparison_info['Treatment'] = treatment_label
+        treat_row = analysis_wb.samples.loc[treat]
+        comparison_info['Treatment'] = treat_row['Treatment']
+        comparison_info['KO'] = treat_row['KO']
 
         ctrl_row = analysis_wb.samples.loc[ctrl]
         comparison_info['ControlTreatment'] = ctrl_row['Treatment']
         comparison_info['ControlKO'] = ctrl_row['KO']
 
-        for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'KO', 'Notes'):
+        for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'Notes'):
             # Deal with columns being dropped from the input data.
             if k in analysis_wb.samples.columns:
                 comparison_info[k] = analysis_wb.samples.loc[treat, k]
@@ -662,6 +658,7 @@ def update_database(
         if not update_experiments:
             logger.info(f"Experiments already in the database will be skipped: {olxp_str}")
             analysis_infos = [ans for ans in analysis_infos if ans.experiment_id not in overlapping_expid]
+            modified_metadata = metadata
         else:
             logger.info(f"Experiments already in the database will be removed and re-added: {olxp_str}")
             modified_metadata = remove_experiments(
@@ -669,8 +666,8 @@ def update_database(
                 metadata_tables=metadata,
                 exp_ids=list(overlapping_expid)
             )
-            recreated_metadata = create_metadata_tables(analysis_infos)
-            metadata = modified_metadata.join(recreated_metadata)
+        recreated_metadata = create_metadata_tables(analysis_infos)
+        metadata = modified_metadata.join(recreated_metadata)
 
         write_db_files(db_dir, analysis_infos, metadata, session)
 
