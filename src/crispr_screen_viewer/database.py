@@ -67,6 +67,7 @@ class ComparisonTable(TableBase):
     #id: MInt = mcol(primary_key=True)
     stringid: MStr = mcol(primary_key=True)
     experiment: MStr = ForeignKey(ExperimentTable.stringid)
+    contrast: MStr
     treatment_label: MStr
     timepoint: MStr
     cell: MStr

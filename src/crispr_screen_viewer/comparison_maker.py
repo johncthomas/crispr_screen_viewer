@@ -228,14 +228,7 @@ def initiate(app, data_set:DataSet, public):
         # write a gramatical line for each treatment
         for k in (xk, yk):
             row = comparisons.loc[k]
-            if '-KO' not in row['Treatment']:
-                if row['KO'] == 'WT':
-                    ko = ''
-                else:
-                    ko = f" {row['KO']}-KO"
-            else:
-                ko = ''
-            treatlines.append(f"<b>{row['Treatment']} in {row['Cell line']}{ko} cells</b>")
+            treatlines.append(f"<b>{row['Contrast']}</b>")
         # put them together
         rowx = comparisons.loc[xk]
         rowy = comparisons.loc[yk]

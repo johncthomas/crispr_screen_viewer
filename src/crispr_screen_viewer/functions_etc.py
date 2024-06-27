@@ -141,8 +141,8 @@ def get_metadata_table_columns(public, page_id) -> Dict[str, List[str]]:
     # at the time of writing they all use the same...
     tab_columns = {
         'exp':['Citation', 'Treatment', 'Cell line', 'KO',  'Library', 'DOI', ],
-        'comp':['Treatment', 'Dose', 'Timepoint',
-                'Growth inhibition %', 'Days grown', 'Cell line', 'KO',
+        'comp':['Contrast', 'Treatment', 'Dose', 'KO', 'ControlTreatment', 'ControlKO', 'Timepoint',
+                'Growth inhibition %', 'Days grown', 'Cell line',
                 'Library', 'Citation', 'DOI', ]
     }
     # tab_columns_private = {
@@ -289,7 +289,7 @@ def get_treatment_label(row:dict, analysis_label='', inline_style=True) -> typin
     else:
         idstr = f'(ID: {row["Comparison ID"]})'
 
-    title = (f"Effect of {row['Treatment']} in {row['Cell line']}{ko} cells ({analysis_label}{row['Timepoint']})",
+    title = (f"{row['Contrast']} ({analysis_label}{row['Timepoint']})",
              f"{row['Library']} library {idstr}")
 
     return title
