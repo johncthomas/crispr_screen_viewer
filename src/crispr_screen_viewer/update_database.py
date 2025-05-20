@@ -444,20 +444,20 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook) -> pd.DataFrame:
         treat_row = analysis_wb.samples.loc[treat]
         comparison_info['Treatment'] = treat_row['Treatment']
         comparison_info['KO'] = treat_row['KO']
+        comparison_info['Dose'] = treat_row['Dose']
+        comparison_info['Growth inhibition %'] = treat_row['Growth inhibition %']
+        comparison_info['Days grown'] = treat_row['Days grown']
+        comparison_info['Cell line'] = treat_row['Cell line']
+        comparison_info['Notes'] = treat_row['Notes']
 
         ctrl_row = analysis_wb.samples.loc[ctrl]
         comparison_info['ControlTreatment'] = ctrl_row['Treatment']
         comparison_info['ControlKO'] = ctrl_row['KO']
-
-        for k in ('Dose', 'Growth inhibition %', 'Days grown', 'Cell line', 'Notes'):
-            # Deal with columns being dropped from the input data.
-            if k in analysis_wb.samples.columns:
-                comparison_info[k] = analysis_wb.samples.loc[treat, k]
-            else:
-                if k not in already_warned_of_missing_column:
-                    already_warned_of_missing_column.add(k)
-                    logger.warning(f"Missing columns '{k}' in workbook for experiment {analysis_wb.expd['experiment_id']}")
-                comparison_info[k] = np.nan
+        comparison_info['ControlDose'] = ctrl_row['Dose']
+        comparison_info['ControlGrowth inhibition %'] = ctrl_row['Growth inhibition %']
+        comparison_info['ControlDays grown'] = ctrl_row['Days grown']
+        comparison_info['ControlCell line'] = ctrl_row['Cell line']
+        comparison_info['ControlNotes'] = ctrl_row['Notes']
 
         exp_id = analysis_wb.expd['experiment_id']
         comparison_info['Experiment ID'] = exp_id
@@ -465,10 +465,12 @@ def tabulate_comparisons(analysis_wb:AnalysisWorkbook) -> pd.DataFrame:
         comparison_info['Comparison ID'] = f"{exp_id}.{ctrl}-{treat}"
 
         # format strings
-        if not pd.isna(comparison_info['Dose']):
-            comparison_info['Dose'] = str(comparison_info['Dose']).replace('uM', 'μM')
-        if pd.isna(comparison_info['KO']) or (comparison_info['KO'] == ''):
-            comparison_info['KO'] = 'WT'
+        for k in ('Dose', 'ControlDose'):
+            if not pd.isna(comparison_info[k]):
+                comparison_info[k] = str(comparison_info[k]).replace('uM', 'μM')
+        for k in ('KO', 'ControlKO'):        
+            if pd.isna(comparison_info[k]) or (comparison_info[k] == '') or (comparison_info[k] == 'WT'):
+                comparison_info[k] = 'Wildtype'
 
         comparison_info['Timepoint'] = comprow['Group'].split('_')[0]
 
