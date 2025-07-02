@@ -427,6 +427,9 @@ ANALYSESTYPES = _AnalysesTypes([
     ),
     AnalysisType(
         id=2, name='drugz', shortname='drz', label='DrugZ',  score_label='NormZ'
+    ),
+    AnalysisType(
+        id=3, name='chronos', shortname='chr', label='Chronos',  score_label='Chronos score'
     )
 ])
 
