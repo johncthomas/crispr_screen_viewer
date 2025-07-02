@@ -534,8 +534,19 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
             table.loc[:, 'comparison_id'] = f"{experiment_id}.{cmp}"
             table.loc[:, 'analysis_type_id'] = analysis_type.id
             table.loc[:, 'experiment_id'] = experiment_id
-            table = table.loc[:, ['gene_id', 'score', 'fdr', 'fdr10', 'pos_p', 'neg_p',
-                                  'comparison_id', 'analysis_type_id', 'experiment_id']]
+            if analysis_type.id == 1 or analysis_type.id == 2:
+                table = table.loc[:, ['gene_id', 'score', 'fdr', 'fdr10', 'pos_p', 'neg_p',
+                                      'comparison_id', 'analysis_type_id', 'experiment_id']]
+            # special case when it's chronos
+            elif analysis_type.id == 3:
+                table = table.loc[:, ['gene_id', 'chronos_score',
+                                      'comparison_id', 'analysis_type_id', 'experiment_id']]
+                table['score'] = table['chronos_score']
+                table['fdr'] = table['chronos_score']
+                table['fdr10'] = table['chronos_score']
+                table['pos_p'] = table['chronos_score']
+                table['neg_p'] = table['chronos_score']
+                table = table.drop('chronos_score', axis = 1)
             tables.append(table)
     return pd.concat(tables)
 
