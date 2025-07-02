@@ -301,12 +301,19 @@ def get_paths(
 
         # get paths for results tables
         resultspaths = {}
+
         for ans in ANALYSESTYPES:
             tabfn = maybe_its_gz(os.path.join(
                 results_dir, xpid, 'tables', f"{analysis_filename_prefix}.{ans.name}_table.csv"
             ))
-            resultspaths[ans] = tabfn
-            assert os.path.isfile(tabfn), f"Results table file for experiment {xpid} not found, {tabfn}"
+            # fail if mageck or drugz are absent
+            if ans.name != 'chronos':
+                resultspaths[ans] = tabfn
+                assert os.path.isfile(tabfn), f"Results table file for experiment {xpid} not found, {tabfn}"
+            # simply omit chronos if it wasn't done
+            elif os.path.isfile(tabfn):
+                resultspaths[ans] = tabfn
+
 
         infos.append(
             AnalysisInfo(
@@ -524,30 +531,34 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
     tables = []
     for analysis_type, fn in info.results_paths.items():
         logger.debug(f"tabulating from {fn}")
-        stats_table = load_stats_csv(fn)
-        stats_table.index.name = 'gene_id'
+        try:
+            stats_table = load_stats_csv(fn)
+            stats_table.index.name = 'gene_id'
+            for cmp in stats_table.columns.levels[0]:
+                table = stats_table[cmp].reset_index()
+                df_rename_columns(table, {'lfc': 'score', 'normZ': 'score',
+                                          'fdr_log10': 'fdr10'}, inplace=True)
+                table.loc[:, 'comparison_id'] = f"{experiment_id}.{cmp}"
+                table.loc[:, 'analysis_type_id'] = analysis_type.id
+                table.loc[:, 'experiment_id'] = experiment_id
+                if analysis_type.id == 1 or analysis_type.id == 2:
+                    table = table.loc[:, ['gene_id', 'score', 'fdr', 'fdr10', 'pos_p', 'neg_p',
+                                          'comparison_id', 'analysis_type_id', 'experiment_id']]
+                # special case when it's chronos
+                elif analysis_type.id == 3:
+                    table = table.loc[:, ['gene_id', 'chronos_score',
+                                          'comparison_id', 'analysis_type_id', 'experiment_id']]
+                    table['score'] = table['chronos_score']
+                    table['fdr'] = table['chronos_score']
+                    table['fdr10'] = table['chronos_score']
+                    table['pos_p'] = table['chronos_score']
+                    table['neg_p'] = table['chronos_score']
+                    table = table.drop('chronos_score', axis = 1)
+                tables.append(table)
+        # Don't fail when we encounter a ParserError on an empty Chronos table
+        except (pd.errors.ParserError, AttributeError):
+            continue
 
-        for cmp in stats_table.columns.levels[0]:
-            table = stats_table[cmp].reset_index()
-            df_rename_columns(table, {'lfc': 'score', 'normZ': 'score',
-                                      'fdr_log10': 'fdr10'}, inplace=True)
-            table.loc[:, 'comparison_id'] = f"{experiment_id}.{cmp}"
-            table.loc[:, 'analysis_type_id'] = analysis_type.id
-            table.loc[:, 'experiment_id'] = experiment_id
-            if analysis_type.id == 1 or analysis_type.id == 2:
-                table = table.loc[:, ['gene_id', 'score', 'fdr', 'fdr10', 'pos_p', 'neg_p',
-                                      'comparison_id', 'analysis_type_id', 'experiment_id']]
-            # special case when it's chronos
-            elif analysis_type.id == 3:
-                table = table.loc[:, ['gene_id', 'chronos_score',
-                                      'comparison_id', 'analysis_type_id', 'experiment_id']]
-                table['score'] = table['chronos_score']
-                table['fdr'] = table['chronos_score']
-                table['fdr10'] = table['chronos_score']
-                table['pos_p'] = table['chronos_score']
-                table['neg_p'] = table['chronos_score']
-                table = table.drop('chronos_score', axis = 1)
-            tables.append(table)
     return pd.concat(tables)
 
 
