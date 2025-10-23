@@ -306,7 +306,8 @@ def get_paths(
             tabfn = maybe_its_gz(os.path.join(
                 results_dir, xpid, 'tables', f"{analysis_filename_prefix}.{ans.name}_table.csv"
             ))
-            resultspaths[ans] = tabfn
+            if os.path.isfile(tabfn):
+                resultspaths[ans] = tabfn
             
         infos.append(
             AnalysisInfo(
