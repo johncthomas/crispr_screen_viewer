@@ -430,6 +430,9 @@ ANALYSESTYPES = _AnalysesTypes([
     ),
     AnalysisType(
         id=3, name='chronos', shortname='chr', label='Chronos',  score_label='Chronos score'
+    ),
+    AnalysisType(
+        id=4, name='manual', shortname='man', label='Manual',  score_label='Score'
     )
 ])
 

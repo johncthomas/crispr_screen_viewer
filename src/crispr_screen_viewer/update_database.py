@@ -306,15 +306,8 @@ def get_paths(
             tabfn = maybe_its_gz(os.path.join(
                 results_dir, xpid, 'tables', f"{analysis_filename_prefix}.{ans.name}_table.csv"
             ))
-            # fail if mageck or drugz are absent
-            if ans.name != 'chronos':
-                resultspaths[ans] = tabfn
-                assert os.path.isfile(tabfn), f"Results table file for experiment {xpid} not found, {tabfn}"
-            # simply omit chronos if it wasn't done
-            elif os.path.isfile(tabfn):
-                resultspaths[ans] = tabfn
-
-
+            resultspaths[ans] = tabfn
+            
         infos.append(
             AnalysisInfo(
                 experiment_id=xpid,
@@ -554,6 +547,17 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
                     table['pos_p'] = table['chronos_score']
                     table['neg_p'] = table['chronos_score']
                     table = table.drop('chronos_score', axis = 1)
+
+                # special case when it's manual
+                elif analysis_type.id == 4:
+                    table = table.loc[:, ['gene_id', 'score', 'pval',
+                                          'comparison_id', 'analysis_type_id', 'experiment_id']]
+                    table['fdr'] = table['pval']
+                    table['fdr10'] = table['pval']
+                    table['pos_p'] = table['pval']
+                    table['neg_p'] = table['pval']
+                    table = table.drop(['score', 'pval'], axis = 1)
+
                 tables.append(table)
         # Don't fail when we encounter a ParserError on an empty Chronos table
         except (pd.errors.ParserError, AttributeError):
