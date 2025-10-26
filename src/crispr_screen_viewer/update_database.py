@@ -557,7 +557,7 @@ def tabulate_statistics(info:AnalysisInfo) -> pd.DataFrame:
                     table['fdr10'] = table['pval']
                     table['pos_p'] = table['pval']
                     table['neg_p'] = table['pval']
-                    table = table.drop(['score', 'pval'], axis = 1)
+                    table = table.drop(['pval'], axis = 1)
 
                 tables.append(table)
         # Don't fail when we encounter a ParserError on an empty Chronos table
